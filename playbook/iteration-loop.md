@@ -18,7 +18,9 @@
 | ⑤发布 | 同上,消化收尾 | CHANGELOG 条目 + annotated git tag | 写 CHANGELOG.md,打 tag |
 | ⑥升级 | 项目 orchestrator(独立口令「agent-on 升级」) | 读 CHANGELOG 区间,bump pin | 写项目 lock;仅 major 才动实例化文件(用户批准) |
 
-## 二、项目侧:只新增一个文件
+## 二、项目侧:回流账本只新增一个文件
+
+(采集用的 loop-notes.md 是站点不是账本,S 档的 AGENTS-lite 是规则不是账本——闭环在项目侧唯一新增的**账本**是 lock。)
 
 `agent-on.lock.md`([../kit/agent-on-lock-template.md](../kit/agent-on-lock-template.md) 实例化;项目 AGENTS.md 首节放一行指针),三段:
 

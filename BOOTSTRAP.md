@@ -9,18 +9,36 @@
 
 一条底层原则贯穿全部：**prompt 易挥发，文件系统持久**——规则、状态、决策、契约，一切关键资产都必须落成文件，不许只活在对话里。
 
-## 1. 先问用户（一次问完，别挤牙膏）
+## 1. 先定档，再收需求（一次问完，别挤牙膏）
 
-偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手。（复杂 / 高风险项目用深挖版 `boot/new-project-questionnaire.md` 替代本节六问。）
+**第一组 · 定档三问**（决定装备重量——防高射炮打蚊子）：
+
+1. 有真实用户或真实数据吗？
+2. 几天内搞完，还是持续迭代几周以上？
+3. 碰钱 / 安全 / 对外服务吗？
+
+判定：问 3 任一为是 → **L 全装**；有真实用户或持续迭代 → **M 标准**；都不是 → **S 轻装**。拿不准取低档——**允许升档、不许静默降档**（升档协议见 boot/adopt.md §二）；S 档项目开始碰真实数据的那天，就是升档日。
+
+| 档 | 播种 | 不播 |
+|---|---|---|
+| **S 轻装** | 三件套：AGENTS-lite（十几行宪法）+ loop-notes.md + agent-on.lock.md | phase 卡、progress.yaml、契约、run 台账全免 |
+| **M 标准** | 完整 AGENTS 骨架 + progress.yaml + phase 卡 + S 的三件 | contracts/ 与并行装备（用到再加） |
+| **L 全装** | 全套（§2 七步一步不少） | — |
+
+**第二组 · 需求六问**（S 档只问 1 / 2 / 6 三题；复杂 / 高风险项目用深挖版 `boot/new-project-questionnaire.md` 替代）。偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手：
 
 1. 项目一句话：做什么，给谁用？
 2. 有没有参照物（长得像哪个产品 / 网站 / App）？——品味前置，选择比描述便宜十倍
 3. 技术栈有倾向吗？还是要我推荐？
-4. 这个项目碰不碰「钱、真实用户数据、对外服务」？（决定车道，见 §3）
+4. 这个项目碰不碰「钱、真实用户数据、对外服务」？（与定档三问互验，并决定车道，见 §3）
 5. 单人 + AI，还是有其他协作者？
 6. 有没有明确不做 / 暂缓的事？（暂停项要写成禁令，不是删掉）
 
-## 2. 搭骨架（六步，照做）
+## 2. 搭骨架
+
+**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
+
+**M / L 档走七步**（M 档第 1 步的 `contracts/` 与 §5 并行装备可等用到再加）：
 
 1. 建目录：`docs/{state,phases,snapshots}/`；将来有接口两侧并行的可能就加 `contracts/fixtures/`
 2. 拷 `kit/AGENTS-skeleton.md` → 项目根 `AGENTS.md`，用 §1 的答案填空（不留 `[占位]`）；另建一行 `CLAUDE.md`：「规则权威见 AGENTS.md」——AGENTS.md 是 Claude Code 与 Codex 的共同标准，双工具通吃
@@ -58,7 +76,7 @@
 - 每次编排 run 合流时记 run 台账一行（`ledger/run-card-logging.md` 规范）
 - 里程碑时用户说「**agent-on 结账**」→ 按 `boot/settlement.md` 执行（升级另有口令「agent-on 升级」）
 
-## 7. 初始化完成的验收（对用户交付）
+## 7. 初始化完成的验收（对用户交付；S 档只查第 1、3、4、5 条，第 1 条查 AGENTS-lite）
 
 - [ ] AGENTS.md 已填空，无 `[占位]` 残留；CLAUDE.md 指针就位
 - [ ] progress.yaml、phases/_TEMPLATE.md、第一张 phase 卡就位

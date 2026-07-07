@@ -7,7 +7,7 @@
 
 0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。升级是另一个口令,此处只播报。
 1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚):
-   - 项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card
+   - 项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card(**S 轻装档没有 run 台账——跳过本项,不要因目录不存在而困惑**)
    - `loop-notes.md` 里上次回执之后新增的可复用条目
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
 2. **证据硬门**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。
