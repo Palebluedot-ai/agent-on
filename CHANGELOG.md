@@ -13,6 +13,7 @@
 - 六类触发采集纪律:BOOTSTRAP §6(playbook 侧)+ kit/merge-checklist.md 第 7 步扫尾行(kit 侧)
 - lock 播种步骤:BOOTSTRAP §2 第 7 步(playbook 侧)+ kit/AGENTS-skeleton.md §0 指针(kit 侧)
 - CHARTER 新增承诺 4「越用越强」(2026-07-07 用户拍板)
+- **外部服务集成清单**:sop.md 新增六条实证清单(playbook 侧)+ BOOTSTRAP L7 精简铁律与 phase-card 集成探针既有(boot/kit 侧)——由批三案例审查倒逼产出:5 张卡引用一个从未存在的清单,消化时真的把它建出来。**这是「案例 → 协议升级」回路的第一次真实运转**(2026-07-08)
 
 ## [v0.2.0] - 2026-07-07
 
