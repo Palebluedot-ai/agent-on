@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-on/kit/schemas/audit-event.schema.json",
+  "title": "audit_event",
+  "description": "审计事件:任务状态每次变更追加一行(jsonl)。状态机固定,合法迁移由 ledger/audit-lint.py 校验。源流:一代 agent-orchestration-playbook/04_contracts/audit-event-schema-v1.json,2026-07-07 批二移植去平台化。",
+  "type": "object",
+  "required": [
+    "run_id",
+    "task_id",
+    "timestamp",
+    "state_from",
+    "state_to",
+    "actor_role",
+    "action"
+  ],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "parent_id": {"type": ["string", "null"]},
+    "timestamp": {"type": "string", "format": "date-time", "description": "ISO-8601;末尾 Z 或 +00:00 皆可。"},
+    "state_from": {
+      "type": "string",
+      "enum": ["none", "queued", "triaged", "planned", "running", "reviewing", "done", "failed"]
+    },
+    "state_to": {
+      "type": "string",
+      "enum": ["queued", "triaged", "planned", "running", "reviewing", "done", "failed"]
+    },
+    "actor_role": {
+      "type": "string",
+      "enum": ["orchestrator", "worker", "reviewer", "curator", "human", "system"],
+      "description": "谁触发了这次迁移。去平台化:一代的 router/hitl/memory_keeper 折叠掉——本环境没有独立 Router 进程,派工由 orchestrator 主会话做,人工介入记 human。"
+    },
+    "action": {"type": "string", "minLength": 1},
+    "input_ref": {"type": ["string", "null"], "description": "输入卡引用,如 task_id 或 task-card 路径。"},
+    "output_ref": {"type": ["string", "null"], "description": "产出引用,如 result-card 路径。"},
+    "review_gate": {"type": ["string", "null"], "enum": ["standard", "strict", null]},
+    "verdict": {"type": ["string", "null"], "enum": ["pass", "revise", null]},
+    "worktree_path": {"type": ["string", "null"], "description": "取代一代的 channel/workspace:事件发生在哪条轨道的 worktree。"},
+    "phase_card": {"type": ["string", "null"], "description": "取代一代的 profile:对着 docs/phases/ 哪张卡。"},
+    "role_prompt_id": {"type": ["string", "null"]},
+    "commit_sha": {"type": ["string", "null"]},
+    "error_type": {"type": ["string", "null"], "description": "state_to=failed 时应填。"},
+    "retry_count": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}

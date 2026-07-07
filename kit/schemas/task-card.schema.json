@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-on/kit/schemas/task-card.schema.json",
+  "title": "task_card",
+  "description": "派工契约:orchestrator 主会话派子代理去某条轨道干活时产生。源流:一代 agent-orchestration-playbook/04_contracts/task-card-schema.json,2026-07-07 批二移植去平台化。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "objective",
+    "scope_level",
+    "scope_in",
+    "scope_out",
+    "constraints",
+    "acceptance_criteria",
+    "priority",
+    "run_context",
+    "agent_context"
+  ],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "objective": {"type": "string", "minLength": 1},
+    "scope_level": {
+      "type": "string",
+      "enum": ["track_local", "shared"],
+      "description": "默认 track_local(只动本轨 worktree)。shared 表示本任务计划在门禁下读写共享状态(如 progress.yaml、main 契约)。"
+    },
+    "scope_in": {"type": "array", "items": {"type": "string"}},
+    "scope_out": {"type": "array", "items": {"type": "string"}},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+    "run_context": {
+      "type": "object",
+      "description": "任务在哪条轨道、哪次 run、对着哪张 phase 卡干。取代一代的 workspace_id/channel_id/thread_id。",
+      "required": ["run_id", "worktree_path", "phase_card"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "worktree_path": {"type": "string", "minLength": 1},
+        "phase_card": {"type": "string", "minLength": 1, "description": "指向 docs/phases/ 下的自包含卡片路径。"}
+      },
+      "additionalProperties": false
+    },
+    "agent_context": {
+      "type": "object",
+      "required": ["orchestrator_agent_id", "executor", "executor_role"],
+      "properties": {
+        "orchestrator_agent_id": {"type": "string", "minLength": 1},
+        "executor": {"type": "string", "enum": ["claude_code", "codex", "human"]},
+        "executor_role": {
+          "type": "string",
+          "enum": ["worker", "reviewer", "curator", "system", "human"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "shared_lock": {
+      "type": "object",
+      "description": "shared 任务的乐观锁:抢到 lock_key + 租约才允许写共享状态。",
+      "required": ["lock_key"],
+      "properties": {
+        "lock_key": {"type": "string", "minLength": 1},
+        "lease_seconds": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"scope_level": {"const": "shared"}}},
+      "then": {"required": ["shared_lock"]}
+    }
+  ],
+  "additionalProperties": true
+}

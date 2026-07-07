@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-on/kit/schemas/result-card.schema.json",
+  "title": "result_card",
+  "description": "交活契约:子代理干完一张 task 交回结果时产生。shared 落点必须带 trace + 门禁证据。源流:一代 agent-orchestration-playbook/04_contracts/result-card-schema.json,2026-07-07 批二移植去平台化。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "run_id",
+    "scope_level",
+    "status",
+    "outputs",
+    "decisions",
+    "risks",
+    "open_questions",
+    "agent_result",
+    "trace"
+  ],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "scope_level": {
+      "type": "string",
+      "enum": ["track_local", "shared"],
+      "description": "结果实际打算落到哪里。shared 需要 trace + 门禁证据。"
+    },
+    "status": {"type": "string", "enum": ["success", "partial", "failed"]},
+    "outputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "路径、产物、链接"
+    },
+    "decisions": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "open_questions": {"type": "array", "items": {"type": "string"}},
+    "evidence_links": {"type": "array", "items": {"type": "string"}, "description": "验证命令输出、测试结果、截图等证据(L2:完成 = 贴命令实际输出)。"},
+    "agent_result": {
+      "type": "object",
+      "required": ["agent_id", "role"],
+      "properties": {
+        "agent_id": {"type": "string", "minLength": 1},
+        "role": {
+          "type": "string",
+          "enum": ["worker", "reviewer", "curator", "system", "human"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "trace": {
+      "type": "object",
+      "description": "回放定位:这个结果对应哪次 run、哪条轨、哪张 phase 卡、由哪张 task 派生。取代一代的 workspace_id/channel_id/thread_id。",
+      "required": ["run_id", "worktree_path", "phase_card", "source_task_id"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "worktree_path": {"type": "string", "minLength": 1},
+        "phase_card": {"type": "string", "minLength": 1},
+        "source_task_id": {"type": "string", "minLength": 1},
+        "source_run_id": {"type": "string"},
+        "review_ref": {"type": "string", "description": "对应 review 记录(reviewer 的 verdict)。"},
+        "promotion_ref": {"type": "string", "description": "合流/晋升记录(如 merge commit sha)。"}
+      },
+      "additionalProperties": false
+    },
+    "shared_lock": {
+      "type": "object",
+      "description": "写共享状态时持有的锁凭据:fence_token 单调递增防陈旧写,lease_until 是租约到期。",
+      "required": ["lock_key", "owner_run_id", "fence_token"],
+      "properties": {
+        "lock_key": {"type": "string", "minLength": 1},
+        "owner_run_id": {"type": "string", "minLength": 1},
+        "fence_token": {"type": "integer", "minimum": 1},
+        "lease_until": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"scope_level": {"const": "shared"}}},
+      "then": {
+        "required": ["shared_lock"],
+        "properties": {
+          "trace": {
+            "required": ["review_ref", "promotion_ref"]
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}
