@@ -2,6 +2,10 @@
 
 > Agent 在本仓的最高规则。与人类沟通语言跟随用户;本文件条款冲突时,越靠前越优先。
 
+## §0 agent-on 映射
+
+方法论来自 agent-on(版本与偏离登记见项目根 `agent-on.lock.md`,只映射不复制)。口令:「agent-on 结账」(沉淀回流)/「agent-on 升级」(bump pin)。
+
 ## §1 硬约束(违反=事故)
 
 | 约束 | 内容 |
@@ -36,6 +40,6 @@
 
 A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 design-review)。
 
-## §二车道(见 agent-on/freedom-vs-discipline.md)
+## §二车道(见 agent-on 的 playbook/freedom-vs-discipline.md)
 
 Explore(视觉/原型/概念:一把梭可丢弃,不写测试,只守 token 色/真实感数据/触达底线)× Ship(碰数据/钱/安全:全纪律)。**两道不许串**:Explore 代码不直接 merge(重写),Ship 流程不管 Explore。

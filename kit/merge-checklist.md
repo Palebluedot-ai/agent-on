@@ -8,7 +8,7 @@
 - [ ] **4. 翻转 Fake→真**:provider/开关切真实现;**grep 所有「进壳/进页」测试确认钉了全量 Fake overrides**(Run #3 教训:只钉 auth 会裸奔)。翻转后再跑一遍全量。
 - [ ] **5. 部署 + 生产 canary**(有部署面时):部署后跑边缘出口的 LIVE 探针——平台会剥头/整形/缓存,本地绿不算数(Run #7:Vercel 剥 Server-Timing/304 剥光)。
 - [ ] **6. 上机人验**:装真机/模拟器,给用户一句「去点哪里看什么」。
-- [ ] **7. 记账五件套**:progress.yaml 状态 + run-ledger 一行(时长/冲突/悬点/返工/成本)+ loop-notes 教训(如有)+ qa 三桶(如有)+ commit&push;清理已合流 worktree。
+- [ ] **7. 记账五件套 + 触发扫尾**:progress.yaml 状态 + run-ledger 一行(时长/冲突/悬点/返工/成本)+ loop-notes 六触发扫尾(返工/撞车/用户纠正/Error Signal/手工重复/脚手架不合身——**漏记=合流不过**,出仓候选升 memory_card 且 evidence 必填)+ qa 三桶(如有)+ commit&push;清理已合流 worktree。
 
 ## DoD 门禁(一代移植)
 

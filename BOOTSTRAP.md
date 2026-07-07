@@ -28,6 +28,7 @@
 4. 拷 `kit/phase-card-template.md` → `docs/phases/_TEMPLATE.md`
 5. 需求三分法：已确认 → AGENTS §硬约束；有方向没定死 → `docs/requirements.md` 待拍板区；缺信息 → 回 §1 追问。**暂停项写成禁令条款**
 6. 写第一张 phase 卡 `docs/phases/phase-s0.1-<slug>.md`：自包含（新会话只读这张卡就能干活）、验收 ≤8 条、每条能翻译成测试名或命令输出
+7. 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`（pin 当前 agent-on 的 tag+commit）；AGENTS.md 首节加一行「agent-on 映射见 agent-on.lock.md」。此后凡从 kit 实例化文件，头部都加 `<!-- instantiated-from kit/<文件> @ vX.Y.Z -->`
 
 ## 3. 车道判定（每个任务先过这道门）
 
@@ -50,16 +51,18 @@
 **单 agent 能干完就别上多 agent**（上下文边界优先）。确要并行时走六步协议：冻契约 → 轨道 = 目录 + git worktree 物理隔离 → 各轨 Fake 对方 → 契约测试当裁判 → 单一状态写者 → 先契约后实现合流。
 模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）。换新模型先跑 `bench/capability-probe.md` 定档。
 
-## 6. 沉淀纪律（新项目对 agent-on 的回馈）
+## 6. 沉淀纪律（迭代闭环的采集站，机制见 playbook/iteration-loop.md）
 
-- 项目里建 `loop-notes.md`：手工重复两次以上的环节、踩的坑，当场记一行，不展开
-- 每次编排 run 合流时往 run 台账记一行（`ledger/run-ledger-template.md` 的 schema）
-- 里程碑时用户说「**agent-on 结账**」→ 把可复用的沉淀（含对本文件的改进意见）搬回本仓
+- 六类触发**当场**记一行进 `loop-notes.md`（单行五字段 `日期|触发|一句现象|证据指针|候选层`）：返工（完成声明被推翻）/ 撞车 / 用户纠正 / Error Signal 中高严重度 / 手工重复第 2 次 / **脚手架不合身**（这条另记 agent-on.lock.md 的 local_deviations）
+- 跨项目可复用的升 memory_card（`suggested_location=agent_on`），**evidence 必填**——没证据的心得出不了仓
+- 每次编排 run 合流时记 run 台账一行（`ledger/run-card-logging.md` 规范）
+- 里程碑时用户说「**agent-on 结账**」→ 按 `boot/settlement.md` 执行（升级另有口令「agent-on 升级」）
 
 ## 7. 初始化完成的验收（对用户交付）
 
 - [ ] AGENTS.md 已填空，无 `[占位]` 残留；CLAUDE.md 指针就位
 - [ ] progress.yaml、phases/_TEMPLATE.md、第一张 phase 卡就位
+- [ ] `agent-on.lock.md` 就位（pin 已锚定 tag+commit）
 - [ ] 需求三分法讲给用户听过：已确认 / 待拍板 / 暂停禁令三张清单
-- [ ] 用户知道口令「agent-on 结账」
+- [ ] 用户知道两个口令：「agent-on 结账」（沉淀回流）、「agent-on 升级」（bump pin）
 - [ ] 以上每条都有实际文件路径或命令输出作证（L2 对你自己同样生效）

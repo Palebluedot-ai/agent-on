@@ -27,9 +27,11 @@ v0.2 融合期：三代前身资产合流（进度见 [snapshot/2026-07-07-fusio
 5. 每份文档开头都说明自己的职责边界
 6. 先固化规则，再抽象成模板，再考虑自动化
 
-## 采集端关系
+## 迭代闭环中的本仓职责（机制全文 playbook/iteration-loop.md）
 
-Euan-Flutter 仓内 `agent-on/` 文件夹是**采集端**（素材缓冲），Euan 继续开发期间沉淀照旧写在那边；用户口令「**agent-on 结账**」= 把可复用沉淀单向搬进本仓。本仓是唯一对外供货源，新项目不从 Euan 或任何前身仓取料。
+- **intake/ 是承接层**：项目「结账」只许写那里；canonical（playbook/kit/bench 正文）只有本仓的消化会话能改——没读本文件的会话不许动 canonical
+- **消化会话收尾三件缺一不可**：至少一处具体文件改动、CHANGELOG 条目（L3 改动成对列 playbook+kit 双落点）、该打 tag 就打（major 无迁移注记不许打）
+- Euan-Flutter 仓内 `agent-on/` 文件夹是历史采集端：**v0.3 验收 = 把它倒仓做首次真实结账**，之后 Euan 降级为 lock + loop-notes + ledger 纯采集三件套。本仓是唯一对外供货源，新项目不从 Euan 或任何前身仓取料。
 
 ## 不做的事（宪章边界的执行版）
 
