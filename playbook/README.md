@@ -1,8 +1,9 @@
 # Playbook — 方法论层索引
 
-> 职责边界：本目录是 agent-on 的方法论正文（「为什么这么做」）。模板在 `../kit/`，冷启动入口在 `../BOOTSTRAP.md`。全部内容从 Euan-Flutter 实战沉淀迁入（2026-07-07 批一）。
+> 职责边界：本目录是 agent-on 的方法论正文（「为什么这么做」）。模板在 `../kit/`，冷启动入口在 `../BOOTSTRAP.md`。
+> 「我们的『酷』更多的是在对话过程中想法的沉淀，而不是 skills 的数量。」——2026-04-27，agent-on 的初心（全文见 [meta-principles.md](meta-principles.md) 引言）。
 
-## 八篇方法论
+## 八篇方法论（三代 Euan 实战迁入，2026-07-07 批一）
 
 | 文件 | 核心论点 |
 |---|---|
@@ -19,6 +20,12 @@
 
 Loop Engineering 的执行机制定义：自包含文件系统、三固化剂、审查者规则与触发流、监控与 Error Signal、文件系统归档。这七篇是 kit 模板背后的规则原文。
 
-## 批二将新增
+## 五篇前身仓移植（2026-07-07 批二，源流与裁决见 [../snapshot/2026-07-07-fusion-map.md](../snapshot/2026-07-07-fusion-map.md) §5）
 
-truth-hierarchy（真相源三层仲裁）、phase-gates（阶段闸门三态语义 + block 理由码）、meta-principles（self-dogfooding / 治理进 Git / 反思产出协议升级）、ABDC 多轨决策、Soul Memory L0–L4 记忆分层。来源与裁决见 [../snapshot/2026-07-07-fusion-map.md](../snapshot/2026-07-07-fusion-map.md) §5。
+| 文件 | 核心论点 | 源 |
+|---|---|---|
+| [truth-hierarchy.md](truth-hierarchy.md) | 单一真相源不够，还要层级（Canonical/承接/举证）+ 仲裁次序 + 跨仓 pin 映射 | 二代 + 支线 |
+| [phase-gates.md](phase-gates.md) | 申请切阶段 ≠ 切阶段：三态语义 + 6 个 block 理由码 + 冻结物双步解锁 fail-closed | 二代 |
+| [meta-principles.md](meta-principles.md) | 方法论的方法论：self-dogfooding / 治理进 Git / 反思必须产出协议升级 / 单 agent 优先 / 不许「感觉更好」过门禁 / 失败预定义降级 | 三仓合成 |
+| [abdc-decision.md](abdc-decision.md) | 多轨决策：三轨论证（反例义务）→ 加权评审（强制记异议）→ 最小可证伪实验（三态判定+熔断） | 支线 |
+| [memory-layering.md](memory-layering.md) | 沉淀分层 L0–L4：什么东西该沉到五块的哪一块；高频失败优先沉淀为 anti-pattern | 支线 |
