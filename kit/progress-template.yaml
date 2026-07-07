@@ -1,0 +1,17 @@
+# 单一控制点(只有 orchestrator 写;轨道 agent 只读)
+version: 1
+project: "[项目名]"
+
+current_phase: "[一句话:现在在哪]"
+current_bottleneck: "[当前最大瓶颈/等谁的什么]"
+monitoring_summary: "[最近一次合流的战报摘要:测试数/关键交付/悬点裁决]"
+
+phases:
+  - id: "[s1.1-xxx]"
+    file: "docs/phases/phase-[s1.1-xxx].md"
+    range: "1-30"
+    self_contained: true
+    status: "todo"          # todo | in_progress | done | blocked
+    error_signals_unhandled: 0
+
+notes: "[悬点裁决记录/挂账项/下一步]"
