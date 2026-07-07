@@ -70,6 +70,14 @@ def lint(events):
         except Exception:
             errors.append((line_no, f"时间戳格式非法(需 ISO-8601):{ev['timestamp']}"))
 
+        # schema 规定 state_from 是字符串枚举,首个事件写 "none";JSON null 直接点破,别让报错里出现 'None' 迷惑人
+        if ev["state_from"] is None:
+            errors.append(
+                (line_no, 'state_from 是 null:按 schema(audit-event.schema.json)应为字符串,'
+                          '首个事件请写 "none"')
+            )
+            continue
+
         key = (ev["run_id"], ev["task_id"])
         prev = last_state.get(key, "none")
 
