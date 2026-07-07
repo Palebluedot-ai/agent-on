@@ -1,54 +1,53 @@
-# project-kickoff-os
+# agent-on
 
-一个给 AI 协作开发项目用的启动操作系统。
+**开箱可用的项目脚手架，辅助 Claude Code / Codex 启动和推进新项目：clone 即得经过实战验证的方法论，不再每个新项目都从零铺垫规则。**
 
-它不解决某个单一业务问题，而是把“新项目怎么启动、怎么澄清需求、怎么写自包含文档、怎么拆 milestone、怎么把规则固化成 skill”这整套流程沉淀成可复用资产。
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。
 
-## 目标
+## 30 秒了解
 
-- 不再每个新项目都从零开始聊
-- 把项目启动阶段的沟通方式产品化
-- 降低文档漂移、上下文丢失和大模型幻觉
-- 形成可复用的 SOP、template 和 skill
+用 AI 写代码不难，难的是围绕它的一切：需求漂移、AI 谎报完成、多会话撞车、上下文丢失、每个新项目都要重新教一遍规矩。
 
-## 第一版范围
+agent-on 把一个真实产品（Euan CRM：9 次多 agent 并行 run 零冲突、600+ 测试、生产在线）开发全程验证过的方法论，沉淀成可直接使用的脚手架。**每个模板都被真实使用过，没有一个是想象出来的。**
 
-- 项目启动规则
-- 需求澄清框架
-- 自包含文档规则
-- PRD 模板
-- milestone 模板
-- 开发拆解模板
-- skill 拆解方案
+## 快速开始
 
-## 当前原则
+在你的新项目目录里，对 Claude Code 或 Codex 说一句：
 
-- 每份文档尽量单独可读
-- 不依赖文档间交叉引用
-- 未确认事项必须显式列出
-- 先有文档闭环，再进入代码闭环
+> 读 ~/Projects/agent-on/BOOTSTRAP.md，按它初始化本项目。
 
-## 当前目录
+AI 会问你 6 个问题，然后搭好全部骨架（项目宪法、状态文件、phase 卡体系），并把纪律讲给你听。从 clone 到第一张卡开工，一小时以内。
 
-```text
-context/
-  00_vision.md
-  01_prd.md
-  02_skill-map.md
-  03_rollout-plan.md
-policies/
-  doc-rules.md
-  communication-rules.md
-templates/
-  requirement-pack-template.md
-  prd-template.md
-  milestone-template.md
-skills/
-  .gitkeep
-AGENTS.md
-```
+## 结构（五块资产）
 
-## 当前状态
+| 目录 | 块 | 内容 |
+|---|---|---|
+| [BOOTSTRAP.md](BOOTSTRAP.md) + `boot/` | **Boot** | 新项目冷启动指令；（批二加）新场景问卷、会话续接握手 |
+| `kit/` | **Kit** | 模板层：AGENTS 骨架、phase 卡、派工词、审查词、合流 checklist、状态文件、PRD / 需求澄清包 / milestone 模板 |
+| `playbook/` | **Playbook** | 方法论：SOP、防幻觉 12 机制、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问 + 机制七篇（mechanisms/） |
+| `bench/` | **Bench** | 能力探针 + 翻车案例集（批三结构化） |
+| `ledger/` | **Ledger** | run 台账 schema + Euan 九次 run 的实测数据 |
+| `snapshot/` | — | 本仓决策快照（工具定义、融合地图等） |
+| `legacy/` | — | 前身仓考古层（kickoff-os 原文归档） |
 
-刚初始化。  
-当前内容来自 `hashkey-otc-crm-v1` 项目里抽象出来的一次真实需求澄清与文档驱动开发流程。
+## 它从哪来（三代演化，2026-04 → 07）
+
+这套东西不是设计出来的，是三代试错演化出来的，主线一句话：**从「锁住 AI」到「和 AI 对齐」**。
+
+1. **一代（4-5 月）· Harness Engineering**：想自建编排运行时（Router / Lane / Policy 注入）。5200 行设计文档，0 行落地代码——教训：工具能力已覆盖时，造引擎不如立纪律。活下来的是契约 schema、DoD 门禁、「默认隔离 + 单一写者」原则。
+2. **二代（5-6 月）· 沟通治理**：用锁口令和状态机堵漂移。防漂移框架自己漂进了文档洁癖（14 篇文档零实现）——教训：治理文档 ≠ 治理执行。活下来的是真相源分层仲裁、「申请切阶段 ≠ 切阶段」的三态语义。
+3. **三代（6-7 月）· Loop Engineering 实战**：在真实产品上跑出来的完整方法论——契约先行并行、自包含 phase 卡、TDD + 完成贴证据、对抗式审查，9 次并行 run 零冲突验证。
+
+完整家谱与融合裁决：[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)。
+
+## 与其他工具的关系
+
+不冲突，分工明确：GStack / Superpowers 这类强 skill 管**某个环节怎么做**（评审、QA、发布、调试）；agent-on 管**项目怎么启动、怎么推进、怎么不漂**。相关外部参照：[lipingtababa/agents-zone-skillset](https://github.com/lipingtababa/agents-zone-skillset)（Harness Engineering Playbook 的参照实现）。
+
+## 状态与路线
+
+- **v0.2（当前）**：批一完成——五块骨架 + 三代资产迁入 + CHARTER / BOOTSTRAP 就位
+- 批二：前身仓精选移植（真相源治理、阶段闸门、ABDC 多轨决策、契约 schema、修正闭环）
+- 批三：Bench 案例集结构化
+- 批四：对外收尾（旧仓归档标头、push）
+- **v0.3 门槛**：Euan 之外至少 1 个真实项目 dogfood 全流程走完
