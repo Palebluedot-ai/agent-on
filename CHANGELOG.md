@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### 拍板（2026-07-09，四镜头评审后用户裁决）
+- **v0.3 门槛砍半**：v0.3 = Euan 倒仓首次结账+消化跑通（单件）；新项目 BOOTSTRAP dogfood 顺延为 v0.4 —— CHARTER 成功标准 + README 路线已更
+- **冻结令入宪**：首次真实结账前不新增 playbook 篇目 / kit 模板，修订必须走 intake 消化 —— CHARTER 边界节
+- 对外节奏：先自用磨 2-3 个项目再谈开源；首批 16 张评审卡入 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md) 等首次消化
+
 ### 新增
 - **迭代闭环六站机制**(2026-07-08,三镜头提案 + 对抗评审合成,ABDC 自举):playbook/iteration-loop.md + boot/settlement.md(结账/消化/升级三口令执行书)+ intake/ 承接层 + kit/promotion-card-template.md + kit/agent-on-lock-template.md
 - **Bench 案例集**(批三):bench/cases/ 17 张翻车案例卡(Euan 实战 15 + 一代二代标本 2)

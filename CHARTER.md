@@ -1,7 +1,7 @@
 # CHARTER — agent-on 项目宪章
 
 > 职责边界：本文件是 agent-on 总目标与边界的唯一权威。其他文档（README / BOOTSTRAP / playbook）与本文件冲突时，以本文件为准；改本文件 = 改产品方向，需用户拍板。
-> 拍板链：2026-07-01 工具定义（[snapshot/agent-on-tool-definition.md](snapshot/agent-on-tool-definition.md)）→ 2026-07-07 融合裁决（[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)）→ 2026-07-07 总目标确认（本文件，用户拍板）→ 2026-07-07 迭代闭环拍板（用户：通过项目不断迭代 agent-on 自身；2026-07-08 落盘 [playbook/iteration-loop.md](playbook/iteration-loop.md)）。
+> 拍板链：2026-07-01 工具定义（[snapshot/agent-on-tool-definition.md](snapshot/agent-on-tool-definition.md)）→ 2026-07-07 融合裁决（[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)）→ 2026-07-07 总目标确认（本文件，用户拍板）→ 2026-07-07 迭代闭环拍板（用户：通过项目不断迭代 agent-on 自身；2026-07-08 落盘 [playbook/iteration-loop.md](playbook/iteration-loop.md)）→ 2026-07-09 v0.3 门槛砍半 + 冻结令（用户拍板，依据：四镜头评审 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)）。
 
 ## 总目标（一句话）
 
@@ -34,12 +34,15 @@
 - **不与 GStack / Superpowers 等强 skill 冲突**——agent-on 管「项目怎么启动和推进」，不管「某个环节怎么做」
 - **不先做平台**——先文档形态跑通 dogfood，再考虑 skill 化 / 自动化（先固化规则 → 再抽象模板 → 最后自动化）
 - **不为通用牺牲实战有效性**——每个模板必须来自真实项目的真实使用，没有一个是想象出来的
+- **冻结令（2026-07-09 拍板）**——首次真实结账（v0.3）跑通前，**不新增任何 playbook 篇目或 kit 模板**：只许删、只许修订既有文件且修订必须走 intake 消化流程。依据：82 份 canonical 文档对 0 个下游真实消费，比二代死法（14:0）更极端——文档洁癖就是本产品版本的「造引擎」
 
 ## 成功标准
 
 - 第二个新项目启动明显更快：clone → 第一张 phase 卡开工 ≤ 1 小时
 - 文档更少漂移、模型更少幻觉、沟通更少来回（继承 kickoff-os 愿景，依然成立）
-- Euan-Flutter 之外至少 1 个真实项目全流程走完——dogfood 通过才算 v0.3
+- **v0.3 = 闭环转完真实一圈**（2026-07-09 拍板砍半）：Euan 仓内 agent-on/ 倒仓首次结账 + 首次消化跑通，Euan 降级为纯采集三件套
+- **v0.4 = 一个新项目 BOOTSTRAP 全流程 dogfood**
+- v1.0 = 两个以上项目完整闭环（Project A 的坑确实变成了 Project B 的免疫）
 
 ## 自举
 
