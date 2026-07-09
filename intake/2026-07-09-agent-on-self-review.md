@@ -10,7 +10,7 @@
 - suggested_landing:CHARTER 边界节加一条 + CHANGELOG 记
 - rollback:revert 落地 commit
 - trace:CEO gap#2 / 风险 bet#2
-- 状态:pending（高风险，用户拍板）
+- 状态:landed@a854ce3（2026-07-09 用户拍板入宪）
 
 ### v03-gate-halve（v0.3 门槛砍半）
 - source:同上
@@ -20,7 +20,7 @@
 - suggested_landing:CHARTER 成功标准 + README 路线
 - rollback:revert
 - trace:风险 bet#1
-- 状态:pending（高风险，用户拍板）
+- 状态:landed@a854ce3（2026-07-09 用户拍板，CHARTER+README 已更）
 
 ### readme-loop-claim（README 自我完成幻觉）
 - source:同上
