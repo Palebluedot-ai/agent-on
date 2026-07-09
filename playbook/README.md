@@ -16,6 +16,13 @@
 | [architect-lens.md](architect-lens.md) | 架构师六维透镜：域边界 → 真相源 → 信任钱流 → 生命周期 → 故障半径 → 演进自由 |
 | [elicitation-protocol.md](elicitation-protocol.md) | 前置追问协议：偏好缺口 = 幻觉第五类；2×2 判据（偏好方差 × 返工成本） |
 
+## 闭环时期自产两篇（2026-07-08）
+
+| 文件 | 核心论点 |
+|---|---|
+| [iteration-loop.md](iteration-loop.md) | 迭代闭环六站：种→采→结→消化→发布→升级；Project A 的坑变成 Project B 的免疫 |
+| [workflow-orchestration.md](workflow-orchestration.md) | 确定性扇出的防幻觉七件：脚本控制流 / schema 强制 / 证据派工 / 对抗 stage / 断点续跑 / 单一合流权——与六步协议按「会不会撞文件」分工 |
+
 ## 机制七篇（mechanisms/）
 
 Loop Engineering 的执行机制定义：自包含文件系统、三固化剂、审查者规则与触发流、监控与 Error Signal、文件系统归档。这七篇是 kit 模板背后的规则原文。
