@@ -7,14 +7,16 @@
 
 0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。升级是另一个口令,此处只播报。
 1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚;**锚为空 = 首次结账**——lock 该行留空、或倒仓/无 lock 的历史项目,都不做增量:全量扫描,收所有未标 `sync_status=synced` 的条目):
-   - 项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card(**S 轻装档没有 run 台账——跳过本项,不要因目录不存在而困惑**)
-   - `loop-notes.md` 里上次回执之后新增的可复用条目
+   - **主路径(S/M 档,绝大多数项目走这条)**:`loop-notes.md` 里上次回执之后新增的可复用散文条目——六类触发当场记的那些行。散文条目直接装配成 Promotion Card,不经 jsonl。
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
+   - **L 档旁路(仅多 agent 编排且已启用 run 台账时)**:项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card。**注意:jsonl 采集链 + audit-lint 尚未在真实项目跑通过——S/M 档没有 run 台账,目录不存在是正常的,别困惑,走主路径即可。**
 2. **证据硬门**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。
 3. **装配 Promotion Card**(模板 [../kit/promotion-card-template.md](../kit/promotion-card-template.md)):六项缺一拒收,另带 pattern slug + 本项目 pin 版本。
 4. **落盘承接层**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件**,在 agent-on 仓单独 commit(只含这一个文件,绝不碰其他)。
 5. **回执**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。
-6. **积压播报 + 消化提示**:数 `intake/` 未标去向的文件数并播报;≥3 份或发现跨项目同 pattern → 建议:「现在开一个 agent-on 仓会话消化吗?」——这是全流程唯一的问句。
+6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
+   - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令,形如 `cd ~/Projects/Agent-On && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去,如「intake 积压 3 份待消化」。用户当场不消化也没关系——命令已备好,下次粘贴即走。
+   - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。
 
 > **中断即安全**:结账幂等——intake 文件已落盘的卡就算数;重跑口令时已标 `synced` 的条目自动跳过,不产重复卡。从哪步断的,重念口令从头走一遍即可,已完成的步骤是空操作。
 

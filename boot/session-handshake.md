@@ -32,6 +32,8 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 | 当前 phase、phase_status、锁定的 `Next` | `docs/state/progress.yaml`(单一状态写者,最权威) |
 | 最近发生了什么、上次卡在哪 | 最新 snapshot(`docs/snapshots/` 里时间戳最新那份)、`loop-notes.md` |
 | 当前阶段具体在干什么 | 当前那张 phase 卡(`docs/phases/phase-*.md`) |
+| **有没有卡等着回 agent-on 消化** | `loop-notes.md` 顶部待办位「agent-on 待消化 N 张」(结账收尾写的)——有就在开场提一句,附可粘贴的消化命令 |
+| **pin 的模型档位是否还对得上** | `agent-on.lock.md` 的 pin 段 model 行——本次会话的模型若与记录的不同,提示「模型变了,建议跑 bench/capability-probe 重定保费档位」 |
 
 **顺序建议**:先 `AGENTS.md` 定主线 → 再 `progress.yaml` 定当前位置 → 再最新 snapshot 补「刚才发生了什么」。三份读完,三步复述就齐了。读不到 `progress.yaml` 或它和 snapshot 打架,别硬猜——按真相源仲裁次序(见 [../playbook/truth-hierarchy.md](../playbook/truth-hierarchy.md)),以 Canonical 层的 `progress.yaml` 为准,并把冲突当场跟用户点明。
 

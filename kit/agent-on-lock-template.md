@@ -8,6 +8,8 @@
 ## pin
 agent-on @ v0.2.0 (<commit-hash>)   <!-- tag+commit 双记;只有口令「agent-on 升级」允许改这一行 -->
 本地路径:~/Projects/Agent-On
+model:<初始化时的模型,如 claude-opus-4-8> / 保费档位:<高|中|低,见 bench/capability-probe.md>   <!-- 握手对表会核这行;模型换代 = 提示重跑 capability-probe 调档,别让保费/资产之分空转 -->
+
 
 ## last_settlement
 <!-- 每次结账追加一行:<YYYY-MM-DD> → intake/<文件名>;首次为空 -->

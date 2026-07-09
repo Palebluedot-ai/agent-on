@@ -40,6 +40,19 @@
 
 A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 design-review)。
 
+## §skill 路由(本机已装哪套强 skill,各环节走谁)
+
+> 填这张表定「审查/发布/调试」各走哪套工具;agent-on 的 kit 模板(review-prompt / merge-checklist 等)是**没有对应 skill 时的 fallback**,避免与本机 skill 撞出双制度。BOOTSTRAP §1 第 5 问采集本机 skill 体系。
+
+| 环节 | 本项目用哪套 | 无则 fallback |
+|---|---|---|
+| 规划设计 | [如 GStack /autoplan] | — |
+| 实现执行 | [如 Superpowers subagent-driven-development] | agent-on 六步协议 |
+| 代码/PR 审查 | [如 GStack /review + Codex] | kit/review-prompt-template.md |
+| 合流验收 | [如 GStack /qa] | kit/merge-checklist.md |
+| 发布部署 | [如 GStack /ship] | — |
+| 调试 | [如 GStack /investigate] | playbook/anti-hallucination.md |
+
 ## §二车道(见 agent-on 的 playbook/freedom-vs-discipline.md)
 
 Explore(视觉/原型/概念:一把梭可丢弃,不写测试,只守 token 色/真实感数据/触达底线)× Ship(碰数据/钱/安全:全纪律)。**两道不许串**:Explore 代码不直接 merge(重写),Ship 流程不管 Explore。

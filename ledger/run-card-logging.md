@@ -1,5 +1,7 @@
 # Run 台账落盘规范:机器可读的那一半
 
+> ⚠️ **启用范围与验证状态(2026-07-09 首结账消化补注)**:本篇的 jsonl 卡片流是 **L 档(多 agent 编排、已上 run 台账)才启用**的旁路,**至今未在任何真实项目跑通过**——Euan 九次 run 用的是散文台账(`run-log-euan.md`),不是 jsonl。S/M 档结账走散文主路径(loop-notes 条目 → Promotion Card,见 [../boot/settlement.md](../boot/settlement.md) step1),不产 jsonl、不需要本篇。**别因为项目没有 `ledger/runs/` 目录而困惑,那是正常的。** 本篇与 audit-lint、四张卡 schema 一起,属「先立口径、待 L 档实战验证」的机件层。
+>
 > 职责边界:本篇管「每次编排的运行产物怎么落成机器可读的卡片流」;`run-ledger-template.md` 管人读的那张主表 + 明细段。两者互补——机器台账供审计/统计脚本消费,人读台账供季度复盘。同一次 run,两边各记一次:jsonl 落原始卡片,主表落一行汇总。
 > 源流:支线 evolving-memory-system/04_protocols/run-card-logging-v1.md,2026-07-07 批二移植
 
