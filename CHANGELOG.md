@@ -4,6 +4,31 @@
 
 ## [未发布]
 
+（空——v0.3.0 已封。下一批消化的落地累积于此。）
+
+## [v0.3.0] - 2026-07-09 · 首次真实闭环转完一圈
+
+> **里程碑**：CHARTER 定义的 v0.3 门槛达成——Euan 仓内 `agent-on/` 倒仓首次结账（@345bad6）+ 首次消化（本次会话）跑通。semver：minor（新增内容/模板行/案例/机件，无 breaking，存量项目可不动手）。这是「项目 → 结账 → 消化 → 发布」闭环的**第一次真实运转**（v0.2 那次是自建过程内部验证，非下游结账口令回流）。
+
+### 首次消化（2026-07-09，23 张 Promotion Card 分诊落地）
+
+来源：[intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)（17 张四镜头评审卡）+ [intake/2026-07-09-euan-flutter.md](intake/2026-07-09-euan-flutter.md)（6 张 Euan 倒仓 delta）。去向：**21 landed / 1 deferred / 1 rejected**，零残余 pending。
+
+- **低风险直落 7 卡**（@72185bb）：README 诚实化（删「已转过一圈」幻觉、加术语表 5 行、换机三步 FAQ、斜杠 quirk 说明）、settlement 首结账空锚分支 + 幂等注、BOOTSTRAP 档播错不重播、kit/README 限定 M/L 启动步骤 + 删倒仓前旧句
+- **中高风险用户拍板 12 卡**（@d42344a）：
+  - `digest-friction-paste`：settlement 收尾从「一句问句」改为默认动作（可粘贴消化开场 + 项目 loop-notes 待办位）+ session-handshake 读取表加「待消化」行
+  - `prose-first-settle-path`：settlement step1 主路径显式定为「loop-notes 散文 → Promotion Card」，jsonl/audit-lint 降为 L 档旁路并标「尚未实战验证」（settlement + README 结构表 + ledger/run-card-logging 头部）
+  - **`cases-delivery-channel`（L3 双落点）**：BOOTSTRAP §4 扫坑指针（playbook 侧）+ kit/phase-card-template 内联要点行（kit 侧）——bench/cases 对下游的送达通道接通
+  - **`skill-routing-slot`（L3 双落点）**：kit/AGENTS-skeleton 新增 §skill 路由槽（kit 侧）+ BOOTSTRAP §1 第 5 问采集本机 skill 体系（playbook 侧）
+  - `lock-model-premium-field`：kit/agent-on-lock-template 加 model + 保费档位行 + session-handshake 握手对表核模型档位
+  - `intake-lint-timing`（争议→现在就做）：新增 `ledger/intake-lint.py`（Promotion 六项完整性校验器，反例测试验证硬门有效）
+  - `parallel-live-as-discovery`（Euan 3x 复现 → 升 L3）：kit/merge-checklist step5 加「并行轨各跑 LIVE 当发现器」
+  - `readonly-guardrails` / `destructive-api-protection` / `eval-goldset-honesty`（Euan 单次 → bench 案例）：新增 bench/cases/18、19、20 + 索引
+  - `architecture-radar`（冻结令期不新开篇）：并入 playbook/architect-lens.md 附节（信号→动作→量级），修复原悬空链
+  - `semver-clash`（争议→本次即打 v0.3.0）：里程碑语义与版本号同指 minor bump，累积 minor 工作骑进 v0.3.0
+- **deferred 1 卡**：`probe-from-cases-zero`（冻结令期不加探针题，转化时机顺延，Backlog 保留）
+- **rejected 1 卡**：`scaffold-not-design`（已在 bench/cases/02 + freedom-vs-discipline §三，结账对照清单漏扫，无新增量）
+
 ### 拍板（2026-07-09，四镜头评审后用户裁决）
 - **v0.3 门槛砍半**：v0.3 = Euan 倒仓首次结账+消化跑通（单件）；新项目 BOOTSTRAP dogfood 顺延为 v0.4 —— CHARTER 成功标准 + README 路线已更
 - **冻结令入宪**：首次真实结账前不新增 playbook 篇目 / kit 模板，修订必须走 intake 消化 —— CHARTER 边界节
@@ -35,8 +60,9 @@
 
 ## Backlog(deferred,等 dogfood 数据说话)
 
-- intake-lint:Promotion 六项机器校验(audit-lint 思路扩展)——首次真实结账验收协议后再定
+- ~~intake-lint:Promotion 六项机器校验~~ **✓ v0.3.0 落地**(ledger/intake-lint.py,首结账消化时人眼核卡繁琐 = 工程镜头胜出的实证)
+- ~~架构雷达机制移植~~ **✓ v0.3.0 落地**(并入 playbook/architect-lens.md 附节,冻结令期不新开篇)
 - changelog-lint:「major 无迁移注记不许打 tag」的机器门
-- 架构雷达机制移植(Euan `docs/architecture-radar.md` → playbook):非技术 owner 的 unknown-unknowns 解法,信号→动作→量级
+- probe-from-cases-zero:案例 08/09/10/14 转化为新探针题(deferred,冻结令期不加;转化时机顺延)
 - 多协作者结账对接(multi-contributor-protocol 条款)
-- **v0.3 门槛**:Euan 仓内 agent-on/ 倒仓首结账跑通 + 一个新项目 BOOTSTRAP dogfood 全流程
+- **v0.4 门槛**:一个新项目 BOOTSTRAP dogfood 全流程(v0.3 已达,门槛顺延)

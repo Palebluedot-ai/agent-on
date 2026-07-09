@@ -31,7 +31,7 @@
 - suggested_landing:playbook 新篇 `architecture-radar.md`(正文)+ kit 里加一份 `architecture-radar-template.md` 或并入 milestone 模板(L3 双落点);BOOTSTRAP M/L 档种入
 - rollback:revert 落地 commit;模板未被任何项目引用即可删
 - trace:loop-notes.md:64–68(2026-07-04 条)
-- 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected / deferred -->
+- 状态:landed@d42344a（并入 playbook/architect-lens.md 附节，冻结令期不新开篇；悬空链顺手修复）  <!-- 消化后原地改 landed@<commit> / rejected / deferred -->
 
 ### scaffold-not-design(骨架期给用户打「这是线框不是设计」预防针)
 - source:Euan-Flutter @ e863967 | pin 无
@@ -41,7 +41,7 @@
 - suggested_landing:sop.md Phase 3 或 Phase 6 加一行「首屏展示前的期望管理」;或 elicitation-protocol.md 邻近(都是「预期对齐」类)
 - rollback:revert 落地 commit(仅一行/一段)
 - trace:loop-notes.md:7–9(2026-07-03 用户设计反馈条)
-- 状态:pending
+- 状态:rejected（已在 canonical：bench/cases/02-wireframe-expectation.md 同规则，「设计稿先行」半句已在 kit/README 品味前置步 + playbook/freedom-vs-discipline.md §三——结账对照清单漏扫本条；无新增量）
 
 ### readonly-guardrails(「绝不能写」场景的三层护栏模式)
 - source:Euan-Flutter @ e863967 | pin 无
@@ -51,7 +51,7 @@
 - suggested_landing:sop.md Phase 6 邻近,或 anti-hallucination.md(「危险操作的纵深防御」);可做 bench 案例卡
 - rollback:revert 落地 commit
 - trace:run-log.md:50–58(Run #6)
-- 状态:pending
+- 状态:landed@d42344a（bench/cases/18；单次教训落案例集而非 sop 正文，符合 memory-layering）
 
 ### destructive-api-protection(危险端点:先定「什么绝不能删」+ 终态核查脚本)
 - source:Euan-Flutter @ e863967 | pin 无
@@ -61,7 +61,7 @@
 - suggested_landing:sop.md 外部服务清单邻近加一条「危险端点设计」,或 bench 案例卡;与 careful/guard 类安全 skill 分工说明
 - rollback:revert 落地 commit
 - trace:run-log.md:70–77(Run #8)
-- 状态:pending
+- 状态:landed@d42344a（bench/cases/19）
 
 ### parallel-live-as-discovery(并行 LIVE 是发现器,不只是验证器)
 - source:Euan-Flutter @ e863967 | pin 无
@@ -71,7 +71,7 @@
 - suggested_landing:sop.md Phase 5 合流 checklist 加一行,或 playbook/workflow-orchestration.md 对抗 stage 邻近
 - rollback:revert 落地 commit(一行 checklist)
 - trace:run-log.md Run #4/#6/#8
-- 状态:pending
+- 状态:landed@d42344a（3x复现→升 L3：kit/merge-checklist step5）
 
 ### eval-goldset-honesty(评测集:瓶颈是数据不是工具,金标 n=1 要写明不支撑调优)
 - source:Euan-Flutter @ e863967 | pin 无
@@ -81,4 +81,4 @@
 - suggested_landing:sop.md Phase 6 QA 邻近加一段「评测集的诚实」,或 anti-hallucination.md(数据不足=幻觉温床)
 - rollback:revert 落地 commit
 - trace:run-log.md:79–83(Run #9)
-- 状态:pending
+- 状态:landed@d42344a（bench/cases/20）

@@ -30,7 +30,7 @@
 - suggested_landing:README 迭代闭环节
 - rollback:revert
 - trace:CEO quickWin#4
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### settle-first-run-fallback（首结账鸡生蛋）
 - source:同上
@@ -40,7 +40,7 @@
 - suggested_landing:boot/settlement.md step1
 - rollback:revert
 - trace:工程 gap#4
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### settle-idempotent-note（结账断点恢复）
 - source:同上
@@ -50,7 +50,7 @@
 - suggested_landing:boot/settlement.md + BOOTSTRAP §7
 - rollback:revert
 - trace:DX gap#2
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### digest-friction-paste（消化换会话摩擦→粘贴级）
 - source:同上（用户已实测表达硌手）
@@ -60,7 +60,7 @@
 - suggested_landing:boot/settlement.md 收尾 + boot/session-handshake.md §三读取表
 - rollback:revert
 - trace:CEO gap#4 / 风险 gap#3 / DX gap#6 三方独立命中
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（2026-07-09 首次消化，用户拍板）
 
 ### prose-first-settle-path（散文主路径，jsonl 降为 L 档件）
 - source:同上
@@ -70,7 +70,7 @@
 - suggested_landing:boot/settlement.md step1 + README 结构表 + ledger/run-card-logging.md 头部
 - rollback:revert
 - trace:工程 gap#1/#2
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（2026-07-09 首次消化，用户拍板）
 
 ### lock-model-premium-field（保费调档埋探针）
 - source:同上
@@ -80,7 +80,7 @@
 - suggested_landing:kit/agent-on-lock-template.md + boot/session-handshake.md
 - rollback:revert
 - trace:风险 gap#4 / bet#3
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（2026-07-09 首次消化，用户拍板）
 
 ### cases-delivery-channel（案例集出矿通道断头）
 - source:同上
@@ -90,7 +90,7 @@
 - suggested_landing:BOOTSTRAP 或 kit/phase-card-template.md（一行，不加新文件）
 - rollback:revert
 - trace:批评家漏项①A
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（2026-07-09 首次消化，用户拍板）
 
 ### probe-from-cases-zero（探针题库零转化）
 - source:同上
@@ -100,7 +100,7 @@
 - suggested_landing:bench/capability-probe.md
 - rollback:revert
 - trace:批评家漏项①B
-- 状态:pending（deferred 候选，选择题裁时机）
+- 状态:deferred（冻结令期不加探针题；首结账已完成但转化时机顺延，CHANGELOG Backlog 保留）
 
 ### skill-routing-slot（GStack 边界从声明变能力）
 - source:同上
@@ -110,7 +110,7 @@
 - suggested_landing:kit/AGENTS-skeleton.md + BOOTSTRAP §1
 - rollback:revert
 - trace:批评家漏项②
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（2026-07-09 首次消化，用户拍板）
 
 ### glossary-5-lines（术语黑话）
 - source:同上
@@ -120,7 +120,7 @@
 - suggested_landing:README
 - rollback:revert
 - trace:DX gap#3
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### kit-readme-scope（kit/README 陈旧误导）
 - source:同上
@@ -130,7 +130,7 @@
 - suggested_landing:kit/README.md
 - rollback:revert
 - trace:DX gap#4
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### remote-backup-note（单机单点）
 - source:同上
@@ -140,7 +140,7 @@
 - suggested_landing:README FAQ
 - rollback:revert
 - trace:风险 gap#5
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
 
 ### semver-clash（争议卡：v0.2.0 后 10 commit 未打 tag）
 - source:同上
@@ -150,7 +150,7 @@
 - suggested_landing:CHANGELOG 头部 semver 注 + tag
 - rollback:tag 可删
 - trace:风险 quickWin#1 + 批评家冲突#2
-- 状态:pending（中风险，选择题）
+- 状态:landed@d42344a（用户拍板 A：本次消化=v0.3 里程碑达成，累积 minor 骑进 v0.3.0；里程碑语义与版本号同指 minor bump，clash 自解）
 
 ### intake-lint-timing（争议卡：唯一机件的时机对撞）
 - source:同上
@@ -160,7 +160,7 @@
 - suggested_landing:CHANGELOG Backlog 条目改写
 - rollback:—
 - trace:批评家冲突#1
-- 状态:pending（争议，选择题）
+- 状态:landed@d42344a（用户拍板：现在就做——ledger/intake-lint.py 已建并反例验证；工程镜头胜出）
 
 ### slash-command-ui-quirk（用户实测：斜杠命令部分界面不识别）
 - source:用户实测 2026-07-09 @ 当前会话
@@ -170,4 +170,4 @@
 - suggested_landing:README FAQ 一句
 - rollback:revert
 - trace:用户原话「显示有这个啊但没反应」
-- 状态:pending（低风险，消化直落）
+- 状态:landed@72185bb（2026-07-09 首次消化，低风险直落）
