@@ -6,7 +6,7 @@
 ## 上半场:结账(在项目仓,听到「agent-on 结账」即执行)
 
 0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。升级是另一个口令,此处只播报。
-1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚):
+1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚;**锚为空 = 首次结账**——lock 该行留空、或倒仓/无 lock 的历史项目,都不做增量:全量扫描,收所有未标 `sync_status=synced` 的条目):
    - 项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card(**S 轻装档没有 run 台账——跳过本项,不要因目录不存在而困惑**)
    - `loop-notes.md` 里上次回执之后新增的可复用条目
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
@@ -15,6 +15,8 @@
 4. **落盘承接层**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件**,在 agent-on 仓单独 commit(只含这一个文件,绝不碰其他)。
 5. **回执**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。
 6. **积压播报 + 消化提示**:数 `intake/` 未标去向的文件数并播报;≥3 份或发现跨项目同 pattern → 建议:「现在开一个 agent-on 仓会话消化吗?」——这是全流程唯一的问句。
+
+> **中断即安全**:结账幂等——intake 文件已落盘的卡就算数;重跑口令时已标 `synced` 的条目自动跳过,不产重复卡。从哪步断的,重念口令从头走一遍即可,已完成的步骤是空操作。
 
 ## 下半场:消化(必须换 agent-on 仓会话)
 

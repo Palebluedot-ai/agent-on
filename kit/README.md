@@ -1,4 +1,4 @@
-# agent-on Kit v0.1 — 新项目模板层
+# agent-on Kit — 新项目模板层
 
 > 从 Euan-Flutter 七次编排 run(零目录冲突、后四次零返工)原样抽取。**每个模板都被真实使用过,没有一个是想象出来的。**
 > 用法:新项目开工时照 §启动步骤 拷贝改名;规则背景见 ../playbook/sop.md 与 ../playbook/model-playbook.md。
@@ -16,9 +16,11 @@
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
 
-## 启动步骤(新项目第一小时)
+## 启动步骤(M/L 档,新项目第一小时)
 
-1. 建目录:`contracts/fixtures/` `docs/{state,phases,snapshots}/` `agent-on/`(或指回本仓)
+S 轻装档不走这里——三件套捷径见 BOOTSTRAP §2,一分钟播完。
+
+1. 建目录:`contracts/fixtures/` `docs/{state,phases,snapshots}/`
 2. 拷 AGENTS-skeleton.md → 项目根 `AGENTS.md`,填 [占位];拷 progress-template.yaml → `docs/state/progress.yaml`
 3. 需求三分法(sop Phase 0):硬约束进 AGENTS §1;**暂停项写成禁令**,不是删掉
 4. 品味前置(../playbook/freedom-vs-discipline.md §三):参照物锚点 + Explore 画廊投票,**在第一行业务代码之前**
