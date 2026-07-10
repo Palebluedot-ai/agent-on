@@ -4,7 +4,10 @@
 
 ## [未发布]
 
-（空——v0.3.0 已封。下一批消化的落地累积于此。）
+### 新增（v0.4 功能，2026-07-10 用户提；待新项目 dogfood 验证后随 v0.4 发版）
+- **项目仪表盘**（源自 Euan `docs/dashboard.html` 已验证原型）：`kit/dashboard-template.html`——纯静态单文件零依赖，五块（当前阶段 / To-do 分「🫵等你·🤖等我」/ 执行计划 / 决策台账 / 里程碑），内容集中在 DATA 对象、从真相源重绘。**接线**：BOOTSTRAP §2 第 8 步播种（M/L）+ merge-checklist 第 7 步合流必更 + 口令「更新仪表盘」。四铁律：从真相源读了重绘 / 禁手填 / 单写者 / 忠于真相不定义真相
+- **想法收集箱**（源自 Euan `docs/idea.md`）：`kit/thoughts-and-ideas-template.md`——两区（📥速记区你随手写 + 🗂已整理 AI 维护带日期），整理时归类成文标去向（待评估 / 升级需求→requirements / 结账→agent-on / 搁置 / 弃）。**接线**：BOOTSTRAP 播种（全档）+ session-handshake 握手提醒速记区非空 + 口令「整理想法」
+- 两个项目内口令：BOOTSTRAP §6 + 全局 CLAUDE.md 路由——「整理想法」（全档）、「更新仪表盘」（M/L）
 
 ## [v0.3.0] - 2026-07-09 · 首次真实闭环转完一圈
 

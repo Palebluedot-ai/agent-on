@@ -21,9 +21,11 @@
 
 | 档 | 播种 | 不播 |
 |---|---|---|
-| **S 轻装** | 三件套：AGENTS-lite（十几行宪法）+ loop-notes.md + agent-on.lock.md | phase 卡、progress.yaml、契约、run 台账全免 |
-| **M 标准** | 完整 AGENTS 骨架 + progress.yaml + phase 卡 + S 的三件 | contracts/ 与并行装备（用到再加） |
+| **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md）+ thoughts-and-ideas.md | phase 卡、progress.yaml、契约、run 台账、dashboard 全免 |
+| **M 标准** | 完整 AGENTS 骨架 + progress.yaml + phase 卡 + dashboard.html + thoughts-and-ideas.md + S 的三件 | contracts/ 与并行装备（用到再加） |
 | **L 全装** | 全套（§2 七步一步不少） | — |
+
+> **两个默认件**（v0.4）：`thoughts-and-ideas.md`（全档，你随手写想法、AI 整理）+ `dashboard.html`（M/L，人机共读的项目全貌，合流必更）。维护协议见两个模板各自的头部。
 
 **第二组 · 需求六问**（S 档只问 1 / 2 / 6 三题；复杂 / 高风险项目用深挖版 `boot/new-project-questionnaire.md` 替代）。偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手：
 
@@ -36,7 +38,7 @@
 
 ## 2. 搭骨架
 
-**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
+**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`；实例化 `kit/thoughts-and-ideas-template.md` → `thoughts-and-ideas.md`（想法收集箱，全档都建）。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
 
 **M / L 档走七步**（M 档第 1 步的 `contracts/` 与 §5 并行装备可等用到再加）：
 
@@ -47,6 +49,7 @@
 5. 需求三分法：已确认 → AGENTS §硬约束；有方向没定死 → `docs/requirements.md` 待拍板区；缺信息 → 回 §1 追问。**暂停项写成禁令条款**
 6. 写第一张 phase 卡 `docs/phases/phase-s0.1-<slug>.md`：自包含（新会话只读这张卡就能干活）、验收 ≤8 条、每条能翻译成测试名或命令输出
 7. 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`（pin 当前 agent-on 的 tag+commit）；AGENTS.md 首节加一行「agent-on 映射见 agent-on.lock.md」。此后凡从 kit 实例化文件，头部都加 `<!-- instantiated-from kit/<文件> @ vX.Y.Z -->`
+8. 实例化两个默认件：`kit/thoughts-and-ideas-template.md` → 项目根 `thoughts-and-ideas.md`（全档）；`kit/dashboard-template.html` → 项目根 `dashboard.html`（M/L 档，填项目名后从真相源初绘一次）。维护协议见各自模板头部；告诉用户两个口令：「整理想法」「更新仪表盘」
 
 ## 3. 车道判定（每个任务先过这道门）
 
@@ -80,13 +83,18 @@
 - 每次编排 run 合流时记 run 台账一行（`ledger/run-card-logging.md` 规范）
 - 里程碑时用户说「**agent-on 结账**」→ 按 `boot/settlement.md` 执行（升级另有口令「agent-on 升级」）
 
+**两个项目内口令（v0.4）**：
+- 「**整理想法**」→ 读 `thoughts-and-ideas.md` 速记区，归类成文标去向进「已整理」，清空速记区（换会话握手若发现速记区非空，主动提醒一次）
+- 「**更新仪表盘**」→ 从真相源（progress.yaml / 决策 / phase 卡）重绘 `dashboard.html`（M/L）；合流时也必更（见 merge-checklist 第 7 步）。**数据只从真相源读，禁手填**
+
 ## 7. 初始化完成的验收（对用户交付；S 档只查第 1、3、4、5 条，第 1 条查 AGENTS-lite）
 
 - [ ] AGENTS.md 已填空，无 `[占位]` 残留；CLAUDE.md 指针就位
 - [ ] progress.yaml、phases/_TEMPLATE.md、第一张 phase 卡就位
 - [ ] `agent-on.lock.md` 就位（pin 已锚定 tag+commit）
+- [ ] `thoughts-and-ideas.md` 就位（全档）；`dashboard.html` 就位并初绘一次（M/L）
 - [ ] 需求三分法讲给用户听过：已确认 / 待拍板 / 暂停禁令三张清单
-- [ ] 用户知道两个口令：「agent-on 结账」（沉淀回流）、「agent-on 升级」（bump pin）
+- [ ] 用户知道四个口令：「agent-on 结账」「agent-on 升级」「整理想法」「更新仪表盘」（后两个 S 档只有「整理想法」）
 - [ ] 以上每条都有实际文件路径或命令输出作证（L2 对你自己同样生效）
 
 档播错了怎么办：改 AGENTS 里的档位标记 + lock 的 local_deviations 记一行即可，**不重播**——升档补件走 boot/adopt.md §二，降档只删不用的件。

@@ -1,0 +1,295 @@
+<!doctype html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  项目仪表盘 · 人机共读的「真相之页」
+  instantiated-from kit/dashboard-template.html @ v0.4 | 最后更新: [日期]
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是什么：一张纯静态单文件 HTML，人和 AI 都看它，一眼看清项目全貌。
+  零依赖零构建（agent-on 铁律：脚手架不做运行时）。直接用浏览器打开即可。
+
+  ───────────────────────────────────────────────────────────────────────────
+  ▌更新协议（命门 —— 读到这里的 agent 必须照做）
+  ───────────────────────────────────────────────────────────────────────────
+
+  ● 数据源清单（每一块的真相从哪来，重绘时去这些地方读）
+      当前阶段   ← docs/state/progress.yaml（current_phase / current_bottleneck / phases[].status）
+      执行计划   ← docs/phases/ 下的 phase 卡（做了什么/在做什么/要做什么）
+      决策台账   ← docs/snapshots/ 或项目的决策记录（拍板即入）
+      To-do      ← progress.yaml（等我）+ phase 卡（等我）+ requirements 待拍板区（等你）
+      里程碑     ← 合流战报 / snapshot / progress.yaml.monitoring_summary（append-only）
+
+  ● 更新时机（两个触发点，够了）
+      ① 合流必更 —— 合流 checklist 已加一步「更新 dashboard」，跟着走。
+      ② 口令「更新仪表盘」—— 用户随时手动喊，即刻重绘。
+
+  ● 四条铁律（违反任何一条，这张页三天就开始骗人）
+      ① 从真相源读了重绘，禁止手填 —— 手填的仪表盘必然与代码漂移，一漂移就失信。
+      ② 单写者 = orchestrator 主会话重绘；轨道 agent 与人类只读（与 progress.yaml 同级纪律）。
+      ③ 忠于真相，不定义真相 —— 这里只反映真相源；要新增真相，先改真相源，再回来重绘。
+      ④ 分档 —— M/L 档项目默认建这张页；S 档轻装，不建。
+
+  ───────────────────────────────────────────────────────────────────────────
+  ▌怎么改（给 agent 的操作指引）
+  ───────────────────────────────────────────────────────────────────────────
+  全部内容集中在下方 <script> 的 DATA 对象里，改数据不改结构：
+    · 换项目名/日期 → 找 [占位符]，全局替换。
+    · 每个字段旁的 // 注释标了它对应哪个真相源。
+    · 布局/样式一般不用动；DATA 重绘即整页刷新。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[项目名] · 真相之页</title>
+<style>
+  /* ── 配色 ──
+     默认深色系（克制专业、护眼、适合长驻）。全部走 CSS 变量，
+     若项目有自己的 design token，把下面几个值换成项目色即可，结构不动。
+     纪律：同一版界面不发明新色相，只在这套变量里取。 */
+  :root{
+    --bg0:#06080F; --bg1:#0A1120; --bg2:#142848; --surface:#05111E;
+    --text:#EAF2FF; --text2:#8A9099; --text3:#7B8494;
+    --brand:#6EE7FF; --purple:#A855F7; --deep:#9450EE; --blue:#5B8CFF;
+    --ok:#2EE6E6; --warn:#FFD166; --danger:#FF8E8E;
+    --line:rgba(234,242,255,.08); --line2:rgba(234,242,255,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;color:var(--text);
+    background:linear-gradient(160deg,var(--bg2) 0%,var(--bg1) 38%,var(--bg0) 100%);min-height:100vh;
+    background-attachment:fixed;padding:28px 20px 80px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-bottom:6px}
+  h1{font-size:30px;letter-spacing:.5px}
+  h1 .dot{color:var(--brand)}
+  .sub{color:var(--text2);font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 22px}
+  .chip{border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--text2);background:rgba(5,17,30,.6)}
+  .chip b{color:var(--brand);font-weight:600}
+  nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--line);padding-bottom:12px}
+  nav button{background:none;border:1px solid transparent;color:var(--text2);font-size:14px;padding:8px 14px;border-radius:10px;cursor:pointer}
+  nav button.on{color:var(--text);border-color:var(--line2);background:rgba(110,231,255,.08)}
+  section{display:none} section.on{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2{font-size:15px;color:var(--text2);font-weight:600;margin:22px 0 10px;letter-spacing:1px}
+  .lead{font-size:12.5px;color:var(--text3);margin:-4px 0 12px;line-height:1.6}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .card{background:rgba(5,17,30,.75);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .card h3{font-size:14px;margin-bottom:6px}
+  .card p{font-size:12.5px;color:var(--text2);line-height:1.65}
+  /* 当前阶段大卡 */
+  .now{background:rgba(5,17,30,.85);border:1px solid var(--line2);border-radius:16px;padding:20px 22px;margin-bottom:8px}
+  .now .badge{display:inline-block;font-size:11.5px;letter-spacing:1px;color:var(--bg0);background:var(--brand);border-radius:999px;padding:3px 12px;font-weight:600;margin-bottom:10px}
+  .now .phase{font-size:20px;line-height:1.4}
+  .now .meta{font-size:13px;color:var(--text2);line-height:1.8;margin-top:8px}
+  .now .meta b{color:var(--text)}
+  /* To-do 两栏色边 */
+  .you .card{border-color:rgba(255,209,102,.35)} .you h3::before{content:"🫵 ";}
+  .me .card{border-color:rgba(110,231,255,.25)} .me h3::before{content:"🤖 ";}
+  /* 甘特条 */
+  .bar{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}
+  .bar .name{width:230px;flex:none;color:var(--text2)}
+  .bar .track{flex:1;height:14px;border-radius:7px;background:rgba(234,242,255,.05);overflow:hidden;position:relative}
+  .bar .fill{height:100%;border-radius:7px}
+  .done .fill{background:linear-gradient(90deg,var(--deep),var(--brand))}
+  .doing .fill{background:repeating-linear-gradient(45deg,var(--warn),var(--warn) 6px,rgba(255,209,102,.4) 6px,rgba(255,209,102,.4) 12px)}
+  .plan .fill{background:rgba(234,242,255,.14)}
+  .bar .tag{width:78px;flex:none;text-align:right;color:var(--text3);font-size:11.5px}
+  /* 决策表 */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+  th{color:var(--text3);font-weight:500;font-size:11.5px;letter-spacing:.5px}
+  td:first-child{white-space:nowrap;color:var(--brand)}
+  /* 里程碑时间线 */
+  .ms{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .ms .d8{flex:none;width:92px;color:var(--brand);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .ms .tx{font-size:13px;color:var(--text2);line-height:1.65}
+  .ms .tx b{color:var(--text)}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;font-size:12.5px;color:var(--text3);line-height:1.8}
+  footer code{color:var(--warn);background:rgba(255,209,102,.08);padding:1px 6px;border-radius:6px}
+  .glow{text-shadow:0 0 18px rgba(110,231,255,.5)}
+  /* 手机：收窄条名，nav/卡片自动换行 */
+  @media (max-width:640px){
+    body{padding:20px 14px 60px} h1{font-size:24px}
+    .bar .name{width:120px} .bar .tag{width:62px}
+    .now .phase{font-size:17px}
+  }
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <!-- [占位符]=项目名。副标题的「最后更新」由 DATA.updated 注入。 -->
+  <h1>[项目名]<span class="dot glow"> ·</span> 真相之页</h1>
+  <span class="sub">Truth Source · 人机共读 · 由 orchestrator 主会话维护 · 最后更新 <b id="upd" style="color:var(--brand)"></b></span>
+</header>
+
+<!-- 顶部速览徽章：项目最关键的几个数字/状态。数据源：progress.yaml + 项目关键指标。 -->
+<div class="chips" id="chips"></div>
+
+<nav id="nav"></nav>
+
+<!-- ① 当前阶段 —— 数据源：docs/state/progress.yaml（current_phase / current_bottleneck / monitoring_summary） -->
+<section id="s-当前" class="on">
+  <h2>项目现在在哪</h2>
+  <div class="now" id="nowCard"></div>
+</section>
+
+<!-- ② To-do —— 数据源：progress.yaml（等我）+ phase 卡（等我）+ requirements 待拍板区（等你） -->
+<section id="s-Todo">
+  <h2>🫵 等你（人类行动项 —— 卡在你这，你不动项目不动）</h2>
+  <div class="grid you" id="youCards"></div>
+  <h2>🤖 等我（AI 行动项 —— 已就绪，你点头即开工）</h2>
+  <div class="grid me" id="meCards"></div>
+</section>
+
+<!-- ④ 执行计划 / 项目全貌 —— 数据源：docs/phases/ 的 phase 卡（做了/在做/要做，进度=status 映射） -->
+<section id="s-计划">
+  <h2>已完成</h2><div id="ganttDone"></div>
+  <h2>进行中</h2><div id="ganttDoing"></div>
+  <h2>规划中</h2><div id="ganttPlan"></div>
+</section>
+
+<!-- ③ 重大决策台账 —— 数据源：docs/snapshots/ 或决策记录。拍板即入，日期倒序。 -->
+<section id="s-决策">
+  <h2>重大决策台账（拍板即入，日期倒序）</h2>
+  <p class="lead">防幻觉的「负空间」也在这：明确决定<b style="color:var(--text2)">不做</b>什么，与决定做什么同权重。</p>
+  <table><thead><tr><th>编号</th><th>决策</th><th>日期</th></tr></thead><tbody id="decis"></tbody></table>
+</section>
+
+<!-- ⑤ 历史里程碑 —— append-only。数据源：合流战报 / snapshot / progress.yaml.monitoring_summary -->
+<section id="s-里程碑">
+  <h2>历史里程碑（append-only，只追加不删改）</h2>
+  <div id="miles"></div>
+</section>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   DATA —— 整张页的唯一数据源。改这里，不改上面的结构。
+   每个字段都从真相源读了填（见字段旁注释），禁止拍脑袋手写。
+   下面每块留了 1-2 行示例，播种/首次重绘时替换成真实内容。
+   ═══════════════════════════════════════════════════════════════════ */
+const DATA = {
+
+// 最后更新日期（[占位符]，每次重绘改这里）
+updated: "[YYYY-MM-DD]",
+
+// 顶部速览徽章：[标签, 值]。挑项目最该被一眼看到的几个。
+// 数据源：progress.yaml 关键状态 + 项目自定义指标（测试数/环境/部署地址…）。
+chips: [
+  ["当前阶段","[S3 · 进行中]"],
+  ["测试","[全绿 · N 个]"],
+  ["环境","[生产地址或 dev]"]
+],
+
+// ① 当前阶段大卡。数据源：progress.yaml。
+// badge=状态标签；phase=current_phase；bottleneck=current_bottleneck；summary=最近合流战报摘要。
+now: {
+  badge: "[进行中]",                       // ← progress.yaml.phases[].status
+  phase: "[S3 · 一句话说清现在在做什么]",    // ← progress.yaml.current_phase
+  bottleneck: "[当前最大瓶颈 / 在等谁的什么]", // ← progress.yaml.current_bottleneck
+  summary: "[最近一次合流战报：测试数 / 关键交付 / 悬点裁决]" // ← progress.yaml.monitoring_summary
+},
+
+// ② 等你（人类行动项）：[标题, 说明]。卡在人这里的事。
+// 数据源：requirements 待拍板区 + phase 卡里标注「需人类决策/验收」的条目。
+you: [
+  ["[待你拍板的决策]","[背景一句话 + 为什么卡在你这 + 拍完会解锁什么]"],
+  ["[待你验收/操作的事]","[具体到点哪个页面、改哪行 env、投哪个票]"]
+],
+
+// ② 等我（AI 行动项）：[标题, 说明]。已就绪、你点头即开工的事。
+// 数据源：progress.yaml.notes 下一步 + phase 卡里 status=todo 且前置已满足的卡。
+me: [
+  ["[下一张要执行的卡]","[前置已满足；你说开始我就跑；预期产出一句话]"],
+  ["[已备好但按住不动的事]","[为什么现在不做（等你先拍某项）——一旦解锁即执行]"]
+],
+
+// ④ 执行计划三段：done / doing / plan。每条 [名字, 标签(日期或状态), 进度%]。
+// 数据源：docs/phases/ 每张卡。进度由 status 映射：done=100 / in_progress=1~99 / todo=0。
+// 语义：做了什么(done) / 在做什么(doing) / 要做什么(plan)——项目全貌一屏看完。
+ganttDone: [
+  ["[S0 脚手架]","[MM-DD]",100],
+  ["[S1 首个闭环]","[MM-DD]",100]
+],
+ganttDoing: [
+  ["[S3 当前切片]","[进行中]",40]
+],
+ganttPlan: [
+  ["[S4 下一里程碑]","[规划]",0],
+  ["[S5 更远的]","[规划]",0]
+],
+
+// ③ 重大决策台账：[编号, 决策, 日期]。日期倒序（最新在上）。
+// 数据源：docs/snapshots/ 或项目决策记录。包含「决定不做什么」的负空间决策。
+decisions: [
+  ["[D2]","[拍了什么板 —— 一句话说清决定内容与理由]","[MM-DD]"],
+  ["[D1]","[另一个决策 —— 含『明确不做 X』这类负空间]","[MM-DD]"],
+  ["[暂停项]","[某能力=未获明确指令前不实现（把禁令也记下来防幻觉）]",""]
+],
+
+// ⑤ 历史里程碑：[日期, 描述]。append-only，倒序或顺序均可，只追加不删改。
+// 数据源：每次合流战报 / snapshot / 重大讨论。<b>…</b> 可加粗关键交付。
+miles: [
+  ["[MM-DD]","[需求日：idea→PRD→切片定版；设计底座落地]"],
+  ["[MM-DD]","[<b>首个端到端闭环走通</b>：核心链路第一次跑通]"]
+]
+
+};
+
+/* ── 渲染引擎（一般不用改；DATA 一变，整页重刷）── */
+document.getElementById('upd').textContent = DATA.updated;
+
+// 徽章
+document.getElementById('chips').innerHTML = DATA.chips
+  .map(c=>`<span class="chip">${c[0]} <b>${c[1]}</b></span>`).join('');
+
+// tab 导航（顺序即用户点名的五块）
+const secs=["当前","Todo","计划","决策","里程碑"];
+document.getElementById('nav').innerHTML = secs
+  .map((s,i)=>`<button class="${i==0?'on':''}" onclick="go('${s}',this)">${s}</button>`).join('');
+function go(s,btn){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.querySelectorAll('section').forEach(x=>x.classList.remove('on'));
+  document.getElementById('s-'+s).classList.add('on');
+}
+
+// 当前阶段大卡
+const n=DATA.now;
+document.getElementById('nowCard').innerHTML =
+  `<span class="badge">${n.badge}</span>
+   <div class="phase">${n.phase}</div>
+   <div class="meta"><b>瓶颈：</b>${n.bottleneck}<br><b>最近战报：</b>${n.summary}</div>`;
+
+// To-do 两栏
+const card=(t,d)=>`<div class="card"><h3>${t}</h3><p>${d}</p></div>`;
+document.getElementById('youCards').innerHTML = DATA.you.map(x=>card(x[0],x[1])).join('');
+document.getElementById('meCards').innerHTML  = DATA.me.map(x=>card(x[0],x[1])).join('');
+
+// 甘特条：进度≥100=done，>0=doing，=0=plan（决定填充样式）
+const bar=(nm,tag,pct)=>{const cls=pct>=100?'done':(pct>0?'doing':'plan');
+  return `<div class="bar ${cls}"><span class="name">${nm}</span><span class="track"><span class="fill" style="width:${Math.max(pct,3)}%"></span></span><span class="tag">${tag}</span></div>`};
+document.getElementById('ganttDone').innerHTML  = DATA.ganttDone.map(g=>bar(g[0],g[1],g[2])).join('');
+document.getElementById('ganttDoing').innerHTML = DATA.ganttDoing.map(g=>bar(g[0],g[1],g[2])).join('');
+document.getElementById('ganttPlan').innerHTML  = DATA.ganttPlan.map(g=>bar(g[0],g[1],g[2])).join('');
+
+// 决策表
+document.getElementById('decis').innerHTML = DATA.decisions
+  .map(d=>`<tr><td>${d[0]}</td><td>${d[1]}</td><td style="color:var(--text3)">${d[2]}</td></tr>`).join('');
+
+// 里程碑
+document.getElementById('miles').innerHTML = DATA.miles
+  .map(m=>`<div class="ms"><span class="d8">${m[0]}</span><span class="tx">${m[1]}</span></div>`).join('');
+</script>
+
+<footer>
+  <b style="color:var(--text2)">更新协议（人机契约 —— 详见本文件顶部 HTML 注释）</b><br>
+  ① 口令 <code>更新仪表盘</code> —— orchestrator 主会话从真相源读了重绘本页 DATA，commit 入仓。<br>
+  ② 更新时机：每次切片合流（合流 checklist 的「更新 dashboard」步）/ 用户随时手动喊。<br>
+  ③ 单写者纪律：只有主开发会话可写（与 <code>progress.yaml</code> 同级）；轨道 agent 与人类只读。<br>
+  ④ 忠于真相不定义真相：本页与代码/测试冲突时，以代码测试为准并回来修本页；禁止手填。<br>
+  <span style="color:var(--text3)">数据源：docs/state/progress.yaml · docs/phases/*.md · docs/snapshots/* · requirements 待拍板区</span>
+</footer>
+
+</div></body>
+</html>
