@@ -38,6 +38,8 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 
 **顺序建议**:先 `AGENTS.md` 定主线 → 再 `progress.yaml` 定当前位置 → 再最新 snapshot 补「刚才发生了什么」。三份读完,三步复述就齐了。读不到 `progress.yaml` 或它和 snapshot 打架,别硬猜——按真相源仲裁次序(见 [../playbook/truth-hierarchy.md](../playbook/truth-hierarchy.md)),以 Canonical 层的 `progress.yaml` 为准,并把冲突当场跟用户点明。
 
+**快照陈旧标红(痛感门)**:最新 snapshot 若落后于最近 5 个 commit,开场第一行标「⚠️ 快照陈旧(落后 N 个 commit)——建议本段收口时补一份」;并在握手输出里写明**本次读的是哪份快照**——哪类快照攒几次冷启动都从没当过「被读的那份」,就是死资产实锤,照砍(不许用感觉替代不变量)。
+
 ## 四、一个照抄即用的开场模板
 
 ```md
@@ -46,6 +48,7 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 当前阶段:<phase 名> / 状态:<in_progress 等,读自 progress.yaml>
 锁定的下一步:<Next,读自 progress.yaml>
 最近进展:<一句话,读自最新 snapshot>
+读的快照:<文件名>(落后最近 commit N 个;N≥5 行首标 ⚠️陈旧)
 
 请三选一后我再开工:
 ① 按锁继续(沿当前下一步干)

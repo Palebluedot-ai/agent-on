@@ -1,7 +1,7 @@
 # CHARTER — agent-on 项目宪章
 
 > 职责边界：本文件是 agent-on 总目标与边界的唯一权威。其他文档（README / BOOTSTRAP / playbook）与本文件冲突时，以本文件为准；改本文件 = 改产品方向，需用户拍板。
-> 拍板链：2026-07-01 工具定义（[snapshot/agent-on-tool-definition.md](snapshot/agent-on-tool-definition.md)）→ 2026-07-07 融合裁决（[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)）→ 2026-07-07 总目标确认（本文件，用户拍板）→ 2026-07-07 迭代闭环拍板（用户：通过项目不断迭代 agent-on 自身；2026-07-08 落盘 [playbook/iteration-loop.md](playbook/iteration-loop.md)）→ 2026-07-09 v0.3 门槛砍半 + 冻结令（用户拍板，依据：四镜头评审 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)）。
+> 拍板链：2026-07-01 工具定义（[snapshot/agent-on-tool-definition.md](snapshot/agent-on-tool-definition.md)）→ 2026-07-07 融合裁决（[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)）→ 2026-07-07 总目标确认（本文件，用户拍板）→ 2026-07-07 迭代闭环拍板（用户：通过项目不断迭代 agent-on 自身；2026-07-08 落盘 [playbook/iteration-loop.md](playbook/iteration-loop.md)）→ 2026-07-09 v0.3 门槛砍半 + 冻结令（用户拍板，依据：四镜头评审 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)）→ 2026-07-11 记忆不建数据库 + 快照三写点（第二次消化，用户拍板，依据：[intake/2026-07-11-memory-system-input.md](intake/2026-07-11-memory-system-input.md) 与 [intake/2026-07-11-user-feature-asks.md](intake/2026-07-11-user-feature-asks.md)）。
 
 ## 总目标（一句话）
 
@@ -34,6 +34,7 @@
 - **不与 GStack / Superpowers 等强 skill 冲突**——agent-on 管「项目怎么启动和推进」，不管「某个环节怎么做」
 - **不先做平台**——先文档形态跑通 dogfood，再考虑 skill 化 / 自动化（先固化规则 → 再抽象模板 → 最后自动化）
 - **不为通用牺牲实战有效性**——每个模板必须来自真实项目的真实使用，没有一个是想象出来的
+- **记忆不建数据库**（2026-07-11 拍板）——agent-on 的记忆就是 git 仓里的 markdown：clone 即得、grep 即查、断网可用；数据库永远只能是「可选、可重建、坏了自动退回 grep、不进 BOOTSTRAP 必需件」的旁挂索引缓存。开箱即用的产品，记忆系统不能是需要先修 docker 的那一环（实证：gbrain 需要专门的自愈脚本 = 本地 DB 是单点故障）
 - **冻结令（2026-07-09 拍板）**——首次真实结账（v0.3）跑通前，**不新增任何 playbook 篇目或 kit 模板**：只许删、只许修订既有文件且修订必须走 intake 消化流程。依据：82 份 canonical 文档对 0 个下游真实消费，比二代死法（14:0）更极端——文档洁癖就是本产品版本的「造引擎」
 
 ## 成功标准

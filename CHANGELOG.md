@@ -4,6 +4,17 @@
 
 ## [未发布]
 
+### 第二次消化（2026-07-11，7 张卡：外部记忆系统输入 5 + 用户功能两问 2）
+
+去向：6 landed / 1 半落半缓。定级 minor；按用户拍板**攒批至新项目 dogfood 后随 v0.4.0 一并封版**。
+
+- **no-database-stance（入宪）**：CHARTER 边界节「记忆不建数据库」（markdown 即记忆，DB 永远可选旁挂、坏退 grep、不进必需件）+ 拍板链登记
+- **auto-snapshot-triggers（L3 双落点；设计经对抗评审击穿四处后定稿）**：playbook/sop.md Phase 0「拍板即快照」（D 表搭车）+ Phase 7「快照三写点」（决策边界/险段前/交接收口，时钟回合永不触发）——playbook 侧；boot/session-handshake.md staleness 标红 + 消费记录、kit/claude-hooks-template.md 机械地板（PreCompact agent 型 hook，Claude 专属可选）——boot/kit 侧
+- **conversation-idea-capture（L3 双落点）**：BOOTSTRAP §6 + kit/AGENTS-skeleton §9 想法类捷径（boot/playbook 侧）+ kit/thoughts-and-ideas-template 头部「AI 也会代笔」（kit 侧）——三保险：只进速记区/保守偏置/升级需求归用户
+- **distill-merge-abstraction**：settlement 下半场「同类多条先合并抽象成一条 L2」
+- **memory-health-visibility（半落）**：settlement 收尾「顺口报成长」播报（数字从文件数出禁手编）；元仪表盘维持 deferred（触发=服务 2-3 项目）
+- **deferred 两张入 Backlog**：cases-retirement-tiering、semantic-retrieval-adapter（见下）
+
 ### 新增（v0.4 功能）
 - **Codex 适配层**（2026-07-11 用户提——兑现宪章承诺 3「工具无关」还停在纸面的机器侧半边）：`codex/` 三件——AGENTS-global-snippet（并入 `~/.codex/AGENTS.md` 的口令路由，Codex 不读 CLAUDE.md）+ prompts/agent-on.md（Codex 自定义 prompt 约定的斜杠命令，与 skill/SKILL.md 互为镜像、arg 无关设计）+ README（接入两行/谁写谁读/卸载/诚实边界：中文口令永远主路）。项目侧零适配（AGENTS.md 双工具原生）。README FAQ「Codex 能用吗」与换机步骤已更
 
@@ -69,6 +80,9 @@
 - ~~intake-lint:Promotion 六项机器校验~~ **✓ v0.3.0 落地**(ledger/intake-lint.py,首结账消化时人眼核卡繁琐 = 工程镜头胜出的实证)
 - ~~架构雷达机制移植~~ **✓ v0.3.0 落地**(并入 playbook/architect-lens.md 附节,冻结令期不新开篇)
 - changelog-lint:「major 无迁移注记不许打 tag」的机器门
-- probe-from-cases-zero:案例 08/09/10/14 转化为新探针题(deferred,冻结令期不加;转化时机顺延)
+- probe-from-cases-zero:案例 08/09/10/14 转化为新探针题(deferred,冻结令期不加;转化时机顺延——冻结令已解除,下次消化可捡)
 - 多协作者结账对接(multi-contributor-protocol 条款)
+- cases-retirement-tiering:案例集「活跃扫坑清单 vs 归档库」两级可见性——升成 L3 门禁的案例退出默认扫描(触发信号:案例超 ~40-50 张,或 loop-notes 首现「扫坑捞不到/扫一堆无关」)
+- semantic-retrieval-adapter:语义检索可选旁挂(如 gbrain 索引本仓)——三到顶信号(README 漏登记≥2 次 / 同坑异措辞漏合≥3 次 / 时机表单场景 >10 卡退化全扫)任一触发才动;三设计闸:永远 optional / 坏退 grep / 不进 BOOTSTRAP 必需件
+- memory-health 元仪表盘(触发=服务 2-3 个项目;结账播报半句已于 2026-07-11 先行落地)
 - **v0.4 门槛**:一个新项目 BOOTSTRAP dogfood 全流程(v0.3 已达,门槛顺延)

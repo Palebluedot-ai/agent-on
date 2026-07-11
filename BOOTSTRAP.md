@@ -79,6 +79,7 @@
 ## 6. 沉淀纪律（迭代闭环的采集站，机制见 playbook/iteration-loop.md）
 
 - 六类触发**当场**记一行进 `loop-notes.md`（单行五字段 `日期|触发|一句现象|证据指针|候选层`）：返工（完成声明被推翻）/ 撞车 / 用户纠正 / Error Signal 中高严重度 / 手工重复第 2 次 / **脚手架不合身**（这条另记 agent-on.lock.md 的 local_deviations）
+- 用户随口冒出的**产品想法/待办**（非 debug、非状态询问）：AI 当场代笔进 `thoughts-and-ideas.md` 速记区（日期+「对话捕获」标），确认一句继续主线——只进速记区，升级成需求永远由用户拍板
 - 跨项目可复用的升 memory_card（`suggested_location=agent_on`），**evidence 必填**——没证据的心得出不了仓
 - 每次编排 run 合流时记 run 台账一行（`ledger/run-card-logging.md` 规范）
 - 里程碑时用户说「**agent-on 结账**」→ 按 `boot/settlement.md` 执行（升级另有口令「agent-on 升级」）
