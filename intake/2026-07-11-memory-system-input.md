@@ -36,11 +36,11 @@
 - source:同上
 - evidence:CHARTER 承诺 4「越用越强」目前靠翻 CHANGELOG 感受;健康信号散落(intake 积压靠 ls/待消化靠 loop-notes 待办位/偏离靠结账翻);外部方案三「新鲜度仪表盘」的 solo 版=几个活体数字（案例数/已消化/待消化/最近消化日期,全部 ls|wc 与 grep 数得出,不建自动脚本不手填）
 - confidence:medium
-- claim:agent-on 仓 README 或 CHANGELOG 顶部加一排「活体数字」;或将来出 agent-on 自己的元仪表盘。警惕两头:自动统计脚本=运行时禁区,手填数字=dashboard 禁手填铁律
-- suggested_landing:README 顶部一行（消化时定形态）
+- claim:agent-on 仓 README 或 CHANGELOG 顶部加一排「活体数字」;或将来出 agent-on 自己的元仪表盘。警惕两头:自动统计脚本=运行时禁区,手填数字=dashboard 禁手填铁律。**动机维度（2026-07-11 复盘补强,用户关注）**:「我记得/我进步了」的可感知成长对 solo builder 是让「结账」习惯活下去的燃料——对纪律零贡献,对坚持有贡献;最轻落法=结账收尾播报一句「本次回流 N 条,累计 X 卡/Y 篇」（读文件数得出,零新机件）,消化时考虑把这半句从 deferred 提前直落
+- suggested_landing:README 顶部一行 + boot/settlement.md 结账收尾一句（消化时定形态与档位）
 - rollback:revert
-- trace:对照审查真增量 C
-- 状态:pending（**deferred**:触发=服务 2-3 个项目/需对外证明「越用越强」时）
+- trace:对照审查真增量 C + 2026-07-11 用户复核对话（「没有特别可取之处吗」→ 此珠确认被低估）
+- 状态:pending（元仪表盘部分 **deferred**:触发=服务 2-3 个项目;结账播报半句可随下次消化提档裁决）
 
 ### semantic-retrieval-adapter（语义检索的将来形态：可选旁挂,不自建）
 - source:同上
