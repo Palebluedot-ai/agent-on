@@ -10,7 +10,7 @@
 - suggested_landing:CHARTER 边界节一条 + README FAQ 一问「要装数据库吗?」
 - rollback:revert
 - trace:数据库专题四问全文 / 对照审查禁区#2
-- 状态:pending（中风险,CHARTER 动向需用户拍板）
+- 状态:landed@d641275（2026-07-11 第二次消化,用户拍板入宪）
 
 ### distill-merge-abstraction（消化补半句：同类多条合并抽象）
 - source:同上
@@ -20,7 +20,7 @@
 - suggested_landing:boot/settlement.md 下半场第 1 步
 - rollback:revert
 - trace:对照审查真增量 B（唯一「现在值得做」项）
-- 状态:pending（低风险,下次消化直落）
+- 状态:landed@d641275（低风险直落,settlement 下半场）
 
 ### cases-retirement-tiering（案例集「只增值」的规模债 → 分层退役）
 - source:同上
@@ -30,7 +30,7 @@
 - suggested_landing:bench/cases/README.md 或 memory-layering.md 一条规则
 - rollback:revert
 - trace:对照审查真增量 A
-- 状态:pending（**deferred**:触发信号=案例超 ~40-50 张,或 loop-notes 首次出现「扫坑捞不到/扫一堆无关」真实摩擦——进 CHANGELOG Backlog）
+- 状态:deferred@d641275（已入 CHANGELOG Backlog,带触发信号）
 
 ### memory-health-visibility（方法论健康度可见化——「越用越强」变可验收）
 - source:同上
@@ -40,7 +40,7 @@
 - suggested_landing:README 顶部一行 + boot/settlement.md 结账收尾一句（消化时定形态与档位）
 - rollback:revert
 - trace:对照审查真增量 C + 2026-07-11 用户复核对话（「没有特别可取之处吗」→ 此珠确认被低估）
-- 状态:pending（元仪表盘部分 **deferred**:触发=服务 2-3 个项目;结账播报半句可随下次消化提档裁决）
+- 状态:半落@d641275（播报半句用户拍板提档落 settlement 收尾;元仪表盘 deferred 入 Backlog）
 
 ### semantic-retrieval-adapter（语义检索的将来形态：可选旁挂,不自建）
 - source:同上
@@ -50,4 +50,4 @@
 - suggested_landing:CHANGELOG Backlog 一条（含三信号+三设计闸:永远 optional/坏退 grep/不进必需件）
 - rollback:—
 - trace:数据库专题第 2/3 问全文
-- 状态:pending（**deferred**:三信号任一触发才动）
+- 状态:deferred@d641275（已入 CHANGELOG Backlog,三信号+三闸全文登记）
