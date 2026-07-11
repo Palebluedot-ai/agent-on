@@ -4,6 +4,9 @@
 
 ## [未发布]
 
+### 新增（v0.4 功能）
+- **Codex 适配层**（2026-07-11 用户提——兑现宪章承诺 3「工具无关」还停在纸面的机器侧半边）：`codex/` 三件——AGENTS-global-snippet（并入 `~/.codex/AGENTS.md` 的口令路由，Codex 不读 CLAUDE.md）+ prompts/agent-on.md（Codex 自定义 prompt 约定的斜杠命令，与 skill/SKILL.md 互为镜像、arg 无关设计）+ README（接入两行/谁写谁读/卸载/诚实边界：中文口令永远主路）。项目侧零适配（AGENTS.md 双工具原生）。README FAQ「Codex 能用吗」与换机步骤已更
+
 ### 新增（v0.4 功能，2026-07-10 用户提；待新项目 dogfood 验证后随 v0.4 发版）
 - **项目仪表盘**（源自 Euan `docs/dashboard.html` 已验证原型）：`kit/dashboard-template.html`——纯静态单文件零依赖，五块（当前阶段 / To-do 分「🫵等你·🤖等我」/ 执行计划 / 决策台账 / 里程碑），内容集中在 DATA 对象、从真相源重绘。**接线**：BOOTSTRAP §2 第 8 步播种（M/L）+ merge-checklist 第 7 步合流必更 + 口令「更新仪表盘」。四铁律：从真相源读了重绘 / 禁手填 / 单写者 / 忠于真相不定义真相
 - **想法收集箱**（源自 Euan `docs/idea.md`）：`kit/thoughts-and-ideas-template.md`——两区（📥速记区你随手写 + 🗂已整理 AI 维护带日期），整理时归类成文标去向（待评估 / 升级需求→requirements / 结账→agent-on / 搁置 / 弃）。**接线**：BOOTSTRAP 播种（全档）+ session-handshake 握手提醒速记区非空 + 口令「整理想法」
