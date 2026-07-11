@@ -10,7 +10,7 @@
 - suggested_landing:skill/SKILL.md + boot/settlement.md step 0 + codex/prompts/agent-on.md + codex/README.md
 - rollback:revert;symlink 卸载=rm ~/.agents/skills/agent-on
 - trace:Codex 提案原文（用户转述）+ 本会话三步核实
-- 状态:pending（中风险，选择题）
+- 状态:landed@c25a27f（2026-07-12 第三次消化——上轮对抗裁决用户无异议+消化口令即拍板）
 
 ### 对抗保留项（记录在案，不落地）
 - **每 pin 路由**（skill 按项目 pin 读旧版执行书）：deferred——现全 minor（不动手不坏），复杂度>收益；**触发条件=第一个 major 版本出现**
