@@ -6,11 +6,11 @@
 
 1. **全局路由**（Codex 不读 `~/.claude/CLAUDE.md`，读 `~/.codex/AGENTS.md`）：
    把 [AGENTS-global-snippet.md](AGENTS-global-snippet.md) 的内容并入 `~/.codex/AGENTS.md`——之后任何 Codex 会话都认识「agent-on 结账 / 升级 / 整理想法 / 更新仪表盘」这些中文口令和三个入口。
-2. **斜杠命令**（Codex 的自定义 prompt 约定：`~/.codex/prompts/*.md` → `/文件名`）：
+2. **`$agent-on` skill**（主路，2026-07-12 起）：Codex 原生读跨工具共享目录 `~/.agents/skills/`，与 Claude 用**同一份内核**：
    ```bash
-   mkdir -p ~/.codex/prompts && ln -s <本仓路径>/codex/prompts/agent-on.md ~/.codex/prompts/agent-on.md
+   ln -s <本仓路径>/skill ~/.agents/skills/agent-on
    ```
-   之后在 Codex 里敲 `/agent-on` 即触发（源文件随仓版本化，升级 pin 即升级命令）。
+   之后在 Codex 里 `$agent-on <子命令>` 即触发。（旧的 `~/.codex/prompts/agent-on.md` 已降为迁移壳，v0.4 dogfood 后删除。）
 
 ## 谁写谁读
 

@@ -4,6 +4,9 @@
 
 ## [未发布]
 
+### 第三次消化（2026-07-12，1 卡：Codex 一核两适配提案经对抗裁决）
+- **single-skill-kernel（landed）**：`skill/SKILL.md` 确立为唯一内核（头注声明 Claude `/agent-on` 与 Codex `$agent-on` 同源，symlink 各挂 `~/.claude/skills` 与 `~/.agents/skills`）+ 补两条路由规则（无 lock 自动判 init/adopt；HEAD 领先 tag 时诚实播报「未发布变化」不伪装成版本，同落 settlement step 0）；`codex/prompts/agent-on.md` 降为迁移壳（v0.4 dogfood 后删）；codex/README 主路改 `$agent-on`。对抗保留：每 pin 路由（触发=首个 major）、能力探测/自动路由（dogfood 前不设计）、Plugin 打包（维持先自用拍板）。附记：审查者初判 `$agent-on`/`~/.agents` 为幻觉，被实证纠正——对抗双向生效
+
 ### 第二次消化（2026-07-11，7 张卡：外部记忆系统输入 5 + 用户功能两问 2）
 
 去向：6 landed / 1 半落半缓。定级 minor；按用户拍板**攒批至新项目 dogfood 后随 v0.4.0 一并封版**。

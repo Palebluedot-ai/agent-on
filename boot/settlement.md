@@ -5,7 +5,7 @@
 
 ## 上半场:结账(在项目仓,听到「agent-on 结账」即执行)
 
-0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。升级是另一个口令,此处只播报。
+0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。若 agent-on 仓 HEAD 领先最新 tag(攒批中),加报「另有未发布变化 N 个 commit」——**未发布不构成可升级版本,别伪装**。升级是另一个口令,此处只播报。
 1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚;**锚为空 = 首次结账**——lock 该行留空、或倒仓/无 lock 的历史项目,都不做增量:全量扫描,收所有未标 `sync_status=synced` 的条目):
    - **主路径(S/M 档,绝大多数项目走这条)**:`loop-notes.md` 里上次回执之后新增的可复用散文条目——六类触发当场记的那些行。散文条目直接装配成 Promotion Card,不经 jsonl。
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
