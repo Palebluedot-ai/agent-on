@@ -10,7 +10,7 @@
 - suggested_landing:playbook/sop.md Phase 0（D 表追行）与 Phase 7（三写点清单）+ boot/session-handshake.md（staleness 检查+消费记录）+ kit 可选 hook 模板文件（消化裁新文件与否）——L3 双落点齐
 - rollback:revert
 - trace:用户原话「只在上下文快耗尽时触发似乎不太好；但又不应该每隔几个回合驱动一次，怎么才能更好？」+ 对抗评审全文（本会话）+ hook 事实核查（guide）
-- 状态:pending（中风险，选择题；用户已定「想清楚后一次性消化」）
+- 状态:landed@d641275（2026-07-11 第二次消化,用户拍板三件全落）
 
 ### conversation-idea-capture（对话中想法自动代笔进速记区）
 - source:同上
@@ -20,4 +20,4 @@
 - suggested_landing:kit/AGENTS-skeleton.md §9 一句 + kit/thoughts-and-ideas-template.md 头部一句 + BOOTSTRAP §6 半句（L3 双落点齐）
 - rollback:revert
 - trace:用户原话（识别「新功能想法」vs「普通 debug/请继续」；连同日期同步进 md）
-- 状态:pending（中风险，选择题）
+- 状态:landed@d641275（2026-07-11 第二次消化,用户点名功能,三保险落 L3 双落点）
