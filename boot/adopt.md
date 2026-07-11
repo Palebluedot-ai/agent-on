@@ -17,9 +17,10 @@
 
 ### 第 3 步:增量补件(按档,只补缺的)
 
-**所有档共同的两件(闭环必需件):**
+**所有档共同的三件(闭环必需件):**
 - 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`(pin 当前版本;last_settlement 留空——**第一次结账从接入日起算,不回填历史**)
 - 项目里没有 `loop-notes.md` 就建一个空的
+- 实例化 `kit/thoughts-and-ideas-template.md` → 项目根 `thoughts-and-ideas.md`(想法收集箱,全档;口令「整理想法」)
 
 **S 轻装**:再无其他。若项目**已有**自己的规则文件,不要替换——在其顶部加 `## agent-on 映射` 一节(两行:lock 指针 + 两个口令)即完成;没有规则文件才拷 `kit/AGENTS-lite.md` 填空。
 
@@ -27,6 +28,7 @@
 - 规则文件:已有则**合并**(把 AGENTS-skeleton 里项目缺的节逐节问用户后补入,已有条款一律保留原文);没有才拷 skeleton 填空
 - `docs/state/progress.yaml`(kit 模板):只登记**当前未完成的工作**,历史不补
 - `docs/phases/_TEMPLATE.md`:从**下一个**任务开始卡片化,进行中的活干完为止不强行改造
+- 实例化 `kit/dashboard-template.html` → 项目根 `dashboard.html`,从现状初绘一次(M/L 默认件;口令「更新仪表盘」+ 合流必更,数据只从真相源读禁手填)
 
 **L 全装**:M 之外补——`contracts/fixtures/`(下次接口两侧并行前冻结)+ run 台账(`ledger/run-card-logging.md` 规范,从下次编排 run 起记)。
 
@@ -34,8 +36,8 @@
 
 - [ ] 一句话现状 + 能力真相表讲给用户听过
 - [ ] 档位报给用户并说明为什么
-- [ ] lock + loop-notes 就位;规则文件按「已有则合并,没有才新建」处理完
-- [ ] 用户知道两个口令:「agent-on 结账」/「agent-on 升级」
+- [ ] lock + loop-notes + thoughts-and-ideas 就位(M/L 另有 dashboard 初绘);规则文件按「已有则合并,没有才新建」处理完
+- [ ] 用户知道四个口令:「agent-on 结账」「agent-on 升级」「整理想法」「更新仪表盘」(S 档无仪表盘)
 
 ## 二、升档(项目长大了)
 
