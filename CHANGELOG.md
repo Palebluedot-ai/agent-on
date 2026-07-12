@@ -4,6 +4,9 @@
 
 ## [未发布]
 
+### 消化协议第三缝（2026-07-13，Euan 撞窗实证 + 用户拍板选项 1 直落；定级 minor 攒批）
+- **digest-per-card-commit**：消化落地改「一卡一 commit」禁攒批（boot/settlement.md 下半场 step 3）——agent-on 工作区是所有项目会话的服务面，攒批拉长 canonical 中间态窗口，并发读者会读到半截规则。实证：第六次消化 12 文件一批收口，窗口期被 Euan 会话撞见未提交 BOOTSTRAP.md。来源：Euan 反馈（其观察行待其下次结账回流，届时按语义归并标已落）；候选项 2「读者按 pin 读」维持 deferred（触发 = 首个 major）
+
 ### 第六次消化（2026-07-13，框架自研究 5 卡 + Euan 尾单 1 卡，5 landed + 1 半落半缓；定级 minor 攒批）
 - 频次扫描：「未 commit 的工作对其他会话不存在」坑家族跨项目双实证（AINVESTMENT 零落盘零 commit + Euan worktree-sprawl）→ 置顶升 L3 双落点
 - **bootstrap-verifiable-landing（L3）**：BOOTSTRAP §2 S 捷径与 M/L 新增第 9 步 initial commit（落盘未 commit = 初始化未完成，禁报完成）+ §7 验收第 7 条 `git log` 证据——boot 侧；kit/commit-layering「环节收口 = 一个 commit」节——kit 侧

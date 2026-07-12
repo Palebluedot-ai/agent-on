@@ -32,7 +32,7 @@
    - 中风险(模板行 / checklist 行 / playbook 段落)与高风险(schema 必填 / BOOTSTRAP 语义 / 不变量):**打包成一组选择题**(每题 = 卡摘要 + 建议落点 + 采纳/拒绝/缓议),用户一次拍完
    - pin 旧版、新版已修复的摩擦:直接 `rejected(升级 pin 即解)`——这也是版本漂移探测器
    - **预算线(硬)**:选择题一场一组、≤10 题;超线不硬撑——按 intake 文件先旧后新,处理到预算线即收口(收尾三件照做),剩余原样留承接层,播报「本批消化 X 份,剩 Y 份下批」
-3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。
+3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。**一卡一 commit**:每张卡落完当场 commit(去向标注与落地改动同 commit,hash 自指写不了就标 `landed@同批`+文件落点),不许攒批——agent-on 工作区是所有项目会话的服务面(执行书按路径读工作区,不按 pin 读),攒批 = 拉长 canonical 中间态窗口,并发读者会读到半截规则(2026-07-13 实证:第六次消化 12 文件一批收口,窗口期被 Euan 会话撞见未提交 BOOTSTRAP)。
 4. **收尾三件**(缺一 = 消化失败):
    - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
    - CHANGELOG 条目:动了什么、来自哪份 intake、L3 改动成对列双落点、semver 档位(用户确认:major=不动手会坏 / minor=不动手不坏 / patch=不用知道)
