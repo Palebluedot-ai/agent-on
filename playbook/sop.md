@@ -93,7 +93,7 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 
 ## Phase 7 — 收口沉淀
 
-每个切片合流后 5 分钟内完成:progress.yaml 状态 + run-log 数据行 + loop-notes 教训(如有)+ commit&push;阶段性再做 snapshot(冷启动可恢复)。**沉淀是热的时候做的,冷了就没了。**
+每个切片合流后 5 分钟内完成:progress.yaml 状态 + run-log 数据行 + loop-notes 教训(如有)+ commit&push;阶段性再做 snapshot(冷启动可恢复)。**沉淀是热的时候做的,冷了就没了。** 里程碑收口时顺手:项目 README 的数字/状态类内容对表实况(README 漂移=对外的第一眼谎言;绑事件不设定时器)。
 
 **快照三写点**(2026-07-11 定稿;时钟/回合永不作触发器——机械定时产无人读的日志):
 1. **决策边界**:写 D 表同 commit 追一行「为什么链」(见 Phase 0 第 2 条),转折并入

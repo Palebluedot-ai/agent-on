@@ -34,6 +34,8 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 | 当前阶段具体在干什么 | 当前那张 phase 卡(`docs/phases/phase-*.md`) |
 | **有没有卡等着回 agent-on 消化** | `loop-notes.md` 顶部待办位「agent-on 待消化 N 张」(结账收尾写的)——有就在开场提一句,附可粘贴的消化命令 |
 | **pin 的模型档位是否还对得上** | `agent-on.lock.md` 的 pin 段 model 行——本次会话的模型若与记录的不同,提示「模型变了,建议跑 bench/capability-probe 重定保费档位」 |
+| **pin 的版本落后了吗** | lock 的 pin 行 vs agent-on 最新 tag——落后就开场播报「pin vX 落后 N 版(含/不含 major),可说『agent-on 升级』」;**只提示不动手**,升级永远显式口令;HEAD 领先 tag 的未发布 commit 不算版本、不催 |
+| **仪表盘还新鲜吗**(M/L) | `dashboard.html` 头部「最后更新」日期 vs progress.yaml 最近变更——落后就提一句「仪表盘陈旧,要我更新吗」 |
 | **速记区有没有没整理的想法** | `thoughts-and-ideas.md` 的📥速记区——非空就在开场提一句「想法收集箱有新内容,要我整理吗」,别让零散想法烂在速记区 |
 | **工作树有没有蔓延** | `git worktree list`——死枝 ≥3 个就开场提醒清理(会话生命周期与 worktree 生命周期天然脱钩,不巡就烂) |
 

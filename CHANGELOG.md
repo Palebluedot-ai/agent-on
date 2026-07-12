@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+### 第五次消化（2026-07-12，用户三问：保鲜与升级提示，3 卡全 landed）
+- 裁决先行：「定期更新」改造为**事件绑定 + 读时痛感**（时钟触发=快照定稿时已钉死的负空间）
+- **readme-freshness**：消化收尾加第四件「README 对表」（agent-on 侧，双实证：两次消化都在 README 抓到过期）+ sop Phase 7 里程碑项目 README 对表（项目侧）
+- **dashboard-staleness**：session-handshake 读取表加「仪表盘还新鲜吗」行 + dashboard 模板更新时机第三条「握手新鲜度提醒」
+- **upgrade-nudge**：session-handshake 读取表加「pin 落后了吗」行——每次握手顺带对表 agent-on 最新 tag，落后就播报「可说『agent-on 升级』」；只提示不动手，未发布 commit 不算版本不催
+
 ### 第四次消化（2026-07-12，首次跨项目：Euan 二结 7 卡 + IPONews 首结 3 卡 + 并发缝自源 1 卡，全 landed）
 - **bench 案例 21-23**（Euan 高置信三张）：双假阴性（测试锚真相源不锚生成物）/ 编辑器类 MCP 三层真相（commit 前查 mtime）/ sed 字符类事故（结构化文件禁 shell 字面量替换）+ 索引与使用时机表
 - **worktree-sprawl-patrol（L3 双落点，Euan+agent-on 双处实证）**：kit/merge-checklist 第 7 步全量巡检（拆前三查/孤儿先收编）+ boot/session-handshake 读取表「工作树蔓延」行
