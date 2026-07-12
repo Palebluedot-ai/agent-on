@@ -24,4 +24,4 @@
 ## 诚实边界
 
 - 斜杠命令依赖 Codex 的 prompts 约定（0.2x 起支持）；若某版本不识别，**中文口令永远是主路**（走 AGENTS.md 路由，不依赖任何命令系统）
-- Claude Code 独有的能力（子代理编排、Workflow 扇出）在 Codex 下按 `playbook/workflow-orchestration.md` §三退化为手工纪律——六步协议、结账、消化全部照跑
+- Claude Code 独有的能力（子代理编排、Workflow 扇出）在 Codex 下按 `playbook/workflow-orchestration.md` §四退化为手工纪律——六步协议、结账、消化全部照跑
