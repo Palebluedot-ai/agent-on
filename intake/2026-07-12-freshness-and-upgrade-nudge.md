@@ -10,7 +10,7 @@
 - suggested_landing:boot/settlement.md 下半场收尾 + playbook/sop.md Phase 7
 - rollback:revert
 - trace:本会话 README 修复实录（133d772 提交信息「过期修正」五处）
-- 状态:pending（低风险，直落）
+- 状态:landed@694b8e6（2026-07-12 第五次消化，低风险直落）
 
 ### dashboard-staleness-at-handshake（仪表盘新鲜度挂握手）
 - source:同上
@@ -20,7 +20,7 @@
 - suggested_landing:boot/session-handshake.md 读取表 + kit/dashboard-template.html 更新时机注释
 - rollback:revert
 - trace:快照 staleness 痛感门同构（2026-07-11 定稿）
-- 状态:pending（低风险，直落）
+- 状态:landed@694b8e6（2026-07-12 第五次消化，低风险直落）
 
 ### upgrade-nudge-at-handshake（旧版 pin 的升级提示）
 - source:同上
@@ -30,4 +30,4 @@
 - suggested_landing:boot/session-handshake.md 读取表（与 model 对表行相邻）
 - rollback:revert
 - trace:settlement step 0 对表播报同构;用户原话「旧款怎么提示升级」
-- 状态:pending（低风险，直落）
+- 状态:landed@694b8e6（2026-07-12 第五次消化，低风险直落）
