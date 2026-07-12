@@ -52,6 +52,26 @@
 - trace:deep-research wf_97aa9203-085 findings（checkpoint/worktree/Replit 三组）
 - 状态:pending
 
+### digest-semantic-grouping（消化频次扫描防 slug 漂移）
+- source:agent-on 自源 2026-07-12（本研究会话对话中识别） | @ 563706c
+- evidence:频次扫描协议原文只 grep slug 字面；slug 由各项目结账会话的 AI 起名，同一个坑两个项目命名不同则分组漏检、「同 slug ≥2 项目置顶」的频次信号失真——机制推演，尚无实体撞例（预防性修补）
+- confidence:medium（机制推演无实体案例；成本一行，收益 = 频次信号保真）
+- claim:消化开场频次扫描的分组判据从「slug 字面」扩为「slug 或 claim 语义同类」——claim 说的是同一个坑就按同类归并，slug 不同照样置顶升 L3
+- suggested_landing:boot/settlement.md 下半场 step 1
+- rollback:revert
+- trace:本会话用户问「settlement 会不会彼此冲突」的答复中识别
+- 状态:landed@同批（用户「把真实薄弱点一起改了」直落）
+
+### digest-batch-budget（消化超预算分批，不硬撑）
+- source:agent-on 自源 2026-07-12（本研究会话对话中识别） | @ 563706c
+- evidence:settlement.md 头部负担预算「消化 = 一场会话 + 一组选择题」是硬约束，但下半场无超预算时的执行路径——积压 >3 份时选择题会爆组，预算约束沦为空话——机制推演，积压场景尚未实发（预防性修补）
+- confidence:medium（机制推演无实体案例）
+- claim:三态分诊加预算线（硬）：选择题一场一组 ≤10 题；超线按 intake 文件先旧后新处理到预算线即收口（收尾三件照做），剩余原样留承接层并播报「本批 X 份，剩 Y 份下批」
+- suggested_landing:boot/settlement.md 下半场 step 2
+- rollback:revert
+- trace:同上
+- 状态:landed@同批（用户「把真实薄弱点一起改了」直落）
+
 ## 附录：deep-research 摘要（供消化会话引用，非卡）
 
 **存活结论精要（22/25 条，全部 2026-07-12 对抗核验 3-0 除注明外）：**

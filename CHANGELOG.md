@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### 消化协议两缝（2026-07-12，框架自研究会话直落，2 卡 landed；定级 minor 攒批）
+- **digest-semantic-grouping**：开场频次扫描分组判据从「slug 字面」扩为「slug 或 claim 语义同类」——slug 是 AI 起的会漂，同坑不同名照样置顶升 L3（boot/settlement.md 下半场 step 1）
+- **digest-batch-budget**：三态分诊加预算线（硬）——选择题一场一组 ≤10 题，超线按 intake 文件先旧后新处理到线即收口，剩余留承接层播报「剩 N 份下批」（boot/settlement.md 下半场 step 2）
+- 附记：两缝均为机制推演的预防性修补（无实体撞例，confidence=medium 如实标注），卡在 intake/2026-07-12-framework-research.md 追加、直落即标 landed
+
 ### 第五次消化（2026-07-12，用户三问：保鲜与升级提示，3 卡全 landed）
 - 裁决先行：「定期更新」改造为**事件绑定 + 读时痛感**（时钟触发=快照定稿时已钉死的负空间）
 - **readme-freshness**：消化收尾加第四件「README 对表」（agent-on 侧，双实证：两次消化都在 README 抓到过期）+ sop Phase 7 里程碑项目 README 对表（项目侧）

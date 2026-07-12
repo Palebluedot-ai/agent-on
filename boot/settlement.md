@@ -26,11 +26,12 @@
 为什么必须换:会话上下文 = 装载的规则集,没读 agent-on 的 AGENTS.md 的会话,不许动它的 canonical(单写者不变量)。
 
 0. **开场三检**(单写者安全门,三检不过不动 canonical):`git fetch` 后核本地=origin(分叉先并);`git worktree list` 无未知活跃工作树;工作区干净。——2026-07-12 实证:消化会话检查与推送之间的几十秒里,另一个项目的结账刚好落盘,靠这道检查当场发现而非事后撞车。
-1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶,强制升 L3。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
+1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶,强制升 L3。**分组别只认 slug 字面**——slug 是各结账会话的 AI 起的,会漂;claim 说的是同一个坑就按同类归并,slug 不同照样置顶。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
 2. **三态分诊**([../bench/correction-loop.md](../bench/correction-loop.md)):
    - 低风险(措辞 / 错链 / bench 案例追加):AI 直落 canonical
    - 中风险(模板行 / checklist 行 / playbook 段落)与高风险(schema 必填 / BOOTSTRAP 语义 / 不变量):**打包成一组选择题**(每题 = 卡摘要 + 建议落点 + 采纳/拒绝/缓议),用户一次拍完
    - pin 旧版、新版已修复的摩擦:直接 `rejected(升级 pin 即解)`——这也是版本漂移探测器
+   - **预算线(硬)**:选择题一场一组、≤10 题;超线不硬撑——按 intake 文件先旧后新,处理到预算线即收口(收尾三件照做),剩余原样留承接层,播报「本批消化 X 份,剩 Y 份下批」
 3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。
 4. **收尾三件**(缺一 = 消化失败):
    - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
