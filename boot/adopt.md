@@ -18,15 +18,15 @@
 ### 第 3 步:增量补件(按档,只补缺的)
 
 **所有档共同的三件(闭环必需件):**
-- 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`(pin 当前版本;last_settlement 留空——**第一次结账从接入日起算,不回填历史**)
+- 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`(pin 当前版本;last_settlement 留空——**第一次结账从接入日起算,不回填历史**)。保费档位可暂标「待测·暂按某档」:项目已有大规模绿测试与既有纪律实证时,capability-probe 允许延后至首次结账前补跑,不阻塞接管(IPONews 实证,单项目条款)
 - 项目里没有 `loop-notes.md` 就建一个空的
 - 实例化 `kit/thoughts-and-ideas-template.md` → 项目根 `thoughts-and-ideas.md`(想法收集箱,全档;口令「整理想法」)
 
 **S 轻装**:再无其他。若项目**已有**自己的规则文件,不要替换——在其顶部加 `## agent-on 映射` 一节(两行:lock 指针 + 两个口令)即完成;没有规则文件才拷 `kit/AGENTS-lite.md` 填空。
 
 **M 标准**:上面之外补——
-- 规则文件:已有则**合并**(把 AGENTS-skeleton 里项目缺的节逐节问用户后补入,已有条款一律保留原文);没有才拷 skeleton 填空
-- `docs/state/progress.yaml`(kit 模板):只登记**当前未完成的工作**,历史不补
+- 规则文件:已有则**合并**(把 AGENTS-skeleton 里项目缺的节逐节问用户后补入,已有条款一律保留原文);没有才拷 skeleton 填空。**低摩擦变体**(项目真相源已成体系或用户明示时可选):缺节内容从项目真相源派生 + 真正需拍板项列入接入报告——问询预算只花在无据可依的节上(IPONews 实证,单项目条款)
+- `docs/state/progress.yaml`(kit 模板):只登记**当前未完成的工作**,历史不补。项目已有**等价真相源**(如自有 STATUS 文件)时不强并不替换——按维度分工(谁管模块/TODO、谁管阶段/瓶颈)并把「真相源链」写进映射节,dashboard 数据源清单登记多处(IPONews 实证,单项目条款)
 - `docs/phases/_TEMPLATE.md`:从**下一个**任务开始卡片化,进行中的活干完为止不强行改造
 - 实例化 `kit/dashboard-template.html` → 项目根 `dashboard.html`,从现状初绘一次(M/L 默认件;口令「更新仪表盘」+ 合流必更,数据只从真相源读禁手填)
 

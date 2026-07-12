@@ -12,7 +12,7 @@
    - **L 档旁路(仅多 agent 编排且已启用 run 台账时)**:项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card。**注意:jsonl 采集链 + audit-lint 尚未在真实项目跑通过——S/M 档没有 run 台账,目录不存在是正常的,别困惑,走主路径即可。**
 2. **证据硬门**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。
 3. **装配 Promotion Card**(模板 [../kit/promotion-card-template.md](../kit/promotion-card-template.md)):六项缺一拒收,另带 pattern slug + 本项目 pin 版本。
-4. **落盘承接层**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件**,在 agent-on 仓单独 commit(只含这一个文件,绝不碰其他)。
+4. **落盘承接层**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件**,在 agent-on 仓单独 commit(只含这一个文件,绝不碰其他)。**commit 后立即 push**;被拒(别的项目同刻也在结账)则 `git pull --rebase` 后重推——intake 文件按项目命名互不相交,rebase 必然干净(2026-07-12 双项目并发实证:两个结账会话都只 commit 没 push,回流滞留本地)。同日同项目再次结账:**追加进当日同名文件**,不另建——已标 synced 的条目自动跳过,幂等。
 5. **回执**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。
 6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
    - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令,形如 `cd ~/Projects/Agent-On && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去,如「intake 积压 3 份待消化」。用户当场不消化也没关系——命令已备好,下次粘贴即走。
@@ -25,6 +25,7 @@
 
 为什么必须换:会话上下文 = 装载的规则集,没读 agent-on 的 AGENTS.md 的会话,不许动它的 canonical(单写者不变量)。
 
+0. **开场三检**(单写者安全门,三检不过不动 canonical):`git fetch` 后核本地=origin(分叉先并);`git worktree list` 无未知活跃工作树;工作区干净。——2026-07-12 实证:消化会话检查与推送之间的几十秒里,另一个项目的结账刚好落盘,靠这道检查当场发现而非事后撞车。
 1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶,强制升 L3。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
 2. **三态分诊**([../bench/correction-loop.md](../bench/correction-loop.md)):
    - 低风险(措辞 / 错链 / bench 案例追加):AI 直落 canonical

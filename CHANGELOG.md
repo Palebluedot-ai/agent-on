@@ -4,6 +4,16 @@
 
 ## [未发布]
 
+### 第四次消化（2026-07-12，首次跨项目：Euan 二结 7 卡 + IPONews 首结 3 卡 + 并发缝自源 1 卡，全 landed）
+- **bench 案例 21-23**（Euan 高置信三张）：双假阴性（测试锚真相源不锚生成物）/ 编辑器类 MCP 三层真相（commit 前查 mtime）/ sed 字符类事故（结构化文件禁 shell 字面量替换）+ 索引与使用时机表
+- **worktree-sprawl-patrol（L3 双落点，Euan+agent-on 双处实证）**：kit/merge-checklist 第 7 步全量巡检（拆前三查/孤儿先收编）+ boot/session-handshake 读取表「工作树蔓延」行
+- **穷尽式提取模式**：playbook/workflow-orchestration.md 新增 §三（分片提取→双路对抗核对，核对者必须独立生成机械对表清单）
+- **design-handoff-as-file**：sop Phase 1「设计稿交接=收文件落仓，链接不是交接物」
+- **hard-axis-soft-tags（判据先行）**：playbook/architect-lens.md 尾注同族补条（先给一句话判据再端 schema）
+- **IPONews 三条 adopt 软化条款**（均标「单项目实证」）：低摩擦合并变体 / probe 延后条款 / 双真相源按维度分工（boot/adopt.md 三处 + kit/dashboard-template 数据源多源注记）
+- **并发缝三件（当日双实体证据）**：settle step4 补「commit 后立即 push+被拒 rebase 重推+同日同项目追加同名文件」；消化下半场新增 step0「开场三检」单写者安全门
+- 附记：本批为**首次真实多项目并发**——两项目同日结账零 git 冲突（intake 命名空间设计经受实战），暴露的三条协议缝当场修复
+
 ### 第三次消化（2026-07-12，1 卡：Codex 一核两适配提案经对抗裁决）
 - **single-skill-kernel（landed）**：`skill/SKILL.md` 确立为唯一内核（头注声明 Claude `/agent-on` 与 Codex `$agent-on` 同源，symlink 各挂 `~/.claude/skills` 与 `~/.agents/skills`）+ 补两条路由规则（无 lock 自动判 init/adopt；HEAD 领先 tag 时诚实播报「未发布变化」不伪装成版本，同落 settlement step 0）；`codex/prompts/agent-on.md` 降为迁移壳（v0.4 dogfood 后删）；codex/README 主路改 `$agent-on`。对抗保留：每 pin 路由（触发=首个 major）、能力探测/自动路由（dogfood 前不设计）、Plugin 打包（维持先自用拍板）。附记：审查者初判 `$agent-on`/`~/.agents` 为幻觉，被实证纠正——对抗双向生效
 
