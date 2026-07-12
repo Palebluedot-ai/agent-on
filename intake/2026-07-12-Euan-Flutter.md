@@ -11,7 +11,7 @@
 - suggested_landing:playbook/sop.md 交接/集成清单一行;或 kit/AGENTS-skeleton 协作节
 - rollback:revert 落地 commit
 - trace:loop-notes「2026-07-11 · 设计交接的两条前端教训」第 1 条
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### stale-codegen-double-false-negative(双假阴性:测试替过期生成物作伪证)
 - source:Euan-Flutter @ b83be35 | pin 未锚
@@ -21,7 +21,7 @@
 - suggested_landing:playbook 里 codegen/生成物纪律段;kit CI checklist 一行
 - rollback:revert
 - trace:loop-notes「2026-07-11」第 2 条
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### editor-memory-truth-layers(Pencil 三层真相:内存>磁盘>快照)
 - source:Euan-Flutter @ 3fd26e8 | pin 未锚
@@ -31,7 +31,7 @@
 - suggested_landing:playbook 工具纪律篇(或 bench 案例);同类工具(Figma/Pencil/任何带编辑器的 MCP)通用
 - rollback:revert
 - trace:loop-notes「2026-07-12 · Pencil 三层真相纪律」
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### sed-charclass-disaster(结构化文件禁用 shell 字面量替换)
 - source:Euan-Flutter @ cc1b6d4 前后 | pin 未锚
@@ -41,7 +41,7 @@
 - suggested_landing:kit 安全纪律 checklist(与 careful/guard 类规则同层);bench 案例
 - rollback:revert
 - trace:loop-notes「2026-07-12 · sed 字符类事故」
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### worktree-sprawl-patrol(合流必带 worktree 巡检)
 - source:Euan-Flutter @ 730a8e0 | pin 未锚
@@ -51,7 +51,7 @@
 - suggested_landing:playbook/sop.md 合流节 + session-handshake 读取表加一行(与「待消化」同层的例行巡检)
 - rollback:revert
 - trace:loop-notes「2026-07-12 · worktree 蔓延」
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### exhaustive-extraction-adversarial-verify(穷尽留存=分片提取+双路对抗核对)
 - source:Euan-Flutter @ 713fef2 | pin 未锚
@@ -61,7 +61,7 @@
 - suggested_landing:playbook 编排篇(与契约先行双轨并行同层的模式);kit 若有 workflow 模板则加一节
 - rollback:revert
 - trace:loop-notes「2026-07-12 · 穷尽式留存的多 agent 提取模式」
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
 
 ### hard-axis-soft-tags(时间判据拆本体论打架)
 - source:Euan-Flutter @ 6c70b9e | pin 未锚
@@ -71,4 +71,4 @@
 - suggested_landing:playbook 决策辅助/architect-lens 篇(与「架构雷达」同族:信号→判据→动作)
 - rollback:revert
 - trace:loop-notes「2026-07-12 · 硬轴/软标签」
-- 状态:pending
+- 状态:landed@fae09b3（2026-07-12 第四次消化·首次跨项目,用户拍板全落最轻形态）
