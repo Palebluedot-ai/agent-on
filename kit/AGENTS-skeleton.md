@@ -54,6 +54,8 @@ A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 d
 | 发布部署 | [如 GStack /ship] | — |
 | 调试 | [如 GStack /investigate] | playbook/anti-hallucination.md |
 
+**压制条款（防抢跑）**：被路由掉的 skill 在此点名禁用（例：「规划设计走 /autoplan，禁用 superpowers:brainstorming 抢跑」）——本文件是双工具共读层，压制写在这里才对 Claude 与 Codex 同时生效；只写进单工具配置（如 `~/.claude/CLAUDE.md`）另一家照样抢跑。
+
 ## §二车道(见 agent-on 的 playbook/freedom-vs-discipline.md)
 
 Explore(视觉/原型/概念:一把梭可丢弃,不写测试,只守 token 色/真实感数据/触达底线)× Ship(碰数据/钱/安全:全纪律)。**两道不许串**:Explore 代码不直接 merge(重写),Ship 流程不管 Explore。

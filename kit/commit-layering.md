@@ -19,6 +19,10 @@
 | `chore:` | 杂务:依赖、配置、目录调整 |
 | `test:` | 加/改测试,不动生产代码 |
 
+## 环节收口 = 一个 commit(规划链与口令动作)
+
+规划链每个环节(MRD / 澄清包 / PRD / plan / 审查改写 / phase 卡)与口令动作(整理想法 / 更新仪表盘 / 结账)收口即 commit,不许攒:规划文档用 `decision:`(拍板类)或 `docs:`(记录类)前缀,中文语义化 message。**commit 时间线就是用户的回退时间线**——不懂 git 的用户靠语义化 message 找回任何一步(BOOTSTRAP §4 L8)。
+
 ## 核心原则:思想变更与自动化变更绝不混一个 commit
 
 「决定要做什么」(decision/docs)和「把它实现出来」(feat/fix/refactor/test)分属两次提交。原因:回滚一个错误决策时,不该被迫连带回滚一堆无辜的自动化代码;反之亦然。跨层顺序通常是 `decision:` → `feat:`/`test:` → `docs:`。

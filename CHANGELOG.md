@@ -4,6 +4,16 @@
 
 ## [未发布]
 
+### 第六次消化（2026-07-13，框架自研究 5 卡 + Euan 尾单 1 卡，5 landed + 1 半落半缓；定级 minor 攒批）
+- 频次扫描：「未 commit 的工作对其他会话不存在」坑家族跨项目双实证（AINVESTMENT 零落盘零 commit + Euan worktree-sprawl）→ 置顶升 L3 双落点
+- **bootstrap-verifiable-landing（L3）**：BOOTSTRAP §2 S 捷径与 M/L 新增第 9 步 initial commit（落盘未 commit = 初始化未完成，禁报完成）+ §7 验收第 7 条 `git log` 证据——boot 侧；kit/commit-layering「环节收口 = 一个 commit」节——kit 侧
+- **gstack-artifact-transcription（L3，与上同族成对）**：BOOTSTRAP §4 新增 **L8 产物入仓 + 收口 commit**（外部 skill 产物转录进 docs/ 才算环节完成；orchestrator 是规划链落盘与 commit 唯一责任人，与 L3 同构）+ §2 步 1 补 docs/{product,requirements,plans}/
+- **planning-chain-routing**：BOOTSTRAP 新增 **§1.5 规划链**（调研→MRD→澄清→PRD→方案→审查→拆解路由表，M/L 分档，S 跳过；/office-hours 强制 Startup 当 MRD、/spec 下沉单卡精修、/autoplan per-milestone）+ 模板问卷化协议（AI 草拟+用户勘误、答不上落 99_待确认、禁编填）落 prd/requirement-pack 模板头注 + kit/README 启动步骤第 0 步
+- **cross-tool-skill-routing-parity**：BOOTSTRAP §4 尾注「路由含压制」+ AGENTS-skeleton §skill 路由压制条款 + AGENTS-lite §0 一行——压制必须写双工具共读层（实证：AINVESTMENT superpowers 抢跑）；机器侧 AGENT.md 属 agent-memory 仓，提醒用户自补
+- **novice-checkpoint-ux（半落半缓）**：最小件「口令动作收口即 commit、commit 时间线即回退时间线」并入 L8 与 commit-layering；「回退口令」deferred（触发 = dogfood 中用户真喊回退）
+- **single-human-facing-list（Euan 尾单）**：playbook/truth-hierarchy 新增 §五「单读面：人读状态面一个受众只养一份，第二份直接删」+ kit/dashboard-template 铁律第 ⑤ 条「只此一份」（四条铁律 → 五条）
+- 附记：本批 5 卡的拍板依据 = 全部内容已在来源会话与用户逐条对过 + 消化口令（与第三次消化同例）；intake 未收口清零
+
 ### 消化协议两缝（2026-07-12，框架自研究会话直落，2 卡 landed；定级 minor 攒批）
 - **digest-semantic-grouping**：开场频次扫描分组判据从「slug 字面」扩为「slug 或 claim 语义同类」——slug 是 AI 起的会漂，同坑不同名照样置顶升 L3（boot/settlement.md 下半场 step 1）
 - **digest-batch-budget**：三态分诊加预算线（硬）——选择题一场一组 ≤10 题，超线按 intake 文件先旧后新处理到线即收口，剩余留承接层播报「剩 N 份下批」（boot/settlement.md 下半场 step 2）

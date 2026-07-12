@@ -20,6 +20,7 @@
 
 S 轻装档不走这里——三件套捷径见 BOOTSTRAP §2,一分钟播完。
 
+0. 规划链(BOOTSTRAP §1.5,M/L):MRD→澄清→PRD→plan→审查,产物落 `docs/{product,requirements,plans}/`,每环节收口即 commit
 1. 建目录:`contracts/fixtures/` `docs/{state,phases,snapshots}/`
 2. 拷 AGENTS-skeleton.md → 项目根 `AGENTS.md`,填 [占位];拷 progress-template.yaml → `docs/state/progress.yaml`
 3. 需求三分法(sop Phase 0):硬约束进 AGENTS §1;**暂停项写成禁令**,不是删掉

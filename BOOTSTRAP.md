@@ -36,13 +36,30 @@
 5. 单人 + AI，还是有其他协作者？这台机器上有没有已装的 skill 体系（GStack / Superpowers 等）？——决定审查 / 发布 / 调试各走谁，见 §4 尾注与 AGENTS §skill 路由。
 6. 有没有明确不做 / 暂缓的事？（暂停项要写成禁令，不是删掉）
 
+## 1.5 规划链（定档后、播骨架前；S 档跳过本节）
+
+想法到 phase 卡之间隔着一串文档：调研 → MRD → 需求澄清 → PRD → 技术方案 → 审查 → 拆解。原则：**拆解责任在框架不在用户；有强 skill 就路由调用，不自研提问流**（本机 skill 体系从 §1 第 5 问得知）。产物一律转录进项目 `docs/`（§4 L8），每环节收口一个 commit。
+
+| # | 环节 | 有 GStack 时路由 | 产物落盘 | M | L |
+|---|---|---|---|---|---|
+| 1 | 调研 | office-hours 自带 landscape 搜索；深调研点名 deep-research；UI 项目加 /design-consultation | `docs/research/landscape.md` | 可选 | 必 |
+| 2 | MRD | `/office-hours` **强制 Startup mode**（禁 Builder 路由，忽略其营销收尾） | 转录 → `docs/product/mrd.md` | 必 | 必 |
+| 3 | 需求澄清 | 无 skill：`kit/requirement-pack-template.md` 问卷化（见下） | `docs/requirements/` | 可选（多角色/有权限面才做） | 必 |
+| 4 | PRD | 无 skill：`kit/prd-template.md`——先从 MRD 机械转录，再补问首发范围/非功能 | `docs/product/prd.md` | 必 | 必 |
+| 5 | 技术方案 | plan mode 按选定 approach 写 rough plan（正是 autoplan 的输入假设） | `docs/plans/<里程碑>-plan.md` | 必（可粗） | 必 |
+| 6 | 审查 | `/autoplan`（**per-milestone 喂，禁整本 PRD**） | plan 原地改写，test plan 拷回 `docs/plans/` | 可选 | 必 |
+| 7 | 拆解 | agent-on 自持：§2 的 phase 卡 | `docs/phases/phase-*.md` | 必 | 必 |
+| 7b | 单卡精修 | `/spec`（issue 级——只在这里用，放产品层 = 层级错位） | 精修后的 phase 卡 | 复杂卡可选 | 复杂卡可选 |
+
+**模板问卷化协议**（第 3、4 环节的引导方式，也是无 GStack 机器的全链兜底）：凡实例化 `kit/prd-template.md` / `kit/requirement-pack-template.md`，每个空节 = 一轮「**AI 从上游文档与对话草拟 + 用户勘误**」，不拿空表逼问（选择比描述便宜十倍）；用户答不上的落 `99_待确认与决策记录`，**禁止 AI 编内容填空**。
+
 ## 2. 搭骨架
 
-**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`；实例化 `kit/thoughts-and-ideas-template.md` → `thoughts-and-ideas.md`（想法收集箱，全档都建）。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
+**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`；实例化 `kit/thoughts-and-ideas-template.md` → `thoughts-and-ideas.md`（想法收集箱，全档都建）；**initial commit**（没仓先 `git init`，骨架全部入 git——落盘未 commit = 初始化未完成）。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
 
 **M / L 档走七步**（M 档第 1 步的 `contracts/` 与 §5 并行装备可等用到再加）：
 
-1. 建目录：`docs/{state,phases,snapshots}/`；将来有接口两侧并行的可能就加 `contracts/fixtures/`
+1. 建目录：`docs/{state,phases,snapshots}/`；走了 §1.5 规划链就加 `docs/{product,requirements,plans}/`（做了调研另加 `docs/research/`）；将来有接口两侧并行的可能就加 `contracts/fixtures/`
 2. 拷 `kit/AGENTS-skeleton.md` → 项目根 `AGENTS.md`，用 §1 的答案填空（不留 `[占位]`）；另建一行 `CLAUDE.md`：「规则权威见 AGENTS.md」——AGENTS.md 是 Claude Code 与 Codex 的共同标准，双工具通吃
 3. 拷 `kit/progress-template.yaml` → `docs/state/progress.yaml`——**单一状态写者**：只有 orchestrator 主会话能写它
 4. 拷 `kit/phase-card-template.md` → `docs/phases/_TEMPLATE.md`
@@ -50,6 +67,7 @@
 6. 写第一张 phase 卡 `docs/phases/phase-s0.1-<slug>.md`：自包含（新会话只读这张卡就能干活）、验收 ≤8 条、每条能翻译成测试名或命令输出
 7. 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`（pin 当前 agent-on 的 tag+commit）；AGENTS.md 首节加一行「agent-on 映射见 agent-on.lock.md」。此后凡从 kit 实例化文件，头部都加 `<!-- instantiated-from kit/<文件> @ vX.Y.Z -->`
 8. 实例化两个默认件：`kit/thoughts-and-ideas-template.md` → 项目根 `thoughts-and-ideas.md`（全档）；`kit/dashboard-template.html` → 项目根 `dashboard.html`（M/L 档，填项目名后从真相源初绘一次）。维护协议见各自模板头部；告诉用户两个口令：「整理想法」「更新仪表盘」
+9. **initial commit**：骨架文件全部入 git（没仓先 `git init`）——**落盘未 commit = 初始化未完成，禁止向用户报完成**；此后规划链每环节与口令动作收口即 commit（§4 L8）
 
 ## 3. 车道判定（每个任务先过这道门）
 
@@ -66,10 +84,11 @@
 - **L5 暂停项 = 禁令**：未写明允许即禁止
 - **L6 Error Signal 四要素**：报障必须带 What / Where / How / Severity
 - **L7 外部服务第一天**：真实载荷形状对账、函数区 = 数据区、部署后 GET 和 POST 都冒烟
+- **L8 产物入仓 + 收口 commit**：走外部 skill（GStack 等）的规划/审查环节，产物常落 `~/.gstack/` 等仓外路径——收口 = 转录进项目 `docs/` + 一个 commit（中文语义化 message），否则该环节不算完成；orchestrator 主会话是规划链落盘与 commit 的唯一责任人（与 L3 同构）。口令动作（整理想法/更新仪表盘/结账）收口同样即时 commit——**commit 时间线就是用户的回退时间线**
 
 **动手前扫坑**（M/L 必读）：接外部服务 / 上多 agent 并行 / 给用户交付产出前，先扫 agent-on `bench/cases/README.md` 的「使用时机表」——17 张实战翻车案例按场景索引，别人踩过的坑动手前先认一遍。
 
-**skill 分工尾注**：本仓 `kit/review-prompt-template.md` 是 fallback 审查协议。若这台机器已装强 skill 体系（GStack `/review`、Superpowers 等），审查 / 发布 / 调试各走哪套写进项目 AGENTS §skill 路由——agent-on 模板只在没有对应 skill 时兜底，避免双审查制度打架。
+**skill 分工尾注**：本仓 `kit/review-prompt-template.md` 是 fallback 审查协议。若这台机器已装强 skill 体系（GStack `/review`、Superpowers 等），审查 / 发布 / 调试各走哪套写进项目 AGENTS §skill 路由——agent-on 模板只在没有对应 skill 时兜底，避免双审查制度打架。**路由含压制**：被路由掉的抢跑型 skill（brainstorming / planning 类）要在 AGENTS §skill 路由**点名禁用**——不点名 = 可被抢跑；压制必须写在双工具共读层（项目 AGENTS.md、机器侧 AGENT.md），只写单工具专属文件（如 `~/.claude/CLAUDE.md`）则另一家照样抢跑（实证：AINVESTMENT 事故——superpowers brainstorming 在 Codex 会话抢跑 init，骨架零落盘零 commit）。
 
 ## 5. 多 agent 并行（需要时才启用）
 
@@ -88,7 +107,7 @@
 - 「**整理想法**」→ 读 `thoughts-and-ideas.md` 速记区，归类成文标去向进「已整理」，清空速记区（换会话握手若发现速记区非空，主动提醒一次）
 - 「**更新仪表盘**」→ 从真相源（progress.yaml / 决策 / phase 卡）重绘 `dashboard.html`（M/L）；合流时也必更（见 merge-checklist 第 7 步）。**数据只从真相源读，禁手填**
 
-## 7. 初始化完成的验收（对用户交付；S 档只查第 1、3、4、5 条，第 1 条查 AGENTS-lite）
+## 7. 初始化完成的验收（对用户交付；S 档只查第 1、3、4、5、7 条，第 1 条查 AGENTS-lite）
 
 - [ ] AGENTS.md 已填空，无 `[占位]` 残留；CLAUDE.md 指针就位
 - [ ] progress.yaml、phases/_TEMPLATE.md、第一张 phase 卡就位
@@ -96,6 +115,7 @@
 - [ ] `thoughts-and-ideas.md` 就位（全档）；`dashboard.html` 就位并初绘一次（M/L）
 - [ ] 需求三分法讲给用户听过：已确认 / 待拍板 / 暂停禁令三张清单
 - [ ] 用户知道四个口令：「agent-on 结账」「agent-on 升级」「整理想法」「更新仪表盘」（后两个 S 档只有「整理想法」）
+- [ ] 骨架已 commit：`git log --oneline` 非空且含骨架文件（落盘未 commit = 初始化未完成）
 - [ ] 以上每条都有实际文件路径或命令输出作证（L2 对你自己同样生效）
 
 档播错了怎么办：改 AGENTS 里的档位标记 + lock 的 local_deviations 记一行即可，**不重播**——升档补件走 boot/adopt.md §二，降档只删不用的件。

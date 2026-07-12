@@ -10,7 +10,7 @@
 - suggested_landing:BOOTSTRAP §2 七步后新增收尾步 + §7 验收清单；playbook/anti-hallucination.md 可引此案
 - rollback:revert 落地 commit
 - trace:本会话 AINVESTMENT 取证命令实录；deep-research run wf_97aa9203-085
-- 状态:pending
+- 状态:landed@同批（第六次消化：BOOTSTRAP §2 S 捷径与 M/L 第 9 步 initial commit + §7 验收第 7 条 git log 证据）
 
 ### cross-tool-skill-routing-parity（skill 路由压制必须落双工具共读层）
 - source:agent-on 自源 2026-07-12 | @ eff1cef
@@ -20,7 +20,7 @@
 - suggested_landing:kit/AGENTS-skeleton.md §skill 路由 + kit/AGENTS-lite.md 对应行 + BOOTSTRAP §4 尾注；机器侧 AGENT.md 属 agent-memory 仓（跨仓，消化时提醒用户去补一节）
 - rollback:revert
 - trace:AINVESTMENT .superpowers/ 目录列表实录 + ~/.claude/CLAUDE.md Skill Routing 节
-- 状态:pending
+- 状态:landed@同批（第六次消化：BOOTSTRAP §4 尾注「路由含压制」+ AGENTS-skeleton §skill 路由压制条款 + AGENTS-lite §0 一行；机器侧 AGENT.md 属 agent-memory 仓，待用户自补）
 
 ### planning-chain-routing（规划链：调研→MRD→澄清→PRD→方案→审查→拆解 的路由表）
 - source:agent-on 自源 2026-07-12 | @ eff1cef
@@ -30,7 +30,7 @@
 - suggested_landing:BOOTSTRAP §1 与 §2 之间新节（或 §4 尾注扩展成路由表）+ kit/prd-template.md 与 kit/requirement-pack-template.md 头部加问卷化协议注 + kit/README 链条落盘路径表
 - rollback:revert（新节独立成段，可整段撤）
 - trace:wf_f7ec7a5c-dc0 journal（S/M/L 裁剪表全文在该 run 的 gap 产出）
-- 状态:pending
+- 状态:landed@同批（第六次消化：BOOTSTRAP 新增 §1.5 规划链 + prd/requirement-pack 模板问卷化头注 + kit/README 启动步骤第 0 步）
 
 ### gstack-artifact-transcription（外部 skill 产物转录铁则与 commit 责任人）
 - source:agent-on 自源 2026-07-12 | @ eff1cef
@@ -40,7 +40,7 @@
 - suggested_landing:BOOTSTRAP §2 步 1（目录）+ §4 L2 扩写（或新增 L8）+ kit/commit-layering.md 加环节收口行
 - rollback:revert
 - trace:wf_f7ec7a5c-dc0 gap 产出 §4（五条落盘约定缺口全文）
-- 状态:pending
+- 状态:landed@同批（第六次消化：BOOTSTRAP §4 新增 L8 产物入仓+收口 commit + §2 步 1 补三目录 + kit/commit-layering「环节收口」节）
 
 ### novice-checkpoint-ux（小白回退体验：自动 commit 时间线，git 藏在口令后——方向卡）
 - source:agent-on 自源 2026-07-12 | @ eff1cef
@@ -50,7 +50,7 @@
 - suggested_landing:最小件并入 gstack-artifact-transcription 落地；「回退口令」deferred
 - rollback:revert
 - trace:deep-research wf_97aa9203-085 findings（checkpoint/worktree/Replit 三组）
-- 状态:pending
+- 状态:最小件 landed@同批（第六次消化：并入 L8 与 commit-layering「commit 时间线即回退时间线」）；「回退口令」deferred（触发 = dogfood 中用户真喊出回退需求）
 
 ### digest-semantic-grouping（消化频次扫描防 slug 漂移）
 - source:agent-on 自源 2026-07-12（本研究会话对话中识别） | @ 563706c

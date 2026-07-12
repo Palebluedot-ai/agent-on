@@ -1,5 +1,7 @@
 ## PRD 模板
 
+> 问卷化协议（BOOTSTRAP §1.5）：每个空节 = 一轮「AI 从 MRD 与对话草拟 + 用户勘误」，不拿空表逼问；答不上的落 `docs/requirements/99_待确认与决策记录`，禁止 AI 编内容填空。产物落 `docs/product/prd.md`，收口即 commit。
+
 1. 产品概述
 2. 背景与机会
 3. 目标用户

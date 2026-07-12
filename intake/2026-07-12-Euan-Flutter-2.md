@@ -10,4 +10,4 @@
 - suggested_landing:playbook 真相源/单写者篇(与 progress.yaml 单写者同族:单读面);kit 若有 dashboard/handoff 模板则加一行「禁开第二份人读清单」
 - rollback:revert 落地 commit
 - trace:loop-notes「2026-07-12 · 双清单漂移」
-- 状态:pending
+- 状态:landed@同批（第六次消化：playbook/truth-hierarchy 新增 §五 单读面 + kit/dashboard-template 铁律第 ⑤ 条「只此一份」）
