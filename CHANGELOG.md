@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+### 第七次消化（2026-07-13，IPONews 二结 4 卡全 landed，一卡一 commit 首跑；定级 minor 攒批）
+- **fanout-probe-gate**：workflow-orchestration §〇 探针闸门（大扇出前 1 探针子代理验工具通路，不过不扇出）+ checklist 探针行 + bench 案例 24（同机正反对照：22 代理 66 万 token 零产出 vs 105 代理 0 错）；README 案例计数 23→24 并修陈旧拆分
+- **dom-render-verification + pricing-freshness-gate（语义归并同节落地）**：workflow-orchestration 新增 **§三½ 外部事实直核纪律**两条（价格/榜单证据必须浏览器渲染 DOM、表格核总行数防静默截断；型号与价格当日官方页直核+逐项标查证日期，prompt 预填型号只当检索线索）+ checklist「调研型扇出附加条款」两行
+- **quota-fallback-subagent-downgrade**：§一第 6 件断点续跑变体（已完成成果照用/缺口降档模型续跑/合成判断留主会话）+ checklist 撞配额预案行——标「单会话实证」
+- 附记：一卡一 commit 新规首次实跑（4 卡 4 commit：102b87f/1205a6a/197b20b/eccb2f3），canonical 中间态窗口缩到单卡分钟级；卡2 落地时曾误吞 §四标题，同 commit 内 grep 结构核验抓回——锚点替换必须把锚补回替换文本
+
 ### 消化协议第三缝（2026-07-13，Euan 撞窗实证 + 用户拍板选项 1 直落；定级 minor 攒批）
 - **digest-per-card-commit**：消化落地改「一卡一 commit」禁攒批（boot/settlement.md 下半场 step 3）——agent-on 工作区是所有项目会话的服务面，攒批拉长 canonical 中间态窗口，并发读者会读到半截规则。实证：第六次消化 12 文件一批收口，窗口期被 Euan 会话撞见未提交 BOOTSTRAP.md。来源：Euan 反馈（其观察行待其下次结账回流，届时按语义归并标已落）；候选项 2「读者按 pin 读」维持 deferred（触发 = 首个 major）
 
