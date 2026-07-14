@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+### 强制约束层 L-动作（2026-07-13，deep-research wf_9c47f385-3e2 + 用户拍板「按建议进行」；定级 minor 攒批）
+- **enforcement-layer-design 最小件**：新增 `kit/guard/agent-on-git-guard.sh`（PreToolUse hook，python3 轻量校验脚本）——「会话根不在 agent-on 仓却对 agent-on 执行 git 写操作」即 exit 2 拦截并回灌原因；读操作与 agent-on 自会话放行。实测矩阵 14/14（事故原型/cd 链/相对路径/-C/--no-verify/tag 创建读取边界/四类合法动作零误伤），kit/guard/README 记录注册片段、失效面与回滚
+- 注册现状：Codex `~/.codex/hooks.json` 已挂（两家 hooks schema 相同）；Claude 侧写入被用户 autoMode soft_deny 正确拦截（改 ~/.claude/ 需确认）——**机械护栏不认 agent 身份的活例**，片段待用户确认
+- 附带修复：Codex Stop hook 的 auto-sync 路径仍指已改名的 `~/claude-memory` → 改指 `~/agent-memory`（死链导致 Codex 侧会话结束不同步）
+- 研究结论要点入卡（intake/2026-07-13-agent-on-self.md）：advisory 天花板官方盖章、去矛盾救不了合规率（p=0.912 null）、目录级 git 禁令必须 hook（deny glob 无 cwd）、Codex rules 不认 cwd 故跨仓模式必须 hook 或仓侧兜底；L-进场/L-收尾/git 原生兜底三件 deferred
+
 ### 消化协议第四缝（2026-07-13，Euan 越界事故取证 + 跨仓边界硬规矩执行；定级 minor 攒批）
 - **settle-no-git-boundary-align**：settle 上半场 step4 从「commit 后立即 push」改为「**只写文件，不碰 git**」——项目端会话对 agent-on 仓不 add/commit/push，git 动作全归 agent-on 仓会话；消化开场三检放行未跟踪 intake/*.md 并新增「**收件 commit**」步（boot/settlement.md 两处 + intake/README 规则 5）
 - 根因是**规则冲突不是（只是）没读**：step4 旧文（07-12 修并发缝）与 AGENT.md 跨仓边界（07-13 用户立）矛盾并存一天——Euan 会话依旧协议 commit 被判越界（5b4ecdd 已撤为 dangling，本批收件 e82f0d1），同日上午 IPONews 同样 commit+push 还被当「新协议实证」表扬。同一行为两份文档下分别「守规/越界」，advisory 层连自洽都难保证——此实证直接输入「强制约束层」研究（进行中）
