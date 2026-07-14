@@ -11,3 +11,13 @@
 - rollback:revert
 - trace:用户提供的 Euan 会话截图;本会话取证命令实录(git cat-file -t 5b4ecdd / git status)
 - 状态:landed@同批(用户 07-13 硬规矩已立,本修正为执行既有裁决,非新决策)
+
+### enforcement-layer-design(强制约束层:三层机械护栏,不再赌 agent 读没读)
+- source:agent-on 自源 2026-07-13 | @ 066aa6b
+- evidence:deep-research run wf_9c47f385-3e2(106 代理,25 主张对抗核验 22 存活 3 否决),关键存活结论:①Anthropic 官方明文「permission rules 由 Claude Code 强制执行,CLAUDE.md 只塑形不改变允许什么」,真护栏=hooks+permissions(3-0×3);②实证:指令越多遵循越差、冲突时尤甚,但**只去矛盾救不了**——1650 会话析因研究里「相邻文件放直接矛盾指令」对合规率无可测影响(C0=63.7% vs C1=64.1%,p=0.912),会话内每多生成一个函数合规率降 5.6%(单 preprint,medium);③Claude Code PreToolUse hook 收到含 cwd 的完整 JSON,exit 2 拦截先于 permission 求值、压过 allow——目录级 git 禁令的官方指定机制,静态 deny glob 做不到(cd 后命令文本里没有目录信息)(3-0×4);④Codex 2026 已有等价 hooks(PreToolUse deny/exit-2)+ rules/execpolicy(forbidden 免提示硬拦),但 rules 只匹配 argv 前缀不认 cwd——跨仓写入模式 Codex 原生 rules 防不住,必须 hook 或仓侧兜底(3-0×4);⑤SessionStart hook 可机械注入规则(约 10k 字符上限,注入≠遵循仍需行为层兜底)(2-1)
+- confidence:high(官方文档为主,单 preprint 结论已降级标注)
+- claim:三层设计——**L-进场**:SessionStart hook 双工具注入跨仓边界等硬规矩摘要(治「没读」);**L-动作**(核心):一份共享 guard 脚本挂双工具 PreToolUse——解析命令与 cwd/-C 目标,「git add/commit/push 目标是 agent-on 仓 && 会话项目根≠agent-on」即 deny 并回灌原因(治「越界动作」,不依赖读没读、读哪份);**L-收尾**:Stop hook 结账校验(agent-on 仓有 intake/ 之外改动则不许收工)。分发走 agent-memory setup.sh(hooks 配置不随仓 clone,该仓已是跨机配置分发通道);脚本本体住 agent-on kit/(宪章「轻量校验脚本」额度内)
+- suggested_landing:新 kit/guard/agent-on-git-guard.sh + kit/claude-hooks-template.md 扩条 + codex 侧注记;agent-memory settings.json 注册(跨仓,用户操作)
+- rollback:摘除 hook 注册即回advisory 现状,脚本可留
+- trace:run wf_9c47f385-3e2 output(完整 findings/caveats/openQuestions);未验证项显式列后
+- 状态:pending(待用户拍板实施;研究角度4 git原生hook 与角度5 read-receipt 门全部候选证据未过三票——git hook 兜底的 --no-verify 绕过率零数据,标「需自行实测」,不进本卡 claim)
