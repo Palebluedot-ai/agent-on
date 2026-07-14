@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### 消化协议第四缝（2026-07-13，Euan 越界事故取证 + 跨仓边界硬规矩执行；定级 minor 攒批）
+- **settle-no-git-boundary-align**：settle 上半场 step4 从「commit 后立即 push」改为「**只写文件，不碰 git**」——项目端会话对 agent-on 仓不 add/commit/push，git 动作全归 agent-on 仓会话；消化开场三检放行未跟踪 intake/*.md 并新增「**收件 commit**」步（boot/settlement.md 两处 + intake/README 规则 5）
+- 根因是**规则冲突不是（只是）没读**：step4 旧文（07-12 修并发缝）与 AGENT.md 跨仓边界（07-13 用户立）矛盾并存一天——Euan 会话依旧协议 commit 被判越界（5b4ecdd 已撤为 dangling，本批收件 e82f0d1），同日上午 IPONews 同样 commit+push 还被当「新协议实证」表扬。同一行为两份文档下分别「守规/越界」，advisory 层连自洽都难保证——此实证直接输入「强制约束层」研究（进行中）
+- 卡在 intake/2026-07-13-agent-on-self.md，直落即标 landed（执行用户既有硬规矩，非新决策）
+
 ### 第七次消化（2026-07-13，IPONews 二结 4 卡全 landed，一卡一 commit 首跑；定级 minor 攒批）
 - **fanout-probe-gate**：workflow-orchestration §〇 探针闸门（大扇出前 1 探针子代理验工具通路，不过不扇出）+ checklist 探针行 + bench 案例 24（同机正反对照：22 代理 66 万 token 零产出 vs 105 代理 0 错）；README 案例计数 23→24 并修陈旧拆分
 - **dom-render-verification + pricing-freshness-gate（语义归并同节落地）**：workflow-orchestration 新增 **§三½ 外部事实直核纪律**两条（价格/榜单证据必须浏览器渲染 DOM、表格核总行数防静默截断；型号与价格当日官方页直核+逐项标查证日期，prompt 预填型号只当检索线索）+ checklist「调研型扇出附加条款」两行
