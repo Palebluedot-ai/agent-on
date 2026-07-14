@@ -20,4 +20,4 @@
 - suggested_landing:新 kit/guard/agent-on-git-guard.sh + kit/claude-hooks-template.md 扩条 + codex 侧注记;agent-memory settings.json 注册(跨仓,用户操作)
 - rollback:摘除 hook 注册即回advisory 现状,脚本可留
 - trace:run wf_9c47f385-3e2 output(完整 findings/caveats/openQuestions);未验证项显式列后
-- 状态:L-动作层 landed@同批(用户拍板「按建议进行」:kit/guard/agent-on-git-guard.sh + README,实测矩阵 14/14;Codex ~/.codex/hooks.json 已注册,Claude 侧注册被用户 soft_deny 正确拦下、片段备于 guard/README 待用户确认——机械护栏对 agent 自己也生效的活例);L-进场/L-收尾 deferred(L-动作跑两周再议);git 原生 hook 兜底 deferred(本轮零验证证据)
+- 状态:L-动作层 landed@同批(用户拍板「按建议进行」:kit/guard/agent-on-git-guard.sh + README,实测矩阵 14/14;双工具均已注册(Codex ~/.codex/hooks.json;Claude 侧首次写入被用户 soft_deny 正确拦下,经用户明示「确认加」后落 ~/agent-memory/dotfiles/claude/settings.json——机械护栏对 agent 自己也生效的活例));L-进场/L-收尾 deferred(L-动作跑两周再议);git 原生 hook 兜底 deferred(本轮零验证证据)

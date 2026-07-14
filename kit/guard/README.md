@@ -8,7 +8,7 @@
 
 ### 注册（两家 hooks schema 相同）
 
-**Codex**（`~/.codex/hooks.json`，2026-07-13 已注册）与 **Claude Code**（`~/.claude/settings.json` 的 `hooks` 节，**待用户确认后加入**——soft_deny 保护 ~/.claude/，正确地拦下了自动写入）：
+**Codex**（`~/.codex/hooks.json`）与 **Claude Code**（`~/.claude/settings.json` → 真身 `~/agent-memory/dotfiles/claude/settings.json`）均已于 2026-07-13 注册（Claude 侧首次写入被用户 soft_deny 拦下、经用户明示确认后落笔——护栏对 agent 自己生效的活例）。对**新开会话**生效：
 
 ```json
 "PreToolUse": [
