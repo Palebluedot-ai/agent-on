@@ -9,11 +9,11 @@
 | `hooks.json` | Claude Code | **阶段 2 启用**——PreToolUse 调 guard；命令用 `${CLAUDE_PLUGIN_ROOT}` |
 | `hooks-codex.json` | Codex CLI | **阶段 3 备件**——已写好，但 `.codex-plugin/plugin.json` 仍写 `hooks:{}` 抑制误注册，待 openai/codex#16430 实测通过再接线 |
 
-## 路径约定
+## 路径约定（可移植）
 
-- **脚本定位**：`${CLAUDE_PLUGIN_ROOT}`（Claude）/ `${PLUGIN_ROOT}`（Codex，同时兼容 CLAUDE_PLUGIN_ROOT）→ 本仓在 plugin 缓存中的根。
-- **边界判定目标仓**：guard 脚本内的 `AGENT_ON` 路径（默认 `~/Projects/Agent-On`，可被 `AGENT_ON_ROOT` 覆盖）——那是**可写的方法论工作仓**（intake 落点），不是 plugin 缓存副本。
-- **硬编码 fallback 不删**：个人 scope 注册仍用 `$HOME/Projects/Agent-On/...`；闸门「CLAUDE_PLUGIN_ROOT 注入实测」通过前，两路并存。
+- **脚本定位（A）**：`${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` → plugin 装机面，OS 无关。
+- **边界判定（B）**：`kit/guard/agent_on_paths.py`——`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` → lock「本地路径」。**无 Chao 默认路径**；未登记 B 时 guard fail-open。
+- **个人 scope**：可选；不要在对外文档写死 `Projects/Agent-On`。
 
 ## 闸门（发版前必过）
 

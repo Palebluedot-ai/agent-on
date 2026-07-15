@@ -25,7 +25,7 @@ codex plugin install agent-on@agent-on
 ```
 
 - skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
-- 结账仍需可写 clone：设 `AGENT_ON_ROOT` 或保持默认 `~/Projects/Agent-On`。
+- 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」——**无** `~/Projects/Agent-On` 产品默认。见 `skill/SKILL.md` 与 `kit/guard/agent_on_paths.py`。
 
 ## 谁写谁读
 

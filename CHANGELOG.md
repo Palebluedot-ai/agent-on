@@ -4,6 +4,13 @@
 
 ## [未发布]
 
+### v0.5 可移植路径：废除 Chao 默认 `~/Projects/Agent-On`（2026-07-16）
+- **协议**：装机面 A（plugin / `CLAUDE_PLUGIN_ROOT`）与可写工作仓 B 分离；B 须显式登记（`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` 的 `work_root` → lock「本地路径」）；任意 OS/任意文件夹名
+- **实现**：新增 `kit/guard/agent_on_paths.py`（doctor 报告）；guard 改用其 `resolve_work_root`，**未登记 B 时 fail-open**；示例 `kit/agent-on-user-config.example.json`
+- **skill**：`$READ_ROOT` / `$WRITE_ROOT` 双解析；子命令 `doctor`；settle/digest 无 B 拒绝；禁止猜 `Projects`
+- **文档**：README 远程装机 + Windows；lock 模板本地路径说明；settlement 消化粘贴令用 `$WRITE_ROOT`；codex 全局片段去硬编码
+- **验证**：config 拦/放、无 B fail-open、`AGENT_ON_ROOT` 覆盖、lock 解析；本机写入 `~/.config/agent-on/config.json` 指向现 clone（机器本地，不入仓）
+
 ### 第九次消化（2026-07-16，IPONews 三结 2 卡全 landed；定级 minor 攒批）
 - **settlement-receipt-on-default-branch**：`boot/settlement.md` 上半场 step5 加 **default-branch 硬门**（回执 commit 须为项目 main 祖先，`git merge-base --is-ancestor` 验收；worktree/feature 上只写 intake，回执须 checkout main 或 cherry-pick 后再报完成）+ `boot/session-handshake.md` 读取表「工作树蔓延」行扩 **结账回执困死枝巡检**（与 worktree-sprawl 同族）。双落点均在 boot/ 执行面（结账写点 + 握手读点）
 - **pending-digest-reconcile-on-read**：`boot/session-handshake.md` 读取表「待消化」行扩为 **读时对账、不盲信 N** + `boot/settlement.md` 上半场 step0 顺手对账清已收口积压、step6 写明 **N 生命周期**（结账写/抬高；清 0 在下次打开项目的会话，不在消化端——跨仓边界禁止回写项目）。双落点：handshake 读 + settlement 写两侧交叉引用
