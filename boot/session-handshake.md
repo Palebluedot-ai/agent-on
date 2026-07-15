@@ -37,7 +37,7 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 | **pin 的版本落后了吗** | lock 的 pin 行 vs agent-on 最新 tag——落后就开场播报「pin vX 落后 N 版(含/不含 major),可说『agent-on 升级』」;**只提示不动手**,升级永远显式口令;HEAD 领先 tag 的未发布 commit 不算版本、不催 |
 | **仪表盘还新鲜吗**(M/L) | `dashboard.html` 头部「最后更新」日期 vs progress.yaml 最近变更——落后就提一句「仪表盘陈旧,要我更新吗」 |
 | **速记区有没有没整理的想法** | `thoughts-and-ideas.md` 的📥速记区——非空就在开场提一句「想法收集箱有新内容,要我整理吗」,别让零散想法烂在速记区 |
-| **工作树有没有蔓延** | `git worktree list`——死枝 ≥3 个就开场提醒清理(会话生命周期与 worktree 生命周期天然脱钩,不巡就烂) |
+| **工作树有没有蔓延 + 结账回执是否困死枝** | `git worktree list`——死枝 ≥3 个就开场提醒清理(会话生命周期与 worktree 生命周期天然脱钩,不巡就烂);**顺手核 lock 最近 `last_settlement` 对应 commit**:`git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为假 → 回执困在 feature/worktree 死枝,当场 cherry-pick/合入 main 或重做回执,别让账本只活在旁支(IPONews `acf6e4a` 实证;与 settlement 上半场 step5 default-branch 硬门同族) |
 
 **顺序建议**:先 `AGENTS.md` 定主线 → 再 `progress.yaml` 定当前位置 → 再最新 snapshot 补「刚才发生了什么」。三份读完,三步复述就齐了。读不到 `progress.yaml` 或它和 snapshot 打架,别硬猜——按真相源仲裁次序(见 [../playbook/truth-hierarchy.md](../playbook/truth-hierarchy.md)),以 Canonical 层的 `progress.yaml` 为准,并把冲突当场跟用户点明。
 

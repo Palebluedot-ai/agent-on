@@ -13,7 +13,7 @@
 2. **证据硬门 + 域判据**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。出仓候选还必须是「**AI 协作过程**」的教训(编排/纪律/工具行为/防幻觉);**项目域知识(业务规则、领域语义、产品口径)归项目端自己的 AGENTS/docs,不出仓**——agent-on 不吸域知识,防方法论仓指令膨胀(2026-07-15 判例:delayed-data 卡 rejected,用户裁决「项目域都归项目」)。
 3. **装配 Promotion Card**(模板 [../kit/promotion-card-template.md](../kit/promotion-card-template.md)):六项缺一拒收,另带 pattern slug + 本项目 pin 版本。
 4. **落盘承接层(只写文件,不碰 git——跨仓边界硬规矩 2026-07-13)**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件,到此为止**——项目端会话对 agent-on 仓**不 `add`、不 `commit`、不 `push`**,git 动作全归 agent-on 仓会话(消化开场收件)。多项目并发零冲突:文件按项目命名互不相交,连 git 层都不碰。同日同项目再次结账:**追加进当日同名文件**,不另建——已标 synced 的条目自动跳过,幂等。(沿革:07-12 曾规定「commit 后立即 push」修并发缝;07-13 Euan 会话依此在项目端 commit,撞上同日新立的跨仓边界被判越界——两规打架一天,按用户硬规矩收敛为「项目端零 git」,并发缝由「不碰 git」更彻底地解掉。)
-5. **回执**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。
+5. **回执(必须落在项目 default branch)**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。**default-branch 硬门**:回执 commit 必须是项目 default branch(通常 main)的祖先——验收 `git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为真,**否则不算结账完成**。若会话在 worktree/feature 上:只允许写 agent-on intake;项目回执须 checkout main 写完并 commit,或 cherry-pick 回执 commit 到 main 后再报完成(IPONews 实证:回执 `acf6e4a` diff 正确但困在 feature 枝,方法论已进真线、项目账本却丢了——跨仓两侧耐久性不对称)。
 6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
    - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令,形如 `cd ~/Projects/Agent-On && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去,如「intake 积压 3 份待消化」。用户当场不消化也没关系——命令已备好,下次粘贴即走。
    - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。
