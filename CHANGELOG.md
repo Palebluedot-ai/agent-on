@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+（v0.4.0 已于 2026-07-15 封版，新变化从这里攒起）
+
+## v0.4.0（2026-07-15）——从文档约定到机械强制
+
+> 封版依据：2026-07-11 拍板「攒批至新项目 dogfood 后随 v0.4.0 一并封版」；AInvestment 完成 BOOTSTRAP 全流程 dogfood（init→规划→结账→消化）+ 两默认件实测。本版主线：规划链 §1.5、强制层 guard（PreToolUse 双工具）、项目端零 git 边界、消化协议三缝、第二~八次消化全部内容。minor 档：存量项目 pin 直升即可，实例化文件不动。
+
 ### 第八次消化（2026-07-15，AInvestment 首结 3 卡 + Euan 两日 2 卡：4 landed + 1 rejected；定级 minor 攒批）
 - **裁决先行（卡A rejected 立边界）**：delayed-data-as-product-truth 判 rejected——**agent-on 只收 AI 协作过程的教训，项目域知识归项目端**（用户裁决；过程内核「外部数据对账」已被 sop 集成清单第 3 条覆盖，再加=指令膨胀）。此判例是出仓判据的第一次显式适用
 - **freeze-deferred-channels-as-ban**：AGENTS-skeleton §1 暂停项行补渠道/触点类举例 + BOOTSTRAP 需求六问 Q6 补半句——MVP 后置渠道必须入禁令表，防实现会话当 soft backlog 偷做
