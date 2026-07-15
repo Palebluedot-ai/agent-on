@@ -15,7 +15,8 @@
 - **阶段 3 备件未接线**：新增 `hooks/hooks-codex.json`（`${PLUGIN_ROOT}`）；`.codex-plugin/plugin.json` **仍** `hooks:{}`——#16430 未实测前不接线，防误注册
 - **阶段 4 文档**：README 换机 A/B 双路；codex/README plugin 路径；skill 内核解析 `$ROOT`（AGENT_ON_ROOT → plugin root → 默认 clone）；`hooks/README` + kit/guard 注册两路并存
 - **验证**：`claude plugin validate` 通过；guard 烟测 block/allow-self/allow-log + AGENT_ON_ROOT 覆盖
-- **闸门仍开**：Claude 净机/摘 symlink 端到端 install + 真拦一次；Codex plugin hook 是否执行（#16430）
+- **Claude 闸门实测（2026-07-16）**：摘 symlink → `marketplace add` 本仓 → `install agent-on@agent-on` → details 显示 Hooks(1) PreToolUse；debug 确认 `Loading hooks from plugin: agent-on`；cache 路径合成 PreToolUse 真拦 exit 2。交互 `-p` 因 `Not logged in` 未跑到 Bash——补测留给已登录会话。测后 symlink + 个人 scope 恢复；plugin 保持 enabled
+- **闸门仍开**：Codex plugin hook 是否执行（#16430）；Claude 交互会话内 PreToolUse 真拦（登录后 1 次即可）
 - 未动：个人 scope 硬编码注册（路 A）不删；不强制三项目迁 plugin
 
 ### v0.5 阶段 1：Plugin 骨架落地（2026-07-15，用户拍板路线 A 分期发；调研见 snapshot/2026-07-15-v05-plugin-scoping.md）

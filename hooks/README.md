@@ -17,8 +17,9 @@
 
 ## 闸门（发版前必过）
 
-1. **Claude**：净机或临时摘掉 symlink 后 `/plugin marketplace add <path|owner/repo>` → install → 在**非 agent-on 项目会话**触发 `git -C <agent-on> commit`，应被拦并见 stderr 回灌。同时确认 hook 子进程环境里有非空的 `CLAUDE_PLUGIN_ROOT`。
-2. **Codex**：同上姿势，但先验证 plugin 内 hook **是否真执行**（#16430）。若 exit 2 从不出现 → 保持 `hooks:{}` + 个人 scope 手工注册，不接线 `hooks-codex.json`。
+1. **Claude install + hook 注册**（**2026-07-16 已过**，证据见 `snapshot/2026-07-15-v05-plugin-scoping.md`「Claude 闸门实测」）：摘 symlink → marketplace add 本仓 → install → details 含 PreToolUse；debug 见 `Loading hooks from plugin: agent-on`；`${CLAUDE_PLUGIN_ROOT}` 路径合成 PreToolUse 真拦。
+2. **Claude 交互会话真拦**（**仍开**）：已登录的 Claude Code 会话里，非 agent-on 项目触发 `git -C <agent-on> commit`，应被拦。CLI `-p` 本机曾 `Not logged in` 未完成。
+3. **Codex**：验证 plugin 内 hook **是否真执行**（#16430）。若 exit 2 从不出现 → 保持 `hooks:{}` + 个人 scope 手工注册，不接线 `hooks-codex.json`。
 
 ## 回滚
 
