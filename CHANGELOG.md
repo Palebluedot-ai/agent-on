@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+### 第九次消化（2026-07-16，IPONews 三结 2 卡全 landed；定级 minor 攒批）
+- **settlement-receipt-on-default-branch**：`boot/settlement.md` 上半场 step5 加 **default-branch 硬门**（回执 commit 须为项目 main 祖先，`git merge-base --is-ancestor` 验收；worktree/feature 上只写 intake，回执须 checkout main 或 cherry-pick 后再报完成）+ `boot/session-handshake.md` 读取表「工作树蔓延」行扩 **结账回执困死枝巡检**（与 worktree-sprawl 同族）。双落点均在 boot/ 执行面（结账写点 + 握手读点）
+- **pending-digest-reconcile-on-read**：`boot/session-handshake.md` 读取表「待消化」行扩为 **读时对账、不盲信 N** + `boot/settlement.md` 上半场 step0 顺手对账清已收口积压、step6 写明 **N 生命周期**（结账写/抬高；清 0 在下次打开项目的会话，不在消化端——跨仓边界禁止回写项目）。双落点：handshake 读 + settlement 写两侧交叉引用
+- 附记：开场工作区有 v0.5 阶段 2–4 WIP，digest 前 stash 隔离、收尾 pop 还原；一卡一 commit（4dac4c2 / 423645f）；用户原话「用户拍板两道防呆入协议」直落未再出选择题
+- 来源：`intake/2026-07-15-IPONews.md`（IPONews pin v0.3.0；实证 acf6e4a 困旁支 + loop-notes 粘「待消化 3」）
+
 ### v0.5 阶段 1：Plugin 骨架落地（2026-07-15，用户拍板路线 A 分期发；调研见 snapshot/2026-07-15-v05-plugin-scoping.md）
 - 新增 plugin 三件 + skill 约定别名：`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`（自营单仓 `source:"./"`，Codex legacy-compat 共读）+ `.codex-plugin/plugin.json`（`skills:"./skills/"` + `hooks:{}` 抑制误注册）+ `skills/agent-on → ../skill` 别名（canonical `skill/SKILL.md` 不动，3 项目 symlink 挂载零影响）
 - 验证：三 JSON 合法；Codex 真实解析器实测通过（`marketplace add` 认 `.claude-plugin/marketplace.json` 并取出插件名，测后 remove 还原）。Claude 端到端 install-test 留作阶段闸门（需净机/摘挂载，避免与 symlink 双挂冲突）
