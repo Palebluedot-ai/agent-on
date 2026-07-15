@@ -32,4 +32,4 @@
 - suggested_landing:kit/prd-template 或 design 相关 checklist「参照物」节；playbook/elicitation 品味前置旁注
 - rollback:revert
 - trace:info-dashboard-spec §3；requirements 暂停「Finviz 资源盗用」
-- 状态:pending
+- 状态:landed@同批(第八次消化:BOOTSTRAP 六问 Q2 参照物扩注 + elicitation-protocol 参照物回显条补两栏拆法)
