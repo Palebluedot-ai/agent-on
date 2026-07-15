@@ -12,7 +12,7 @@
 - suggested_landing:playbook 可加「外部数据时效语义」短段；kit/prd-template 或 requirement 清单加「数据时效：实时/延迟/日频」必填行；bench 可选案例「把延迟当缺陷导致错误对标付费实时」
 - rollback:revert 落地 commit
 - trace:loop-notes 2026-07-15 行「价格非实时」；AInvestment commits cae7297→规格修订
-- 状态:pending
+- 状态:rejected(用户裁决:项目域知识归项目端——agent-on 只收 AI 协作过程教训;过程内核「外部数据第一天对账口径」已被 sop 集成清单第 3 条载荷对账覆盖,再加一条=指令膨胀。域教训已在 AInvestment 自己的 AGENTS/规格落地,不丢)
 
 ### freeze-deferred-channels-as-ban（后置渠道写成暂停禁令，不只「以后再说」）
 - source:AInvestment @ cae7297 | pin v0.3.0-39-g32fcfb2
