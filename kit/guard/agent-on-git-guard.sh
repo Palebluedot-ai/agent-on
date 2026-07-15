@@ -13,7 +13,18 @@ import re
 import shlex
 import sys
 
-AGENT_ON = os.path.realpath(os.path.expanduser("~/Projects/Agent-On"))
+# 可写工作仓路径(intake 落点)——不是 plugin 缓存副本。
+# 解析序: AGENT_ON_ROOT 环境变量 → 默认 ~/Projects/Agent-On(本机 Chao 默认布局)。
+# CLAUDE_PLUGIN_ROOT/PLUGIN_ROOT 只用于「脚本从哪加载」,不用于边界判定:
+# plugin 安装会把仓拷进 cache,cache 不是结账写入面,也不是跨仓越界的主要目标。
+def resolve_agent_on() -> str:
+    override = os.environ.get("AGENT_ON_ROOT")
+    if override:
+        return os.path.realpath(os.path.expanduser(override))
+    return os.path.realpath(os.path.expanduser("~/Projects/Agent-On"))
+
+
+AGENT_ON = resolve_agent_on()
 # git 写操作子命令(动历史/工作树的);读操作 status/log/diff/show/fetch/describe/tag -l 不在列
 WRITE_OPS = {
     "add", "commit", "push", "reset", "revert", "rebase", "merge",

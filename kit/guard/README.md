@@ -6,7 +6,9 @@
 
 只拦一件事：**会话根不在 agent-on 仓内，却对 agent-on 仓执行 git 写操作**（add/commit/push/reset/tag 创建等）。读操作（status/log/diff/`tag -l`，握手对表在用）与 agent-on 自己的会话（含 `.claude/worktrees/` 下的）一律放行。拦截时 exit 2，stderr 回灌给模型讲清正确动作（落盘 intake 即止，提示用户切会话）。
 
-### 注册（两家 hooks schema 相同）
+### 注册（两路并存过渡，v0.5）
+
+**路 A · 个人 scope 手工注册**（v0.4 起已挂，换机可靠；路径可改 `AGENT_ON_ROOT`）：
 
 **Codex**（`~/.codex/hooks.json`）与 **Claude Code**（`~/.claude/settings.json` → 真身 `~/agent-memory/dotfiles/claude/settings.json`）均已于 2026-07-13 注册（Claude 侧首次写入被用户 soft_deny 拦下、经用户明示确认后落笔——护栏对 agent 自己生效的活例）。对**新开会话**生效：
 
@@ -22,6 +24,13 @@
 ```
 
 （Codex 侧省略 `"matcher"` 行——其 hooks.json 的既有条目即无 matcher 形态，脚本对非 git 命令零干扰、快速 exit 0。）
+
+**路 B · Plugin 生命周期注册**（v0.5 阶段 2+）：
+
+- Claude：仓内 [`hooks/hooks.json`](../../hooks/hooks.json) 随 plugin 启用自动挂载；命令为 `python3 "${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard.sh"`。
+- Codex：备件在 [`hooks/hooks-codex.json`](../../hooks/hooks-codex.json)，**尚未接线**——`.codex-plugin/plugin.json` 仍 `hooks:{}`，等 #16430 实测通过再改（防 auto-discovery 误注册，见 superpowers 6.1.0→6.1.1）。
+- 边界目标仓可用环境变量 **`AGENT_ON_ROOT`** 覆盖（默认 `~/Projects/Agent-On`）；与「脚本从哪加载」的 `CLAUDE_PLUGIN_ROOT` 是两回事。
+- 两路同时挂时 guard 可能跑两次：双放行 / 双拦截语义不变，仅多一次廉价 exit。
 
 ### 实测矩阵（2026-07-13，14/14 通过，直接管道合成 PreToolUse JSON）
 
@@ -49,7 +58,11 @@
 # 回归（12+2 用例脚本见会话 scratchpad,或手工三发）:
 echo '{"tool_name":"Bash","tool_input":{"command":"git -C ~/Projects/Agent-On commit -m x"},"cwd":"/tmp"}' \
   | CLAUDE_PROJECT_DIR=/tmp python3 ~/Projects/Agent-On/kit/guard/agent-on-git-guard.sh; echo "exit=$? (期望2)"
-# 回滚:从 ~/.claude/settings.json 与 ~/.codex/hooks.json 删掉 PreToolUse 里本脚本条目即回 advisory 现状
+# AGENT_ON_ROOT 覆盖:
+echo '{"tool_name":"Bash","tool_input":{"command":"git -C /tmp/my-agent-on commit -m x"},"cwd":"/tmp"}' \
+  | CLAUDE_PROJECT_DIR=/tmp AGENT_ON_ROOT=/tmp/my-agent-on python3 ~/Projects/Agent-On/kit/guard/agent-on-git-guard.sh; echo "exit=$? (期望2)"
+# 回滚路 A:从 ~/.claude/settings.json 与 ~/.codex/hooks.json 删掉 PreToolUse 里本脚本条目
+# 回滚路 B:claude plugin disable/uninstall agent-on(或 Codex 侧保持 hooks:{} 即未接线)
 ```
 
 ## 未建层（等 L-动作跑两周再议）
