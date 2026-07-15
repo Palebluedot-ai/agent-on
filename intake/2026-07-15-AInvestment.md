@@ -22,7 +22,7 @@
 - suggested_landing:kit/AGENTS-skeleton.md §1 暂停项示例补「渠道类」一行；BOOTSTRAP 需求三分法「暂停」举例加渠道
 - rollback:revert
 - trace:requirements D10；commit cae7297
-- 状态:pending
+- 状态:landed@同批(第八次消化:AGENTS-skeleton §1 暂停项行补渠道类 + BOOTSTRAP 需求六问第 6 问补半句)
 
 ### interaction-reference-not-asset-clone（参照站点学交互，禁图床/商标克隆）
 - source:AInvestment @ cae7297 | pin v0.3.0-39-g32fcfb2
