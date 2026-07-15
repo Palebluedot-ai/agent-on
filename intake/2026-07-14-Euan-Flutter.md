@@ -10,4 +10,4 @@
 - suggested_landing:playbook/anti-hallucination.md 增补第六型「**取证幻觉**」(C 类完成幻觉的姊妹型:完成幻觉=谎称做了,取证幻觉=把没看见的细节补成看见了;现有 12 条堵的是「做」的缺口,这条堵「查」的缺口);kit 审查/调查类 prompt 模板加一行「工具没给细节=如实说『没有细节』并复跑取证,严禁重建似真细节」
 - rollback:revert 落地 commit
 - trace:用户原话「排查一下 为啥这么有幻觉自己编造gitleaks,这个 要写入agent-on intake 如何防止」;Euan-Flutter PR#2 secrets 红灯排查线(2026-07-13 晚~07-14);同会话另一张卡 2026-07-13-Euan-Flutter.md(worktree)同批待消化
-- 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected(原因) / deferred -->
+- 状态:landed@同批(第八次消化:anti-hallucination 增补第六型「取证幻觉」三防线+映射表行 + review-prompt 禁令段补取证条款;拍板依据=用户 07-14 原话「要写入 agent-on 如何防止」+消化口令)
