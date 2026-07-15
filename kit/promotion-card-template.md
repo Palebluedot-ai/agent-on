@@ -18,4 +18,5 @@
 
 - pattern-slug 用短横线小写英文(如 `local-prod-divergence`)——消化会话靠它 grep 跨项目重复,同 slug ≥2 项目 = 置顶信号
 - **evidence 空着 = 这张卡不存在**;「我记得」不是证据
+- **域判据**:卡必须是 AI 协作过程的教训;项目域知识(业务规则/领域语义/产品口径)留项目端,不装卡
 - 六项对应 memory-card schema 字段,结账时可从 jsonl 直接装配
