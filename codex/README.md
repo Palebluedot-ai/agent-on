@@ -4,6 +4,8 @@
 
 ## 两个接入件（一台机器一次）
 
+**路径 1 · symlink（现状默认，存量三项目零改动）**
+
 1. **全局路由**（Codex 不读 `~/.claude/CLAUDE.md`，读 `~/.codex/AGENTS.md`）：
    把 [AGENTS-global-snippet.md](AGENTS-global-snippet.md) 的内容并入 `~/.codex/AGENTS.md`——之后任何 Codex 会话都认识「agent-on 结账 / 升级 / 整理想法 / 更新仪表盘」这些中文口令和三个入口。
 2. **`$agent-on` skill**（主路，2026-07-12 起）：Codex 原生读跨工具共享目录 `~/.agents/skills/`，与 Claude 用**同一份内核**：
@@ -11,6 +13,19 @@
    ln -s <本仓路径>/skill ~/.agents/skills/agent-on
    ```
    之后在 Codex 里 `$agent-on <子命令>` 即触发。（旧的 `~/.codex/prompts/agent-on.md` 已降为迁移壳，v0.4 dogfood 后删除。）
+3. **guard**（跨仓 git 边界）：个人 scope 挂 `~/.codex/hooks.json` PreToolUse，命令见 [kit/guard/README.md](../kit/guard/README.md)。
+
+**路径 2 · Plugin（v0.5 新默认，与 symlink 可并存）**
+
+```bash
+# 本地 clone 当 marketplace（自营单仓）
+codex plugin marketplace add <本仓路径>
+# 或远端：codex plugin marketplace add Palebluedot-ai/agent-on   # 仓公开后
+codex plugin install agent-on@agent-on
+```
+
+- skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
+- 结账仍需可写 clone：设 `AGENT_ON_ROOT` 或保持默认 `~/Projects/Agent-On`。
 
 ## 谁写谁读
 

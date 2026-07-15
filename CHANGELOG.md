@@ -10,10 +10,17 @@
 - 附记：开场工作区有 v0.5 阶段 2–4 WIP，digest 前 stash 隔离、收尾 pop 还原；一卡一 commit（4dac4c2 / 423645f）；用户原话「用户拍板两道防呆入协议」直落未再出选择题
 - 来源：`intake/2026-07-15-IPONews.md`（IPONews pin v0.3.0；实证 acf6e4a 困旁支 + loop-notes 粘「待消化 3」）
 
+### v0.5 阶段 2–4：Claude guard 入 plugin + 换机文档 + Codex 备件（2026-07-15）
+- **阶段 2**：新增 `hooks/hooks.json`——Claude PreToolUse 调 `python3 "${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard.sh"`（随 plugin 启用自动挂载）。guard 增 `AGENT_ON_ROOT` 覆盖（默认 `~/Projects/Agent-On` 保留）；明确「脚本加载路径」与「边界判定目标仓」分离——plugin cache 不是 intake 写入面
+- **阶段 3 备件未接线**：新增 `hooks/hooks-codex.json`（`${PLUGIN_ROOT}`）；`.codex-plugin/plugin.json` **仍** `hooks:{}`——#16430 未实测前不接线，防误注册
+- **阶段 4 文档**：README 换机 A/B 双路；codex/README plugin 路径；skill 内核解析 `$ROOT`（AGENT_ON_ROOT → plugin root → 默认 clone）；`hooks/README` + kit/guard 注册两路并存
+- **验证**：`claude plugin validate` 通过；guard 烟测 block/allow-self/allow-log + AGENT_ON_ROOT 覆盖
+- **闸门仍开**：Claude 净机/摘 symlink 端到端 install + 真拦一次；Codex plugin hook 是否执行（#16430）
+- 未动：个人 scope 硬编码注册（路 A）不删；不强制三项目迁 plugin
+
 ### v0.5 阶段 1：Plugin 骨架落地（2026-07-15，用户拍板路线 A 分期发；调研见 snapshot/2026-07-15-v05-plugin-scoping.md）
 - 新增 plugin 三件 + skill 约定别名：`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`（自营单仓 `source:"./"`，Codex legacy-compat 共读）+ `.codex-plugin/plugin.json`（`skills:"./skills/"` + `hooks:{}` 抑制误注册）+ `skills/agent-on → ../skill` 别名（canonical `skill/SKILL.md` 不动，3 项目 symlink 挂载零影响）
 - 验证：三 JSON 合法；Codex 真实解析器实测通过（`marketplace add` 认 `.claude-plugin/marketplace.json` 并取出插件名，测后 remove 还原）。Claude 端到端 install-test 留作阶段闸门（需净机/摘挂载，避免与 symlink 双挂冲突）
-- 未动：阶段 2（Claude guard 打包，闸门=`${CLAUDE_PLUGIN_ROOT}` 注入实测）、阶段 3（Codex guard，闸门=openai/codex#16430 hook 执行实测）、阶段 4（setup.sh 引导 + 文档换机步骤）；guard 硬编码 fallback 不删
 
 （v0.4.0 已于 2026-07-15 封版，新变化从这里攒起）
 
