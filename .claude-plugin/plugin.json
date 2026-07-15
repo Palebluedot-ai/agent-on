@@ -1,0 +1,21 @@
+{
+  "name": "agent-on",
+  "description": "AI 协作项目脚手架：给 Claude Code 与 Codex CLI 提供项目启动 / 状态持久化 / 沉淀闭环的方法论内核。中文口令 · /agent-on · $agent-on 同一份内核。",
+  "version": "0.5.0",
+  "author": {
+    "name": "YANG CHAO",
+    "email": "diving.into.ai@gmail.com"
+  },
+  "homepage": "https://github.com/Palebluedot-ai/agent-on",
+  "repository": "https://github.com/Palebluedot-ai/agent-on",
+  "keywords": [
+    "scaffold",
+    "methodology",
+    "planning",
+    "claude-code",
+    "codex",
+    "workflow",
+    "agents-md",
+    "loop-engineering"
+  ]
+}

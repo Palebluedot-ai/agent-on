@@ -5,7 +5,18 @@
 
 ## 状态一句话
 
-v0.5 形态**可行且有活参照**（superpowers 就是单源多工具 plugin），但研究挖出**三个会卡实施的真实风险**（其中一个可能让 Codex 侧 hook 打包直接不成立）——故 v0.5 不是「照抄就发」，是「低风险件先建 + 高风险件设测试闸门」。**建设未启动，等用户就下方岔路拍板。**
+v0.5 形态**可行且有活参照**（superpowers 就是单源多工具 plugin），但研究挖出**三个会卡实施的真实风险**（其中一个可能让 Codex 侧 hook 打包直接不成立）——故 v0.5 不是「照抄就发」，是「低风险件先建 + 高风险件设测试闸门」。**用户 2026-07-15 拍板路线 A（分期发）。阶段 1 已落地。**
+
+## 阶段 1 已完成（2026-07-15，纯增量零风险，全 3-0 机制）
+
+落地四样（commit 见 CHANGELOG v0.5 条）：
+- `skills/agent-on` → `../skill` 符号链接（plugin 约定别名，canonical 仍是 `skill/SKILL.md` 不动；三条路径 `skills/agent-on` / `~/.claude/skills/agent-on` / `~/.agents/skills/agent-on` 经 readlink -f 全解析到同一文件，3 项目挂载零影响）
+- `.claude-plugin/plugin.json`（Claude manifest，name/desc/version/author/homepage/keywords）
+- `.claude-plugin/marketplace.json`（自营单仓 marketplace，`source:"./"`，Codex 经 legacy-compat 读同一份）
+- `.codex-plugin/plugin.json`（Codex manifest，`skills:"./skills/"` + `hooks:{}` 显式空对象抑制 auto-discovery 误注册[F8] + interface 块）
+
+**已验证**：三 JSON 全合法；**Codex 真实解析器实测通过**——`codex plugin marketplace add <本地仓>` 返回 `Added marketplace 'agent-on'`，证明其解析器读通 `.claude-plugin/marketplace.json` 并正确取出插件名（测试后 `remove` 还原，机器无残留）。
+**未验证（留作闸门）**：Claude `/plugin marketplace add` 端到端 install（TUI 命令，需真会话；且本机 symlink 挂载在跑，install 会与之双挂 agent-on skill 冲突——install-test 必须在净机或临时摘挂载后做，不在本机与 symlink 并行）；skill 经 plugin 加载是否跟随符号链接别名（同属 install-test 闸门）。
 
 ## 一、v0.5 是什么（MRD 级）
 

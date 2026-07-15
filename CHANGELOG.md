@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### v0.5 阶段 1：Plugin 骨架落地（2026-07-15，用户拍板路线 A 分期发；调研见 snapshot/2026-07-15-v05-plugin-scoping.md）
+- 新增 plugin 三件 + skill 约定别名：`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`（自营单仓 `source:"./"`，Codex legacy-compat 共读）+ `.codex-plugin/plugin.json`（`skills:"./skills/"` + `hooks:{}` 抑制误注册）+ `skills/agent-on → ../skill` 别名（canonical `skill/SKILL.md` 不动，3 项目 symlink 挂载零影响）
+- 验证：三 JSON 合法；Codex 真实解析器实测通过（`marketplace add` 认 `.claude-plugin/marketplace.json` 并取出插件名，测后 remove 还原）。Claude 端到端 install-test 留作阶段闸门（需净机/摘挂载，避免与 symlink 双挂冲突）
+- 未动：阶段 2（Claude guard 打包，闸门=`${CLAUDE_PLUGIN_ROOT}` 注入实测）、阶段 3（Codex guard，闸门=openai/codex#16430 hook 执行实测）、阶段 4（setup.sh 引导 + 文档换机步骤）；guard 硬编码 fallback 不删
+
 （v0.4.0 已于 2026-07-15 封版，新变化从这里攒起）
 
 ## v0.4.0（2026-07-15）——从文档约定到机械强制
