@@ -32,7 +32,7 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 | 当前 phase、phase_status、锁定的 `Next` | `docs/state/progress.yaml`(单一状态写者,最权威) |
 | 最近发生了什么、上次卡在哪 | 最新 snapshot(`docs/snapshots/` 里时间戳最新那份)、`loop-notes.md` |
 | 当前阶段具体在干什么 | 当前那张 phase 卡(`docs/phases/phase-*.md`) |
-| **有没有卡等着回 agent-on 消化** | `loop-notes.md` 顶部待办位「agent-on 待消化 N 张」(结账收尾写的)——有就在开场提一句,附可粘贴的消化命令 |
+| **有没有卡等着回 agent-on 消化(读时对账,不盲信 N)** | `loop-notes.md` 顶部待办位「agent-on 待消化 N 张」(结账 step6 写的)——**读到 N>0 先对账**:打开 agent-on `intake/` 对应项目文件;若该批卡全部 landed/rejected/deferred,当场把待办位改 N=0 并项目仓 commit,再开场。N 仍对应 pending 卡才提一句并附可粘贴消化命令。清 0 责任在本会话(下次打开项目),**不在消化端**(跨仓边界禁止消化端回写项目;与 settlement 上半场 step0 同规) |
 | **pin 的模型档位是否还对得上** | `agent-on.lock.md` 的 pin 段 model 行——本次会话的模型若与记录的不同,提示「模型变了,建议跑 bench/capability-probe 重定保费档位」 |
 | **pin 的版本落后了吗** | lock 的 pin 行 vs agent-on 最新 tag——落后就开场播报「pin vX 落后 N 版(含/不含 major),可说『agent-on 升级』」;**只提示不动手**,升级永远显式口令;HEAD 领先 tag 的未发布 commit 不算版本、不催 |
 | **仪表盘还新鲜吗**(M/L) | `dashboard.html` 头部「最后更新」日期 vs progress.yaml 最近变更——落后就提一句「仪表盘陈旧,要我更新吗」 |

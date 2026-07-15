@@ -5,7 +5,7 @@
 
 ## 上半场:结账(在项目仓,听到「agent-on 结账」即执行)
 
-0. **对表播报(不升级)**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。若 agent-on 仓 HEAD 领先最新 tag(攒批中),加报「另有未发布变化 N 个 commit」——**未发布不构成可升级版本,别伪装**。升级是另一个口令,此处只播报。
+0. **对表播报(不升级) + 待消化 N 读时对账**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。若 agent-on 仓 HEAD 领先最新 tag(攒批中),加报「另有未发布变化 N 个 commit」——**未发布不构成可升级版本,别伪装**。升级是另一个口令,此处只播报。**顺手对账待消化 N**(与 [session-handshake.md](session-handshake.md) 读取表同行):读 `loop-notes.md` 顶部「agent-on 待消化 N」;若 N>0,打开 agent-on `intake/` 对应项目文件——该批卡已全部 landed/rejected/deferred 则当场把待办位改 N=0 并随项目仓 commit。清 0 责任在「下次打开项目」的会话,不在消化端(跨仓边界禁止消化端回写项目;IPONews 实证:main 上长期粘「待消化 3」而 intake 已全 landed)。
 1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚;**锚为空 = 首次结账**——lock 该行留空、或倒仓/无 lock 的历史项目,都不做增量:全量扫描,收所有未标 `sync_status=synced` 的条目):
    - **主路径(S/M 档,绝大多数项目走这条)**:`loop-notes.md` 里上次回执之后新增的可复用散文条目——六类触发当场记的那些行。散文条目直接装配成 Promotion Card,不经 jsonl。
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
@@ -16,7 +16,7 @@
 5. **回执(必须落在项目 default branch)**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。**default-branch 硬门**:回执 commit 必须是项目 default branch(通常 main)的祖先——验收 `git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为真,**否则不算结账完成**。若会话在 worktree/feature 上:只允许写 agent-on intake;项目回执须 checkout main 写完并 commit,或 cherry-pick 回执 commit 到 main 后再报完成(IPONews 实证:回执 `acf6e4a` diff 正确但困在 feature 枝,方法论已进真线、项目账本却丢了——跨仓两侧耐久性不对称)。
 6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
    - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令,形如 `cd ~/Projects/Agent-On && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去,如「intake 积压 3 份待消化」。用户当场不消化也没关系——命令已备好,下次粘贴即走。
-   - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。
+   - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。**N 的生命周期**:结账本步只负责**写/抬高** N;消化完成后项目侧不自动清零(消化端跨仓禁止回写项目)——靠握手或下次结账 step0 **读时对账**清零(见上 step0)。别假设「消化完 N 会自己变 0」。
    - **顺口报成长**:一句「本次回流 N 条;agent-on 现累计 bench 案例 X 张、playbook Y 篇」——数字从 `ls | wc -l` 数出来,禁止手编。「我进步了」可见,是结账习惯活下去的燃料。
 
 > **中断即安全**:结账幂等——intake 文件已落盘的卡就算数;重跑口令时已标 `synced` 的条目自动跳过,不产重复卡。从哪步断的,重念口令从头走一遍即可,已完成的步骤是空操作。
