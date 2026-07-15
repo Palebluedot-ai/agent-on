@@ -33,6 +33,7 @@
 - 9 次 run 证明「目录切分 = 零冲突」。人类版:issue 打 `track:` label = 认领目录;同目录同刻单写者。
 - `api/` + `app/` + `website/` 可三人并行;两人都要动 `app/` → 先拆到不同子目录或排队。
 - **契约是例外**:`contracts/` 谁都依赖,所以 maintainer 独占 + 先冻结(下条)。
+- **何时开 worktree(对 agent 轨道同样成立)**:单轨/单人**不开**(YAGNI——Euan 曾误开并行会话改同一目录,git+文件布局撞乱,整套脚手架返工的实证);仅当 ≥2 轨真并行**且**文件域可切不重叠时才开,一轨一 worktree。**三个共享面必须归口单一轨**:`design/`、`contracts/fixtures/`、`docs/state/progress.yaml`——两轨同碰任何一个 = 撞车前置条件成立。跨轨回流走 append-only 新文件(与 intake 规则 1 同构:不动他人文件,git 层物理不撞)。
 
 ### 3. 契约先冻结 —— 三方合同不能随手改
 - fixture 改一下,所有依赖它的实现全受影响。所以:改 fixture 走 `needs-contract` issue → maintainer 批 + 冻结进 main(契约 PR 先合)→ 实现方 rebase 跟进。

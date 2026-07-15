@@ -10,4 +10,4 @@
 - suggested_landing:playbook/multi-contributor-protocol.md(已含 worktree 提及,补「开 worktree 的判据 + 三共享面归口清单」);或 kit/merge-checklist.md 加一行「worktree 文件域预检:本轨改动是否触碰 design/ · contracts/ · progress.yaml 之外轨已占用的面」
 - rollback:revert 落地 commit
 - trace:用户原话「以后什么时候开worktree,怎么防止worktree撞车 这个也intake下 到agent-on」+ 本会话 `git worktree list` / `git branch -vv` 实录 + memory euan-flutter-scaffold 教训段
-- 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected(原因) / deferred -->
+- 状态:landed@同批(第八次消化:multi-contributor-protocol §二.2 补「何时开+三共享面归口」段 + merge-checklist 第 1 步合流前文件域对照)
