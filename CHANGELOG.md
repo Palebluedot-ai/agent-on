@@ -4,6 +4,14 @@
 
 ## [未发布]
 
+### 第八次消化（2026-07-15，AInvestment 首结 3 卡 + Euan 两日 2 卡：4 landed + 1 rejected；定级 minor 攒批）
+- **裁决先行（卡A rejected 立边界）**：delayed-data-as-product-truth 判 rejected——**agent-on 只收 AI 协作过程的教训，项目域知识归项目端**（用户裁决；过程内核「外部数据对账」已被 sop 集成清单第 3 条覆盖，再加=指令膨胀）。此判例是出仓判据的第一次显式适用
+- **freeze-deferred-channels-as-ban**：AGENTS-skeleton §1 暂停项行补渠道/触点类举例 + BOOTSTRAP 需求六问 Q6 补半句——MVP 后置渠道必须入禁令表，防实现会话当 soft backlog 偷做
+- **interaction-reference-not-asset-clone**：BOOTSTRAP 六问 Q2 参照物扩注「两栏拆法：学什么/不复制什么+能力对等边界」+ elicitation-protocol 参照物回显条同补
+- **worktree-when-and-collision-guard**：multi-contributor-protocol §二.2 补「何时开 worktree 判据（单轨不开/≥2 轨且文件域可切才开）+ 三共享面归口（design/·contracts/·progress.yaml）」+ merge-checklist 第 1 步合流前文件域对照
+- **tool-detail-confabulation-guard**：anti-hallucination 增补**第六型「取证幻觉」**（完成幻觉的姊妹型：把没看见的细节补成看见了）三条机械防线（复跑取证开 -v / 片段≠日志 / 锚点出口前存在性检查）+ 映射表行 + review-prompt 禁令段补取证条款
+- 附记：本批为「项目端零 git」新协议 + guard 上线后的首次消化——AInvestment 结账正确地只留 untracked 文件，消化开场收件 commit（bd75914），跨仓边界闭环首次完整走通；一卡一 commit（cb25d9d/4105d0f/2562bba/4f67722/901536c）
+
 ### 强制约束层 L-动作（2026-07-13，deep-research wf_9c47f385-3e2 + 用户拍板「按建议进行」；定级 minor 攒批）
 - **enforcement-layer-design 最小件**：新增 `kit/guard/agent-on-git-guard.sh`（PreToolUse hook，python3 轻量校验脚本）——「会话根不在 agent-on 仓却对 agent-on 执行 git 写操作」即 exit 2 拦截并回灌原因；读操作与 agent-on 自会话放行。实测矩阵 14/14（事故原型/cd 链/相对路径/-C/--no-verify/tag 创建读取边界/四类合法动作零误伤），kit/guard/README 记录注册片段、失效面与回滚
 - 注册现状：Codex `~/.codex/hooks.json` 已挂（两家 hooks schema 相同）；Claude 侧写入被用户 autoMode soft_deny 正确拦截（改 ~/.claude/ 需确认）——**机械护栏不认 agent 身份的活例**，片段待用户确认
