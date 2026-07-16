@@ -4,6 +4,13 @@
 
 ## [未发布]
 
+### feat：默认工作目录 + setup 一键装机 + v1.0 定义入 snapshot（2026-07-16）
+- **默认 B**：mac/linux `~/.local/share/agent-on`；Windows `%LOCALAPPDATA%\agent-on`；`agent_on_paths` 解析序末档认默认目录
+- **scripts/setup.py**：clone/checkout pin、写 config、可选 plugin/symlink、doctor、intake-lint
+- **snapshot/2026-07-16-v10-and-setup.md**：v1.0 四条诚实验收 + 目录/setup 拍板
+- **AGENTS.md**：当前阶段改为 v0.5.0 / 下一里程碑 v1.0（去掉陈旧 v0.2 表述）
+- README 五分钟装机改以 setup 为推荐入口；settlement 结账前提示 intake-lint
+
 ### docs：三工具装机入口写清下载源（2026-07-16）
 - README「给朋友的 5 分钟装机」扩为 Claude Code / Codex / Grok 分节：唯一源 GitHub `Palebluedot-ai/agent-on` + pin `v0.5.0`；各工具从哪来、怎么挂、开工口令、诚实边界
 - codex/README 远端 marketplace 与离线 clone 路径对齐 public 仓

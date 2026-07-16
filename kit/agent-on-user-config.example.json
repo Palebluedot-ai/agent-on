@@ -1,3 +1,5 @@
 {
-  "work_root": "/absolute/or/~/path/to/your/agent-on-clone"
+  "work_root": "~/.local/share/agent-on",
+  "default_layout": "v1",
+  "note": "macOS/Linux 默认 ~/.local/share/agent-on；Windows 用 %LOCALAPPDATA%\\\\agent-on。由 scripts/setup.py 写入绝对路径。AGENT_ON_ROOT 可覆盖。"
 }

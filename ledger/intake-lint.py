@@ -26,8 +26,8 @@ REQUIRED = [
     "suggested_landing", "rollback", "trace", "状态",
 ]
 CONFIDENCE_OK = {"high", "medium", "low"}
-# 状态合法前缀:pending / landed@xxx / rejected(...) / deferred
-STATUS_RE = re.compile(r"^(pending|landed@\S+|rejected|deferred)")
+# 状态合法: 文中出现 pending / landed@ / rejected / deferred / 半落@（允许「最小件 landed@同批」类前缀）
+STATUS_OK_RE = re.compile(r"(pending|landed@|rejected|deferred|半落@)")
 
 
 def split_cards(text):
@@ -71,9 +71,9 @@ def lint_card(title, block):
         if head not in CONFIDENCE_OK:
             errs.append(f"confidence 取值非法:'{head}'(应为 high|medium|low)")
     status = field(block, "状态")
-    if status is not None and status != "" and not STATUS_RE.match(status):
+    if status is not None and status != "" and not STATUS_OK_RE.search(status):
         errs.append(
-            f"状态取值非法:'{status[:30]}'(应为 pending | landed@<commit> | rejected(...) | deferred)"
+            f"状态取值非法:'{status[:30]}'(应含 pending | landed@… | rejected… | deferred | 半落@…)"
         )
     return errs
 

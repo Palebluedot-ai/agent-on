@@ -16,36 +16,19 @@ argument-hint: [init|adopt|handshake|settle|digest|upgrade|doctor]
 
 | 符号 | 角色 | 能否写 | 解析序（实现与 `kit/guard/agent_on_paths.py` 一致） |
 |---|---|---|---|
-| **`$READ_ROOT`** | 读 skill 路由到的 BOOTSTRAP/kit/playbook | 只读即可 | ① `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT`（目录含 `CHARTER.md`+`BOOTSTRAP.md`）② 已登记的 **B** ③ 都无 → 提示装 plugin 或登记 B，**禁止**猜 `Projects` |
-| **`$WRITE_ROOT`** | 结账写 `intake/`、消化改 canonical | **必须可写 git clone** | ① 环境变量 `AGENT_ON_ROOT` ② `~/.config/agent-on/config.json` 的 `work_root` ③ 当前项目 `agent-on.lock.md` 的「本地路径」且该路径存在且像 agent-on 仓 ④ 都无 → **settle/digest 拒绝执行**并打印登记法 |
+| **`$READ_ROOT`** | 读 BOOTSTRAP/kit/playbook | 只读即可 | plugin 根 → 否则同 B；都无 → 提示 `scripts/setup.py` / plugin，**禁止**猜 `Projects` |
+| **`$WRITE_ROOT`** | 结账写 intake、消化改 canonical | **必须可写 git clone** | ① `AGENT_ON_ROOT` ② config `work_root` ③ lock「本地路径」 ④ 默认目录 mac/linux `~/.local/share/agent-on`、Windows `%LOCALAPPDATA%\agent-on`（须已是合法仓）⑤ 都无 → settle/digest **拒绝** |
 
-「像 agent-on 仓」= 根目录同时有 `CHARTER.md` 与 `BOOTSTRAP.md`。
+「像 agent-on 仓」= 根有 `CHARTER.md` + `BOOTSTRAP.md`。
 
-**登记 B（任选其一，一次即可）**：
-
-```bash
-# 1) 环境变量（当前 shell / 用户 profile）
-export AGENT_ON_ROOT=/absolute/path/to/clone
-
-# 2) 本机配置（跨会话推荐；Windows 同样是用户主目录下 .config）
-mkdir -p ~/.config/agent-on
-echo '{"work_root":"/absolute/path/to/clone"}' > ~/.config/agent-on/config.json
-
-# 3) 项目 lock 的「本地路径」行（仅绑定该项目）
-```
-
-clone 到**任意路径**均可，不必叫 `Projects` 或 `Agent-On`：
+**登记 B（推荐 setup）**：
 
 ```bash
-git clone git@github.com:Palebluedot-ai/agent-on.git /anywhere/you/like
+python3 scripts/setup.py                  # → 默认目录 + config
+# 或 export AGENT_ON_ROOT=... / 手写 config / lock 本地路径
 ```
 
-自检（优先）：
-
-```bash
-python3 "$READ_ROOT/kit/guard/agent_on_paths.py"
-# 或子命令 doctor
-```
+自检：`python3 kit/guard/agent_on_paths.py` 或 `/agent-on doctor`；贡献前 `python3 ledger/intake-lint.py`。
 
 ## 子命令表
 
@@ -65,7 +48,7 @@ python3 "$READ_ROOT/kit/guard/agent_on_paths.py"
 
 - **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。
 - **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
-- **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，贴登记 B 的三选一命令；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
+- **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `python3 scripts/setup.py`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
 - **对表/升级诚实播报**：若 B 的 HEAD 领先最新 tag，报「未发布变化 N commit」——未发布 ≠ 可升级版本。
 - **认不出的子命令**：列表让用户重选。

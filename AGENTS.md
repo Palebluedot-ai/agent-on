@@ -1,14 +1,19 @@
 # AGENTS.md — agent-on 仓开发纪律
 
-> 职责边界：本文件管**这个仓自己怎么开发**。产品总目标见 [CHARTER.md](CHARTER.md)（唯一权威）；新项目怎么用本仓见 [BOOTSTRAP.md](BOOTSTRAP.md)。
+> 职责边界：本文件管**这个仓自己怎么开发**。产品总目标见 [CHARTER.md](CHARTER.md)（唯一权威）；新项目怎么用本仓见 [BOOTSTRAP.md](BOOTSTRAP.md)。对外装机见 README「给朋友的 5 分钟装机」。
 
 ## 一句话
 
-把「AI 协作开发项目怎么启动和推进」产品化：开箱可用的脚手架，辅助 Claude Code / Codex。
+把「AI 协作开发项目怎么启动和推进」产品化：开箱可用的脚手架，辅助 Claude Code / Codex / Grok。
 
 ## 当前阶段
 
-v0.2 融合期：三代前身资产合流（进度见 [snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md) §8 批次表）。尚未进入：skill 化 / 自动化 / 平台化。
+**v0.5.0 已封**（2026-07-16）：Plugin 装机 + 可移植路径 A/B + 上游 intake 贡献。  
+版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
+**下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
+冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
+
+历史：v0.2 融合 → v0.3 首次闭环 → v0.4 dogfood+guard → v0.5 分发。融合地图仍在 [snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)（考古，非当前阶段）。
 
 ## 自举纪律（本仓遵守自己卖的方法论）
 
@@ -31,10 +36,11 @@ v0.2 融合期：三代前身资产合流（进度见 [snapshot/2026-07-07-fusio
 
 - **intake/ 是承接层**：项目「结账」只许写那里；canonical（playbook/kit/bench 正文）只有本仓的消化会话能改——没读本文件的会话不许动 canonical
 - **消化会话收尾三件缺一不可**：至少一处具体文件改动、CHANGELOG 条目（L3 改动成对列 playbook+kit 双落点）、该打 tag 就打（major 无迁移注记不许打）
-- Euan-Flutter 仓内 `agent-on/` 文件夹是历史采集端：**v0.3 验收 = 把它倒仓做首次真实结账**，之后 Euan 降级为 lock + loop-notes + ledger 纯采集三件套。本仓是唯一对外供货源，新项目不从 Euan 或任何前身仓取料。
+- **上游贡献**：社区只交 intake-only PR / Issue；禁止直改 playbook/kit（见 boot/settlement.md「上游贡献形态」）
+- 本仓是唯一对外供货源；Euan 等项目侧仅 lock + loop-notes 等采集件
 
 ## 不做的事（宪章边界的执行版）
 
-- 不写编排运行时代码；本仓以文档和模板为主，可执行物仅限轻量校验脚本（ledger lint 一类）
+- 不写编排运行时代码；本仓以文档和模板为主，可执行物仅限轻量校验/setup 脚本（ledger lint、scripts/setup 一类）
 - 不 push / 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认
 - 不引入与 GStack / Superpowers 重叠的环节型功能
