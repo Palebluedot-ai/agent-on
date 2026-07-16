@@ -9,7 +9,7 @@
     {
       "name": "agent-on",
       "description": "AI 协作项目脚手架：项目启动 / 状态持久化 / 沉淀闭环的方法论内核，服务 Claude Code 与 Codex CLI。",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "source": "./",
       "author": {
         "name": "YANG CHAO",

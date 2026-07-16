@@ -24,7 +24,7 @@ LOCK_PATH_RE = re.compile(
 )
 OFFICIAL_HTTPS = "https://github.com/Palebluedot-ai/agent-on.git"
 OFFICIAL_SSH = "git@github.com:Palebluedot-ai/agent-on.git"
-DEFAULT_PIN = "v0.5.0"
+DEFAULT_PIN = "v0.5.1"
 
 
 def expand(p: str) -> Path:

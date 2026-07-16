@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.5.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.5.1`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.5.0`** |
+| **推荐 pin** | **`v0.5.1`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -32,7 +32,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.5.0
+git checkout v0.5.1
 python3 scripts/setup.py --with-plugins --with-symlinks
 ```
 
@@ -41,7 +41,7 @@ Windows（PowerShell / cmd，已装 Python）：
 ```text
 git clone https://github.com/Palebluedot-ai/agent-on.git %TEMP%\agent-on-src
 cd %TEMP%\agent-on-src
-git checkout v0.5.0
+git checkout v0.5.1
 py -3 scripts\setup.py --with-plugins --with-symlinks
 ```
 
@@ -234,8 +234,8 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.2**：五块骨架、三代资产合流、Bench 案例集、迭代闭环六站机制、S/M/L 档位路由、存量项目接入书
 - **v0.3 ✅ 达成（2026-07-09）**：Euan 倒仓首次结账 + 首次消化跑通，闭环真转过一圈，已封 `v0.3.0`（冻结令随之解除）
 - **v0.4 ✅ 达成（2026-07-15）**：AInvestment 完成 BOOTSTRAP 全流程 dogfood + 两默认件验证，已封 `v0.4.0`。超预期交付：规划链 §1.5（MRD→PRD→phase 卡路由）、强制约束层（agent-on-git-guard，双工具 PreToolUse 机械拦截跨仓越界）、项目端零 git 边界、防幻觉第六型
-- **v0.5 ✅ 封 `v0.5.0`（2026-07-16）**：Plugin 装机 + 可移植路径 A/B + 上游 intake 贡献 + README 五分钟装机。诚实边界：Codex plugin hook 未接线（#16430）；Claude 交互真拦未补跑。
-- **v0.5.x 进行中**：`scripts/setup.py` 默认目录装机 + intake-lint 挂钩；v1.0 诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
+- **v0.5 ✅**：`v0.5.0` Plugin/路径/贡献；**`v0.5.1`** 默认目录 `setup.py` + 三工具装机文档（patch）。诚实边界：Codex plugin hook 未接线（#16430）。
+- **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
 ## 一句话术语（给非工程师）
