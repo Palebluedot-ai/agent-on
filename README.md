@@ -14,6 +14,7 @@
 |---|---|---|---|
 | **新项目初始化** | 「初始化本项目」/ 读 BOOTSTRAP | `/agent-on init` | Bootstrap a new project: 3 tier questions (S/M/L) → seed the skeleton, start within the hour |
 | **路径自检** | 「agent-on doctor」 | `/agent-on doctor` | Print read_root / work_root; how to register B on any OS |
+| **贡献上游**(可选) | 「贡献上游」 | intake-only PR / Issue | Ship Promotion Cards to maintainers — **not** direct playbook edits |
 | **接管半路项目** | 「接管本项目」 | `/agent-on adopt` | Adopt an in-flight project: archaeology → tier → incremental fit; never rebuild, never backfill history |
 | **换会话续跑** | 「握手后继续」 | `/agent-on handshake` | Resume in a fresh session: 3-step re-alignment (goal → current phase → your pick) before any work |
 | **沉淀回流** | 「**agent-on 结账**」 | `/agent-on settle` | Settle: flow evidence-backed lessons from this project into agent-on's `intake/` |
@@ -99,6 +100,9 @@ echo '{"work_root":"/anywhere/you/like"}' > ~/.config/agent-on/config.json
 ```
 Windows 同样：clone 到如 `D:\dev\agent-on`，`work_root` 填该绝对路径。不是 npm。
 
+**Q：别人用了都要提 PR 吗？会不会把官方仓改乱？**
+**不要。** 默认只「用」；贡献自愿。贡献只交 **intake 卡片**（PR 仅限 `intake/` 或 GitHub Issue 模板），**禁止**社区 PR 直接改 playbook/kit——正文只由维护者消化会话写入再 tag。分层与通道见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。
+
 **Q：这台电脑坏了，怎么恢复？**
 | 路 | 步骤 |
 |---|---|
@@ -111,7 +115,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 能，且项目侧零适配——AGENTS.md 本来就是两家共同标准，lock / 模板 / 口令全是文件。机器侧接入见 [codex/README.md](codex/README.md)（symlink 或 plugin 二选一/并存）。`$agent-on` 与 Claude 的 `/agent-on` 吃**同一份内核**。Claude Code 独有的子代理编排在 Codex 下按 playbook/workflow-orchestration.md §四退化为手工纪律，闭环全部照跑。模型也可换——「保费」旋钮按模型能力调档（playbook/model-playbook.md）。Grok 更简单：全局规则原生认 AGENT.md 文件名，共用真相一条 symlink 即注入（中文口令直接可用）。
 
 **Q：agent-on 自己怎么进化？**
-你在项目里说「agent-on 结账」，带证据的教训回流进 intake/，消化会话把它落成 playbook / kit 的具体文件修改并记 CHANGELOG、打 tag——每次消化必须产出至少一处文件改动，只读不改算消化失败（防「文档写了没人执行」的二代翻车）。
+项目里「agent-on 结账」→ 带证据的卡进 **intake/**（本机 B 或可选上游 PR/Issue）→ 维护者消化会话落成 playbook/kit 修改 + CHANGELOG + tag → 下游「agent-on 升级」拿免疫。每次消化必须至少一处文件改动。多人时仍是「卡片进、维护者消化」，不是人人改 main。
 
 **Q：为什么信这套东西？**
 它不是设计出来的，是三代试错演化出来的：一代想自建编排引擎（5200+ 行设计物，引擎目录 0 行代码）、二代用锁堵漂移（防漂移框架自己漂进文档洁癖）、三代在真实产品上实战出 Loop Engineering。主线一句话：**从「锁住 AI」到「和 AI 对齐」**。完整家谱与裁决：[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)。

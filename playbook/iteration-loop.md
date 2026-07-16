@@ -63,11 +63,25 @@
 - canonical 只有消化会话一个写者,消化天然串行
 - 跨项目信号:Promotion Card 必带 pattern slug,消化开场 grep intake/ 同 slug ≥2 项目 = 高优先级,强制升 L3(playbook 规则 + kit checklist 行)——「高频失败优先沉淀为 anti-pattern」的执行点
 
+## 六½、多人 / 上游贡献(与装机路径正交)
+
+装机:plugin(A)+可选任意路径工作仓(B)+`~/.config/agent-on`——不写死 `Projects`。  
+回馈:**不是**人人提 PR 改官方正文。
+
+| 层 | 含义 |
+|---|---|
+| L0 | 项目私货——不出仓 |
+| L1 | intake 卡片——结账产物 |
+| L2 | 可选:intake-only PR 或 Issue 把 L1 运到官方 |
+| L3 | 仅维护者消化写入 playbook/kit + tag |
+
+默认用脚手架即可;贡献自愿。PR 运卡片、消化改宪法。执行书见 [../boot/settlement.md](../boot/settlement.md)「上游贡献形态」。
+
 ## 七、已知裂缝与 deferred(诚实清单)
 
 1. pattern slug 是手写弱匹配,措辞不同会漏报——接受粗糙度,消化会话通读兜底;卡片攒到几十张再谈词表
 2. Promotion 六项齐目前靠会话自觉——intake-lint(audit-lint 思路扩展)deferred,首次真实结账验收协议后再定
-3. 多协作者:同口令、写自己命名空间的 intake 文件、拍板权单归用户——常态化后回头接 multi-contributor-protocol
+3. 多协作者:同口令、写自己命名空间的 intake 文件、拍板权单归维护者消化——上游运输见 §六½ 与 settlement「上游贡献形态」(intake-only PR/Issue);更重的 multi-contributor 编排协议仍 deferred
 4. L3 双写(playbook+kit)对账只有 CHANGELOG 成对格式一道软门——出现真实漂移案例再加机制
 
 ## 八、v0.3 验收测试(第一个真实闭环)

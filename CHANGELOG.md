@@ -4,6 +4,12 @@
 
 ## [未发布]
 
+### 上游贡献形态：intake-only PR / Issue，禁止社区直改 canonical（2026-07-16）
+- **协议**：`boot/settlement.md` 新增「上游贡献形态」——L0 私货 / L1 intake / L2 运输(PR|Issue) / L3 仅维护者消化；默认不强制 PR；PR diff 白名单 `intake/**`
+- **模板**：`.github/ISSUE_TEMPLATE/intake-card.md`、`.github/PULL_REQUEST_TEMPLATE/intake.md`、默认 `pull_request_template.md`
+- **双落点轻量**：intake/README 第六条、iteration-loop §六½、promotion-card 纪律、skill 贡献指引、README FAQ
+- 与可移植装机正交：plugin(A)+任意 B；回馈≠人人改 main
+
 ### v0.5 可移植路径：废除 Chao 默认 `~/Projects/Agent-On`（2026-07-16）
 - **协议**：装机面 A（plugin / `CLAUDE_PLUGIN_ROOT`）与可写工作仓 B 分离；B 须显式登记（`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` 的 `work_root` → lock「本地路径」）；任意 OS/任意文件夹名
 - **实现**：新增 `kit/guard/agent_on_paths.py`（doctor 报告）；guard 改用其 `resolve_work_root`，**未登记 B 时 fail-open**；示例 `kit/agent-on-user-config.example.json`

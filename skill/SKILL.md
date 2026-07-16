@@ -59,6 +59,8 @@ python3 "$READ_ROOT/kit/guard/agent_on_paths.py"
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
 | `doctor` | （本文件 + 跑 `agent_on_paths.py`） | 打印 read_root / work_root / 登记指引 | 无 |
 
+**上游贡献**(非独立子命令):用户说「贡献上游 / 开 intake PR」时,读 `$READ_ROOT/boot/settlement.md`「上游贡献形态」——只运 `intake/` 或 Issue 卡片,**禁止**指导用户 PR 直改 playbook/kit。
+
 ## 规则
 
 - **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。

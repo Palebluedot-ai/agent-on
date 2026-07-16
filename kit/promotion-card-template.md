@@ -20,3 +20,4 @@
 - **evidence 空着 = 这张卡不存在**;「我记得」不是证据
 - **域判据**:卡必须是 AI 协作过程的教训;项目域知识(业务规则/领域语义/产品口径)留项目端,不装卡
 - 六项对应 memory-card schema 字段,结账时可从 jsonl 直接装配
+- **上游**:卡可以经 intake-only PR / Issue 交给维护者;卡本身**不是**对 playbook 的直接 patch。见 boot/settlement.md「上游贡献形态」

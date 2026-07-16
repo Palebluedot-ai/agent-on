@@ -21,6 +21,60 @@
 
 > **中断即安全**:结账幂等——intake 文件已落盘的卡就算数;重跑口令时已标 `synced` 的条目自动跳过,不产重复卡。从哪步断的,重念口令从头走一遍即可,已完成的步骤是空操作。
 
+## 上游贡献形态(可选·多人 / 外机 / 无本机 B 写权限时)
+
+> 职责边界:把结账从「只写本机 intake」扩成可运到官方仓的**承接层运输**。PR/Issue **运的是卡片,不是改宪法**。装机仍是 Superpowers 式 plugin + 任意路径 B;本节约「如何把 L1 交给维护者」。
+
+### 四层(谁写什么)
+
+| 层 | 内容 | 谁写 | 是否改官方 playbook/kit |
+|---|---|---|---|
+| L0 项目私货 | 业务规则、个人口味 | 用户项目 | **永不** |
+| L1 承接素材 | Promotion Card / `intake/*.md` | 结账会话 | **否**(只交作业) |
+| L2 提案运输 | 含 L1 的 PR 或 Issue | 愿贡献的人 | **否**(等维护者) |
+| L3 官方 canonical | playbook / kit / BOOTSTRAP / bench 正文 | **仅** agent-on 消化会话(维护者) | **是**(经分诊+tag) |
+
+**默认**:多数用户只装 plugin 用脚手架,结账可只落本机 B 或个人 fork——**不强制提 PR**。  
+**自愿上游**:用户说「贡献上游 / 开 intake PR」才走本节;未说则 step4 本机落盘即止。
+
+### 允许的贡献通道(三选一,等价)
+
+1. **intake-only PR**(推荐)  
+   - fork 官方仓(或本有 push 权的 contributor 开分支)  
+   - **diff 只许** `intake/<YYYY-MM-DD>-<项目名>.md`(新建或同日同项目追加)  
+   - PR 标题建议:`intake(<项目>): <日期> 结账 N 卡`  
+   - PR 正文:卡摘要列表 + 证据指针是否齐全自检  
+   - **禁止** PR 改 `playbook/` `kit/` `boot/` `BOOTSTRAP.md` `CHARTER.md` `skill/` `hooks/` 等 canonical——此类 PR 应关闭并要求拆成 intake-only(维护者消化时再动正文)
+
+2. **GitHub Issue**(不会 git / 无 fork 时)  
+   - 用 [issue 模板](../.github/ISSUE_TEMPLATE/intake-card.md)(或粘贴 Promotion Card 六项)  
+   - 一条 Issue 可含多张卡,每张仍六项齐  
+   - 维护者消化时把 Issue 转录进 `intake/` 再走下半场(或直接以 Issue 为 intake 源,在 intake 文件头写 `source: issue #N`)
+
+3. **本机 B + 维护者自收**(单人 dogfood / 你自己多项目)  
+   - 即上半场 step4 现状:只写本地 `intake/`,不开 PR——**仍然是一等公民闭环**,不是二等
+
+### 结账会话若走上游(在 step4 之后追加,不替代回执)
+
+7. **可选·上游运输**(仅当用户明确要求贡献):  
+   - 确认卡已过证据硬门 + 域判据  
+   - 生成 PR 或 Issue 草稿(路径白名单自检:改动文件列表 ⊆ `intake/**`)  
+   - **项目端仍不替官方仓 merge/消化**;提示用户:合入 intake 后须维护者开消化会话  
+   - 项目 lock 回执可加一行:`upstream: PR #N | Issue #N | none`
+
+### 消化会话对上游素材
+
+- 开场收件扩:未跟踪 intake、**已 merge 的 intake 提交**、以及标注 `source: issue #N` 的转录,同一套三态分诊  
+- **禁止**「贡献者 PR 已改 playbook → 消化会话直接 fast-forward」——canonical 只能由消化会话自己的 commit 写入(单写者);若误开了 canonical PR,revert 后改收 intake  
+- 频次扫描照旧:跨贡献者同 slug ≥2 → 置顶升 L3
+
+### 明确不做什么
+
+- 不设「人人直接 push main」  
+- 不设「PR 民主公投改方法论」  
+- 不把 L0 项目域知识收进上游(域判据)  
+- 不要求每个用户都贡献——**用 > 贡献**;贡献是加分不是门槛
+
 ## 下半场:消化(必须换 agent-on 仓会话)
 
 为什么必须换:会话上下文 = 装载的规则集,没读 agent-on 的 AGENTS.md 的会话,不许动它的 canonical(单写者不变量)。
