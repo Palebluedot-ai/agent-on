@@ -4,7 +4,48 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.5.0`。**
+
+## 给朋友的 5 分钟装机（Claude Code）
+
+> 只需 **开工** 时走完下面即可。结账/贡献方法论是进阶，不强制。仓已 Public：`https://github.com/Palebluedot-ai/agent-on`。
+
+**1. 装 plugin（每台电脑一次）**
+
+```bash
+claude plugin marketplace add Palebluedot-ai/agent-on
+claude plugin install agent-on@agent-on
+```
+
+新开一个 Claude Code 会话（或 `/reload-plugins`）。
+
+**2. 进你的项目目录，初始化**
+
+```text
+/agent-on init
+```
+
+或中文：「初始化本项目」。按提示定档（S/M/L）和答几道需求题即可。
+
+| 你想… | 说 |
+|---|---|
+| 项目已经写了一半 | `/agent-on adopt` 或「接管本项目」 |
+| 换了个窗口接着干 | `/agent-on handshake` 或「握手后继续」 |
+| 路径乱了 / 结账报错 | `/agent-on doctor` |
+
+**3. 可选：结账回流（进阶）**
+
+只有当你要把踩坑交回 agent-on 方法论时才需要：
+
+```bash
+git clone git@github.com:Palebluedot-ai/agent-on.git /anywhere/you/like
+mkdir -p ~/.config/agent-on
+echo '{"work_root":"/anywhere/you/like"}' > ~/.config/agent-on/config.json
+```
+
+路径任意（Windows 也行，例如 `D:\dev\agent-on`）。然后在项目里说「agent-on 结账」。**不必**提 PR；若想贡献官方，只交 `intake/` 卡片，见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。
+
+**诚实边界**：Codex 也能用（见 [codex/README.md](codex/README.md)）；Codex 侧 guard 可能仍靠本机 hooks。装机不是 npm。卡住找推荐人，或开 GitHub Issue。
 
 ## 指令速查 · Command Reference（中英）
 
@@ -129,7 +170,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.2**：五块骨架、三代资产合流、Bench 案例集、迭代闭环六站机制、S/M/L 档位路由、存量项目接入书
 - **v0.3 ✅ 达成（2026-07-09）**：Euan 倒仓首次结账 + 首次消化跑通，闭环真转过一圈，已封 `v0.3.0`（冻结令随之解除）
 - **v0.4 ✅ 达成（2026-07-15）**：AInvestment 完成 BOOTSTRAP 全流程 dogfood + 两默认件验证，已封 `v0.4.0`。超预期交付：规划链 §1.5（MRD→PRD→phase 卡路由）、强制约束层（agent-on-git-guard，双工具 PreToolUse 机械拦截跨仓越界）、项目端零 git 边界、防幻觉第六型
-- **v0.5（进行中 2026-07-16）**：Plugin 打包——阶段 1–2 + 4 ✅；Claude 本机 install + hook 注册闸门 ✅（2026-07-16）；交互会话真拦与 Codex #16430 仍开。调研见 [snapshot/2026-07-15-v05-plugin-scoping.md](snapshot/2026-07-15-v05-plugin-scoping.md)
+- **v0.5 ✅ 封 `v0.5.0`（2026-07-16）**：Plugin 装机 + 可移植路径 A/B + 上游 intake 贡献 + README 五分钟装机。诚实边界：Codex plugin hook 未接线（#16430）；Claude 交互真拦未补跑。调研见 [snapshot/2026-07-15-v05-plugin-scoping.md](snapshot/2026-07-15-v05-plugin-scoping.md)
 - **v1.0**：两个以上项目跑完完整闭环（Project A 的坑确实变成了 Project B 的免疫——guard 拦截 Euan 类越界已是第一例跨项目免疫）
 
 ## 一句话术语（给非工程师）
