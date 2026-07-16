@@ -4,7 +4,9 @@
 
 ## [未发布]
 
-（自 v0.5.0 起攒）
+### docs：三工具装机入口写清下载源（2026-07-16）
+- README「给朋友的 5 分钟装机」扩为 Claude Code / Codex / Grok 分节：唯一源 GitHub `Palebluedot-ai/agent-on` + pin `v0.5.0`；各工具从哪来、怎么挂、开工口令、诚实边界
+- codex/README 远端 marketplace 与离线 clone 路径对齐 public 仓
 
 ## v0.5.0（2026-07-16）——Plugin 装机 + 可移植路径 + 上游贡献
 

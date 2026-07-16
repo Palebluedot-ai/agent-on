@@ -15,17 +15,22 @@
    之后在 Codex 里 `$agent-on <子命令>` 即触发。（旧的 `~/.codex/prompts/agent-on.md` 已降为迁移壳，v0.4 dogfood 后删除。）
 3. **guard**（跨仓 git 边界）：个人 scope 挂 `~/.codex/hooks.json` PreToolUse，命令见 [kit/guard/README.md](../kit/guard/README.md)。
 
-**路径 2 · Plugin（v0.5 新默认，与 symlink 可并存）**
+**路径 2 · Plugin（v0.5 推荐，与 symlink 可并存）**
+
+官方仓已 Public，远端 marketplace：
 
 ```bash
-# 本地 clone 当 marketplace（自营单仓）
-codex plugin marketplace add <本仓路径>
-# 或远端：codex plugin marketplace add Palebluedot-ai/agent-on   # 仓公开后
+codex plugin marketplace add Palebluedot-ai/agent-on
 codex plugin install agent-on@agent-on
 ```
 
+仅内网/离线时：先 `git clone https://github.com/Palebluedot-ai/agent-on.git <路径>`，再  
+`codex plugin marketplace add <路径>` → `codex plugin install agent-on@agent-on`。  
+钉版本：clone 后 `git checkout v0.5.0`（plugin 远程装以 marketplace/manifest version 为准）。
+
 - skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
-- 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」——**无** `~/Projects/Agent-On` 产品默认。见 `skill/SKILL.md` 与 `kit/guard/agent_on_paths.py`。
+- 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」。见 `skill/SKILL.md` 与 `kit/guard/agent_on_paths.py`。
+- **朋友向总入口**（含 Claude / Grok 对照）：根目录 [README.md](../README.md)「给朋友的 5 分钟装机」。
 
 ## 谁写谁读
 

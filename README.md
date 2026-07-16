@@ -6,46 +6,137 @@
 
 总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.5.0`。**
 
-## 给朋友的 5 分钟装机（Claude Code）
+## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
-> 只需 **开工** 时走完下面即可。结账/贡献方法论是进阶，不强制。仓已 Public：`https://github.com/Palebluedot-ai/agent-on`。
+> **不是只有 Claude Code。** 三家共用同一套方法论与 [skill/SKILL.md](skill/SKILL.md) 内核；差在「从哪下载 / 怎么挂到本机」。  
+> 只需 **开工** 走完「下载源 + 你的工具一节 + 初始化」即可。结账/贡献是进阶，不强制。
 
-**1. 装 plugin（每台电脑一次）**
+### 0. 唯一下载源（先认这个）
+
+| 用途 | 地址 |
+|---|---|
+| **GitHub 仓（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
+| **推荐 pin** | git tag **`v0.5.0`**（或 clone 后 `git checkout v0.5.0`） |
+| **HTTPS clone** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
+| **SSH clone** | `git clone git@github.com:Palebluedot-ai/agent-on.git` |
+| **不是** | npm 包、Claude 官方总商店、App Store——**没有**那些渠道 |
+
+下面「plugin marketplace add」在能访问 GitHub 时，一般**不必**先手动 clone；工具会按 marketplace 规则拉仓。若网络/内网只能本地装：先 clone 到任意路径，再 `marketplace add <本地绝对路径>`。
+
+---
+
+### A. Claude Code
+
+**从哪来**：本机已安装 [Claude Code](https://code.claude.com/) CLI（`claude` 命令）。
+
+**装 agent-on（每台电脑一次）**
 
 ```bash
 claude plugin marketplace add Palebluedot-ai/agent-on
 claude plugin install agent-on@agent-on
 ```
 
-新开一个 Claude Code 会话（或 `/reload-plugins`）。
+新开会话或 `/reload-plugins`。
 
-**2. 进你的项目目录，初始化**
+**开工**
 
 ```text
 /agent-on init
 ```
 
-或中文：「初始化本项目」。按提示定档（S/M/L）和答几道需求题即可。
+或中文：「初始化本项目」。
 
-| 你想… | 说 |
-|---|---|
-| 项目已经写了一半 | `/agent-on adopt` 或「接管本项目」 |
-| 换了个窗口接着干 | `/agent-on handshake` 或「握手后继续」 |
-| 路径乱了 / 结账报错 | `/agent-on doctor` |
+**备用（不装 plugin）**：clone 仓后  
+`ln -s <仓路径>/skill ~/.claude/skills/agent-on`  
+口令仍可用；hook/guard 更稳走 plugin。
 
-**3. 可选：结账回流（进阶）**
+---
 
-只有当你要把踩坑交回 agent-on 方法论时才需要：
+### B. Codex CLI
+
+**从哪来**：本机已安装 [OpenAI Codex CLI](https://github.com/openai/codex)（`codex` 命令）。细节见 [codex/README.md](codex/README.md)。
+
+**路 1 · Plugin（推荐，与 Claude 同仓）**
 
 ```bash
-git clone git@github.com:Palebluedot-ai/agent-on.git /anywhere/you/like
+codex plugin marketplace add Palebluedot-ai/agent-on
+codex plugin install agent-on@agent-on
+```
+
+**路 2 · symlink（不依赖 plugin 时）**
+
+```bash
+git clone https://github.com/Palebluedot-ai/agent-on.git /anywhere/you/like
+# 建议钉版本：cd /anywhere/you/like && git checkout v0.5.0
+ln -s /anywhere/you/like/skill ~/.agents/skills/agent-on
+```
+
+再把 [codex/AGENTS-global-snippet.md](codex/AGENTS-global-snippet.md) **整段并入** `~/.codex/AGENTS.md`（全局认中文口令）。
+
+**开工**
+
+```text
+$agent-on init
+```
+
+或中文：「初始化本项目」「agent-on 结账」。斜杠不灵时**以中文口令为准**。
+
+**诚实边界**：Codex 侧跨仓 git **guard 可能不会随 plugin 自动挂**（见 CHANGELOG）；要拦就按 [kit/guard/README.md](kit/guard/README.md) 写进 `~/.codex/hooks.json`。
+
+---
+
+### C. Grok（Grok Build 等，读 AGENT.md 的会话）
+
+**从哪来**：已能跑 Grok 编程会话，且会话会加载**全局规则文件**（常见：`AGENT.md` / 经 agent-memory 等 symlink 注入的共用真相）。Grok **通常没有** Claude 那套 `/plugin install`——不要去找 npm。
+
+**装 agent-on（每台电脑一次）——两件，缺一不可**
+
+1. **全局口令路由**（让会话认识「初始化 / 结账 / 升级」）  
+   - 若你用 [agent-memory](https://github.com/Palebluedot-ai/agent-memory) 一类配置仓：跑其 `setup.sh`，确保 Grok 读到的 `AGENT.md` 里有 **Agent-On** 路由节；或  
+   - 手工把下面语义写进 Grok 会读的全局规则（路径以你本机为准）：新项目读本仓 `BOOTSTRAP.md`；结账/升级读 `boot/settlement.md`；入口见本仓 `skill/SKILL.md`。
+
+2. **本机能读到执行书**（任选）  
+   - **clone（推荐，路径任意）**：  
+     `git clone https://github.com/Palebluedot-ai/agent-on.git /anywhere/you/like`  
+     全局规则里的路径改成该路径；或  
+   - 会话可访问 GitHub 时，直接说：「读 https://github.com/Palebluedot-ai/agent-on 的 BOOTSTRAP.md，初始化本项目」（依赖工具能否拉远程文件）。
+
+**开工（中文口令是主路）**
+
+```text
+初始化本项目
+```
+
+或：「读 agent-on 的 BOOTSTRAP，按里面做。」  
+半路项目：「接管本项目」。换窗口：「握手后继续」。
+
+**诚实边界**：Grok 侧多半**没有** PreToolUse guard；纪律靠 AGENTS + 口令。子代理大扇出以 Claude 能力为参照，Grok 上按 playbook 退化执行。
+
+---
+
+### 三家共用：初始化之后
+
+| 你想… | 中文（三家通用） | Claude | Codex |
+|---|---|---|---|
+| 项目已写一半 | 接管本项目 | `/agent-on adopt` | `$agent-on adopt` |
+| 换窗口接着干 | 握手后继续 | `/agent-on handshake` | `$agent-on handshake` |
+| 路径/登记自检 | agent-on doctor | `/agent-on doctor` | `$agent-on doctor` |
+| 结账回流 | agent-on 结账 | `/agent-on settle` | `$agent-on settle` |
+
+### 可选：结账回流（进阶，三家相同）
+
+只有要把踩坑写回 agent-on 方法论时才需要 **可写工作仓 B**（与「从哪装 skill」无关）：
+
+```bash
+git clone https://github.com/Palebluedot-ai/agent-on.git /anywhere/you/like
+# 建议：cd /anywhere/you/like && git checkout v0.5.0
 mkdir -p ~/.config/agent-on
 echo '{"work_root":"/anywhere/you/like"}' > ~/.config/agent-on/config.json
 ```
 
-路径任意（Windows 也行，例如 `D:\dev\agent-on`）。然后在项目里说「agent-on 结账」。**不必**提 PR；若想贡献官方，只交 `intake/` 卡片，见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。
+Windows：clone 到如 `D:\dev\agent-on`，`work_root` 填该绝对路径。然后在项目里说「agent-on 结账」。**不必**提 PR；贡献官方只交 `intake/` 卡片，见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。
 
-**诚实边界**：Codex 也能用（见 [codex/README.md](codex/README.md)）；Codex 侧 guard 可能仍靠本机 hooks。装机不是 npm。卡住找推荐人，或开 GitHub Issue。
+**卡住了**：找推荐你的人，或开 GitHub Issue。
 
 ## 指令速查 · Command Reference（中英）
 
