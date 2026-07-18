@@ -38,6 +38,8 @@ self_contained: true
 
 **固化位置**：progress.yaml 增加 `current_bottleneck` 字段，由 state-manager 维护。
 
+**口径补充（human-async 不得独占全局瓶颈）**：`current_bottleneck` 只登记**会挡住 agent 动手**的阻塞。人审 Excel / 人买域名 / 人给密钥等 **human-async** 进 phases 并行 todo 或单卡 `status: blocked`，**禁止**单独写成全局 bottleneck 冻结整仓节奏（IPONews 2026-07-16：excel 审阅占 bottleneck → 改并行后同日多 Loop 交付）。模板旁注见 kit/progress-template.yaml。
+
 ## 3. XP 的简单设计 + 持续重构
 
 **核心规则**：
