@@ -50,6 +50,13 @@
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 
+## 附:开发期地板 vs 生产 API 门禁(2026-07-18 IPONews 实证)
+
+**dev floor**(IDE SessionStart / PreToolUse / 本仓 preflight):防 **coding agent** 未读规则就 push、批跑、毁数据——装在开发者机器上。  
+**prod API gate**:产品形态是「LLM → 你的 HTTP/API」(Vercel/Cloudflare Worker 等**无** Claude Code/Grok 运行时)时,防幻觉进金融/业务结论必须落在**程序层**(无 Evidence → refused、结构化字段只读 extractions、禁止裸 chat 当事实源)。
+
+**禁止**把 hook 当生产护栏;两层互补、不互相替代。kit/claude-hooks-template 文首已钉「hook 非生产」。
+
 ## 一句话版
 
 > **让 AI 少幻觉的方法,不是叮嘱它「别幻觉」,而是把它每一步的对错都变成可机械判定的事实:接口=同一份文件,状态=单写者台账,完成=命令输出,边界=禁令条款。缺口填完,幻觉自然没了生长的地方。**
@@ -63,3 +70,4 @@
 | 完成幻觉 | 7-10 | Phase 4 纪律四件套 + Phase 6 |
 | 决策幻觉 | 11-12 | Phase 0 三分法 + Phase 4 卡内禁区 |
 | 取证幻觉 | 第六型三防线 | kit/review-prompt 禁令段 + 调查/审查类派工词 |
+| 生产层幻觉(云上 LLM→API) | dev floor vs prod API gate | 查询层 refuse + 结构化工具;hook 仅开发期 |

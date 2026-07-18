@@ -2,6 +2,8 @@
 
 > 职责边界：给 M/L 档项目的**可选**增强——用 Claude Code 的 hook 在「上下文将满 / 会话结束」时机械兜底快照。**Claude Code 专属**（Codex/Grok 无 hook，它们的地板 = 快照三写点第 3 条的手动门控，见 playbook/sop.md Phase 7）。BOOTSTRAP 播种时问一句要不要挂；不挂全流程照跑。
 > 源流：2026-07-11 第二次消化落地；hook 能力经官方文档核实（PreCompact/SessionEnd 存在、agent 型 hook 可派子代理写文件、项目级 .claude/settings.json 可提交进仓）。
+>
+> **Hook 不是生产护栏**：IDE SessionStart/PreToolUse 等只是**开发期地板**（防 coding agent 未读规则就 push/批跑）。产品若是「LLM → 你的 API」部署在 Vercel/Cloudflare 等无 agent 运行时的云上，防幻觉必须落在**查询/API 程序层**（无 Evidence 则 refused、结构化字段、禁止裸 chat 当事实源）。见 playbook/anti-hallucination「dev floor vs prod API gate」。
 
 ## 挂法
 
