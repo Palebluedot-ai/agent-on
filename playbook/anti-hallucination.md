@@ -71,3 +71,4 @@
 | 决策幻觉 | 11-12 | Phase 0 三分法 + Phase 4 卡内禁区 |
 | 取证幻觉 | 第六型三防线 | kit/review-prompt 禁令段 + 调查/审查类派工词 |
 | 生产层幻觉(云上 LLM→API) | dev floor vs prod API gate | 查询层 refuse + 结构化工具;hook 仅开发期 |
+| 静默未挂载配置 | 模块化 prompt 孤儿必须红 | sop 集成清单第 7 条;装配表 + orphan 测试 |
