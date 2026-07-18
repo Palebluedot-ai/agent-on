@@ -16,7 +16,7 @@
 ## B 类:堵「状态幻觉」(AI 记错项目进行到哪了)
 
 4. **单一状态写者**:progress.yaml 只有 orchestrator 写;轨道 agent 不写状态、不 push。多写者=状态漂移=后续所有推理建立在错误前提上。
-5. **自包含 phase 卡**:setpoint + 验收 + 禁区 + 指针全部卡内解决,`self_contained: true` 是承诺——执行者**不需要回忆**会话历史。上下文断了(compaction/断连)也能原地续跑。
+5. **自包含 phase 卡**:setpoint + 验收 + 禁区 + 指针全部卡内解决,`self_contained: true` 是承诺——执行者**不需要回忆**会话历史。上下文断了(compaction/断连)也能原地续跑。**长 phase / 跨会话多 Loop**:在 phase 卡内维护 **append-only Loop 台账**(日期·目标·验收命令·结果),新会话读 progress.next + 台账最后一行续跑——模板见 kit/phase-card-template §2b(IPONews 2026-07-16 实证)。
    ✓ 本项目跨 compaction、跨 API 断连多次,零迷路。
 6. **disturbance = 显式负空间**:「不许碰 app/」「不许发明业务规则」「通知=纯客户端,别在后端做」。AI 的幻觉经常以「顺手多做」的形态出现,禁区条款与验收标准同权重。
 
