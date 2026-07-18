@@ -4,6 +4,14 @@
 
 ## [未发布]
 
+### 第十一次消化（2026-07-18，IPONews 四结+五结 5 卡全 landed；定级 minor 攒批）
+- **long-task-loop-ledger-on-phase**：kit/phase-card-template §2b 可选 Loop 台账 + anti-hallucination 机制5 半句
+- **human-async-not-global-bottleneck**：kit/progress-template current_bottleneck 旁注 + mechanisms/three-stabilizers TOC 口径
+- **hook-dev-floor-api-prod-gate**：anti-hallucination 附节 dev floor vs prod API gate + claude-hooks-template 文首
+- **session-receipt-before-gated-actions**：kit/guard README L-进场会话回执模式 + AGENTS-skeleton 可选 preflight 行
+- **modular-prompt-orphan-must-fail**：sop 外部服务集成清单第 7 条 + anti-hallucination 映射行
+- 附记：开场收件 970ccf1/573346f；一卡一 commit（ae9bec8/e0cef89/af03b2f/69c7cc6/0c7b2e7）；来源 intake/2026-07-16-IPONews.md + 2026-07-18-IPONews.md
+
 （自 v0.5.1 起攒）
 
 ## v0.5.1（2026-07-16）——默认目录 setup + 三工具装机文档
