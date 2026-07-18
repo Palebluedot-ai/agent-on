@@ -15,6 +15,7 @@
 | [安全红线] | 密钥只进本地 gitignored .env 与部署平台 env;签名 URL/token 禁入日志;service 级凭证只许在 [封装模块路径] 出现 |
 | **不写死暂停项** | [用户说「以后再聊」的清单,逐条列]=**未获明确指令前不实现、不假设**(删掉=留缺口给幻觉,禁令=钉死);MVP 后置的**渠道/触点**(推送/移动端/多租户)必须入此表——只活在对话「以后做」= 实现会话当 soft backlog 偷做 |
 | 外向操作 | push/部署/建远程资源/改共享云配置,首次须用户确认;**假定一切 CLI 在非交互环境自动确认**(--dry-run 不存在就先在无害目标试行为) |
+| 高风险域 preflight(可选) | 碰钱/真实用户数据/批处理毁库时:本仓 SessionStart 写会话回执 + 高风险 Bash fail-closed(无回执不 push/不批跑);模式见 kit/guard/README「L-进场·会话回执」。IDE hook 非生产护栏(生产见 anti-hallucination dev floor vs prod API) |
 
 ## §2 纪律四件套
 

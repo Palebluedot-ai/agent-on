@@ -46,7 +46,20 @@ env -u AGENT_ON_ROOT HOME=/tmp/no-config \
 # expect 0
 ```
 
+## L-进场模式·会话回执（项目本地，与跨仓 git-guard 互补）
+
+> 源流:IPONews `scripts/guard/preflight.mjs` + session-receipt 2026-07-18；digest session-receipt-before-gated-actions。  
+> agent-on **不强制**每个项目拷贝脚本；高风险域可选自建。
+
+**模式**：SessionStart（或等价）对真相源（如 `AGENTS.md` + `progress.yaml`）做内容指纹 → 写会话回执文件并注入硬约束摘要；PreToolUse 对 `git push` / 批处理 / 毁数据等 **无有效回执则 fail-closed**；force-push main / `reset --hard` 可永拦。用自测证明无回执拦、有回执放、只读放行。
+
+| 层 | 职责 |
+|---|---|
+| 全局 agent-on-git-guard | 跨仓：项目会话不许写 agent-on 仓 git |
+| 本仓 session-receipt | 进场：本项目高风险动作前必须机械读过规则 |
+
 ## 未建层
 
-- L-进场 / L-收尾（等 L-动作跑稳）
+- agent-on 官方仓内嵌通用 preflight 脚本（deferred；先让项目侧模式沉淀）
+- L-收尾 Stop 结账校验（deferred）
 - git 原生 pre-commit 兜底（deferred）
