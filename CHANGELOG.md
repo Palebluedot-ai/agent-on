@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### 第十二次消化（2026-07-19，Euan 结账 2 卡全 landed；定级 minor 攒批）
+- **privacy-feature-tension-hybrid-optin**：elicitation-protocol 新增 §五 隐私×能力冲突（结构化默认 + 证据 opt-in + 禁双全叙事）+ prd-template 第 10 条
+- **partial-constitution-unpause-dtable**：AGENTS-skeleton 暂停项局部解禁（D 表划界 + 多面同步）+ §9 一行 + truth-hierarchy §六
+- 附记：收件 e5878c1；一卡一 commit（83e8dec 隐私 / 7add1e7 局部解禁）；产品口径 D18 留项目端不出仓（域判据）
+
 ### 第十一次消化（2026-07-18，IPONews 四结+五结 5 卡全 landed；定级 minor 攒批）
 - **long-task-loop-ledger-on-phase**：kit/phase-card-template §2b 可选 Loop 台账 + anti-hallucination 机制5 半句
 - **human-async-not-global-bottleneck**：kit/progress-template current_bottleneck 旁注 + mechanisms/three-stabilizers TOC 口径
