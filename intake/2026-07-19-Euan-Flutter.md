@@ -11,7 +11,7 @@
 - suggested_landing:playbook/elicitation-protocol.md 或 architect-lens 增「隐私×功能冲突」判据半节；kit/requirement-pack 或 prd-template 加一行「敏感原件：默认丢 / 证据 opt-in / 禁双全叙事」
 - rollback:revert 落地 commit
 - trace:Euan 会话 2026-07-19 安全架构讨论 → 用户「选 3」；D18 落账 diff
-- 状态:pending
+- 状态:landed@同批(第十二次消化:elicitation-protocol §五 + prd-template 第10条)
 
 ### partial-constitution-unpause-dtable（暂停项可局部解禁：D 表划界 + 多面同步，禁止聊天默示全解）
 - source:Euan-Flutter @ f0369a6 | pin v0.3.0
@@ -21,4 +21,4 @@
 - suggested_landing:playbook/truth-hierarchy 或 sop 动态需求协议段；kit/AGENTS-skeleton 暂停项行补「局部解禁 = D 表划界 + 多面同步」
 - rollback:revert 落地 commit
 - trace:Euan AGENTS.md §1 暂停项 → D18 同批多文件同步
-- 状态:pending
+- 状态:landed@同批(第十二·卡2:AGENTS-skeleton 暂停项局部解禁 + truth-hierarchy §六)
