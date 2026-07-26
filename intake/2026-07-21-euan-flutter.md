@@ -22,7 +22,7 @@
 - suggested_landing:bench 案例一张(工具行为坑);或 sop 外部工具篇一行
 - rollback:revert 落地 commit
 - trace:本会话(基线截图批次,第一张截图缺字错位现场)
-- 状态:pending
+- 状态:landed@同批(第十三次消化:bench/cases/25 与 react-fiber 卡语义归并)
 
 ### disjoint-file-ownership-parallel-implementers(并行 implementer 文件域互斥 + 共享文件必须指派 owner)
 - source:Euan-Flutter @ ca2e025 | pin v0.3.0
@@ -42,7 +42,7 @@
 - suggested_landing:bench 案例(与 serve-dc-html-over-http 同来源可合并成一张「dc.html 驱动」案例)
 - rollback:revert 落地 commit
 - trace:本会话(基线截图批次)
-- 状态:pending
+- 状态:landed@同批(第十三次消化:bench/cases/25 与 serve-dc-html 卡语义归并)
 
 ### chunked-readers-gap-matrix-workflow(大单文件规格的并行深读→差距矩阵编排)
 - source:Euan-Flutter @ 2753267 | pin v0.3.0
