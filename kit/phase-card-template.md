@@ -34,6 +34,8 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 - 环境坑:[worktree 里要先装依赖/env 拷贝法/已知平台脾气]
 - 集成探针(接新外部服务时必含):先 dump 真实载荷与代码假设对账,再写映射
 - 扫坑指针(接外部服务/上并行/交付前):对照 agent-on `bench/cases/README.md` 使用时机表,同类坑动手前先认
+- **文件域**(并行 implementer 时必填):本卡只许改 `[路径前缀…]`;禁碰 `[…]`
+- **共享文件 owner**(契约表/索引/清单/barrel 等跨切片面):`[路径]` → owner=`[本卡|收口人|某轨名]`——禁止「各补一行」却不点名;漏派 = 条款集体落空(见 playbook/workflow-orchestration §二½)
 
 ## 2b. 可选·长任务 Loop 台账（跨会话 / 一天多 Loop 时启用）
 
