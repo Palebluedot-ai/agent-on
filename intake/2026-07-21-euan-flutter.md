@@ -52,4 +52,4 @@
 - suggested_landing:playbook 多 agent 编排篇(与 review-army/深读模式并列)
 - rollback:revert 落地 commit
 - trace:wf_8f5a3d86-fab(journal 含各 reader 返回值)
-- 状态:pending
+- 状态:landed@同批(第十三次消化:workflow-orchestration §三¼ + checklist 大单文件节)
