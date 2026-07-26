@@ -27,7 +27,7 @@
 - rollback:revert 落地 commit(纯纪律条,无机制依赖)
 - rollback_note:该条只增加一次读 diff 的成本,误判风险低
 - trace:本会话 `git status --short` → `git diff design/euan.pen` → `ls -l` mtime 核对 → `git log -1 -- design/euan.pen` 对账 `6c70b9e`
-- 状态:pending
+- 状态:landed@同批(第十三次消化:sop Phase 7 工作区分诊 + guard README 人侧旁注)
 
 ---
 

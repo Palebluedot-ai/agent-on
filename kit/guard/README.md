@@ -58,6 +58,10 @@ env -u AGENT_ON_ROOT HOME=/tmp/no-config \
 | 全局 agent-on-git-guard | 跨仓：项目会话不许写 agent-on 仓 git |
 | 本仓 session-receipt | 进场：本项目高风险动作前必须机械读过规则 |
 
+## 人侧旁注：工作区「脏」≠ 全可丢
+
+机械层（若项目自建 deny）可拦 `git clean -fdx` / 无脑 `git checkout .`。**拦不住的是意图**：清理前须人/agent 逐文件读 diff 做三分类（真内容提交 / 机器态 untrack+ignore / 真垃圾丢）——见 playbook/sop.md Phase 7「工作区分诊」。挂很久 ≠ 可丢。
+
 ## 未建层
 
 - agent-on 官方仓内嵌通用 preflight 脚本（deferred；先让项目侧模式沉淀）
