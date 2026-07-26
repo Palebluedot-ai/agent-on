@@ -33,7 +33,7 @@
 - suggested_landing:playbook 编排篇 workflow 操作段增「熄火续跑」小节(清树→resume)。
 - rollback:纯操作经验,无落地 commit;误则删该小节。
 - trace:本会话三次 resume;/loop 兜底心跳里也写了「限额熄火按重置时间重发」。
-- 状态:pending
+- 状态:landed@3f36ac3(第十三次消化:§一.6 熄火续跑操作序 + checklist 行;与卡6同 commit 因同文件编辑)
 
 ### interleaved-shared-file-single-commit(并行卡改动在共享文件交织时合一笔 bisect,卡内明细进 message)
 - source:Euan-Flutter @ e6a02e2 | pin v0.3.0
@@ -43,4 +43,4 @@
 - suggested_landing:playbook 编排篇「bisectable 原子提交」纪律补一条边界:自洽通过做不到时合一笔+message 明细。
 - rollback:纯纪律,无生产影响。
 - trace:本会话轮4 收口;commit 3189167。
-- 状态:pending
+- 状态:landed@同批(第十三次消化:kit/commit-layering bisectable 边界条)
