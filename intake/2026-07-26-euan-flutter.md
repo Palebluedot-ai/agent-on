@@ -39,4 +39,4 @@
 - suggested_landing:建议**并入既有 slug `wiring-anchor-def-not-integration`** 作为第二实例(消化会话按语义归并,勿另起新篇);双落点:playbook 该条正文补「外部平台配置」维度 + kit 的完成判据 checklist 补「护栏类改动须附实体验证证据」
 - rollback:revert 落地 commit;若判定与 wiring-anchor 重复度过高,直接 rejected(已被覆盖)
 - trace:本会话 `cat .github/CODEOWNERS`(8 处 `@maintainer`)→ `gh api user --jq .login`(`Palebluedot-ai`)→ `gh api repos/.../collaborators`(`jsui1998-cpu`)
-- 状态:pending
+- 状态:landed@同批(第十三次消化:并入 wiring-anchor C 附「实体解析」维;phase-card 护栏实体验收条)

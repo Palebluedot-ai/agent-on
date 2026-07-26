@@ -13,7 +13,7 @@
 - suggested_landing:playbook/anti-hallucination.md 增「完成幻觉子类:integration-gap(定义≠接线)」+ verification-before-completion 检查项「新建共享件跑一次接线锚变异」;或 bench 案例。
 - rollback:revert 落地 commit(纯文档/纪律,无生产影响)。
 - trace:本会话轮2→轮3 收口;commit ab2c3b5。
-- 状态:pending
+- 状态:landed@同批(第十三次消化:anti-hallucination C 附 + phase-card 接线锚/护栏实体条;与 guardrail-entity 语义归并)
 
 ### upstream-digest-not-spec(流水线里上游产物是导航不是真相,下游实现前回读一手源)
 - source:Euan-Flutter @ e6a02e2 | pin v0.3.0
