@@ -4,6 +4,20 @@
 
 ## [未发布]
 
+### 第十三次消化（2026-07-26，Euan 三结 12 卡全 landed；定级 minor 攒批）
+- **demo-anchor-into-repo-before-build**：kit/phase-card-template §0 Demo 锚点四件套前置检查
+- **serve-dc-html ∪ react-fiber-logic**（语义归并）：bench/cases/25 + README 索引/时机
+- **disjoint-file-ownership-parallel-implementers**：workflow-orchestration §二½ + phase-card 文件域/共享 owner + checklist 行（L3 双落点）
+- **chunked-readers-gap-matrix-workflow**：workflow-orchestration §三¼ + checklist 大单文件节
+- **wiring-anchor-def-not-integration ∪ guardrail-entity-must-resolve**（语义归并）：anti-hallucination C 附 integration-gap（接线锚+实体解析）+ phase-card 验收两条（L3 双落点）
+- **upstream-digest-not-spec**：workflow-orchestration §一.3 re-read-source + checklist 源料行
+- **workflow-resume-on-quota-death**：§一.6 熄火续跑操作序 + checklist 行（与上卡同 commit 因同文件）
+- **interleaved-shared-file-single-commit**：kit/commit-layering bisectable 边界条
+- **staged-residue-breaks-atomic-commit**：anti-hallucination 第六型#4 + commit-layering/AGENTS-skeleton 提交纪律（L3 双落点）
+- **dirty-file-not-garbage-triage-before-clean**：sop Phase 7 工作区分诊 + guard README 人侧旁注
+- 附记：收件 c5a73cb/afbc2de/7d85336；12 卡 9 内容 commit（3 组语义归并）；README bench 24→25；本批无 major
+- 来源：`intake/2026-07-21-euan-flutter.md` + `2026-07-23-euan-flutter.md` + `2026-07-26-euan-flutter.md`（Euan pin v0.3.0）
+
 ### 第十二次消化（2026-07-19，Euan 结账 2 卡全 landed；定级 minor 攒批）
 - **privacy-feature-tension-hybrid-optin**：elicitation-protocol 新增 §五 隐私×能力冲突（结构化默认 + 证据 opt-in + 禁双全叙事）+ prd-template 第 10 条
 - **partial-constitution-unpause-dtable**：AGENTS-skeleton 暂停项局部解禁（D 表划界 + 多面同步）+ §9 一行 + truth-hierarchy §六
