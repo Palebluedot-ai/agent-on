@@ -11,6 +11,12 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 
 # Phase [编号] — [名字]
 
+## 0. 前置检查（按卡类型勾；不适用则整节删）
+
+<!-- Demo-as-spec / 设计管线：untracked 的规格 = 会蒸发的锚点，禁止对着仓外文件开工
+     源流:Euan design/demo-v9 8374abc; digest demo-anchor-into-repo-before-build -->
+- [ ] **Demo 锚点四件套已入仓**（若本卡以 demo/交互稿为规格）:① demo 本体 ② 全部运行依赖 ③ 逐屏/关键基线截图 ④「微调后怎么同步」的更新流程 README——四件齐才算锚点；缺一不开工
+
 ## 1. 验收标准
 
 <!-- 铁律:每条 ≈ 一个测试名;机器可验证或人眼一步可验;≤10 条(Opus 执行 ≤8 条);

@@ -12,7 +12,7 @@
 - suggested_landing:playbook demo-first/设计管线篇加「锚点固化四件套」小节;或 kit phase-card-template 前置检查行
 - rollback:revert 落地 commit
 - trace:本会话(锚点固化批次);无 loop-notes(项目未启用)
-- 状态:pending
+- 状态:landed@同批(第十三次消化:kit/phase-card-template §0 Demo 锚点四件套前置检查)
 
 ### serve-dc-html-over-http(.dc.html 必须 HTTP 服务运行)
 - source:Euan-Flutter @ 8374abc | pin v0.3.0
