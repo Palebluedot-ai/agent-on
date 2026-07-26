@@ -56,6 +56,7 @@
 1. **细节缺失的标准动作 = 复跑取证**:本地复跑同版本工具、开详细模式(`-v`),绝不从记忆/生态惯例重建细节。
 2. **「看过片段」≠「读过日志」**:grep/head 过滤后的视图只是片段,「没匹配到」≠「不存在」;基于片段下结论前先确认过滤器本身没坏(Euan 实证:日志行首 job 名前缀 `secrets` 让 grep 命中率 100%,过滤器失效未被察觉,「日志里没有细节」这个事实被淹没)。
 3. **锚点出口前存在性检查**:报告 commit/路径/行号之前先跑 `git cat-file -e` / `ls`——让编造在出口前碎,不是在用户面前碎。
+4. **命令的默认作用域 ≠ 你传的参数范围**:`git add <路径>` 只增不减,不构成「提交范围」限定——暂存区里先有的残留会被一并 commit。声明原子提交前必须读**全暂存区**(`git status --short`),验证不能只信 `git show --stat`(只展示末次 commit,可能掩盖前一笔污染),须配独立交叉命令(如 `git ls-files`)。(Euan 2026-07-26:先 untrack 9 个 supabase/.temp 进暂存,再 `git add CODEOWNERS && commit`,产出把 9 个删除吞入,message 只讲 CODEOWNERS;show --stat 显示 1 file changed 看似正常。)
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 

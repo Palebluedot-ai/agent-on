@@ -14,7 +14,7 @@
 - suggested_landing:playbook/anti-hallucination.md「工具输出可疑」一节增补一条「命令的默认作用域 ≠ 你传的参数范围」;kit/AGENTS-skeleton.md 提交纪律行补半句「commit 前 `git status --short` 读全暂存区」
 - rollback:revert 落地 commit;若判定过度约束(小项目不跑原子提交),降级为 bench 案例
 - trace:本会话工具输出——`git show --stat --format="%h %s" -1` 与 `git ls-files supabase/.temp/` 两次交叉;重做锚 `git reset --mixed HEAD~2`
-- 状态:pending
+- 状态:landed@同批(第十三次消化:anti-hallucination 第六型#4 + commit-layering + AGENTS-skeleton 提交纪律)
 
 ---
 

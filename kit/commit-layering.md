@@ -7,6 +7,8 @@
 
 一次提交只承载一个可独立描述、可独立回滚的变更。跨层的改动拆成多个 commit(如先 `decision:` 再 `feat:`),不塞进一个。
 
+**commit 前读全暂存区**:`git status --short`(或等价)确认 staged 集合 = 本 commit 意图;勿假定 `git add <路径>` 已限定范围——它只增不减。见 anti-hallucination 第六型第 4 条。
+
 ## 分层前缀(必带)
 
 | 前缀 | 装什么 |
