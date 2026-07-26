@@ -23,7 +23,7 @@
 - suggested_landing:playbook 编排篇增「流水线中间产物的下游核验义务」;或 orchestration 卡「fan-out 产出物做下游 spec 时必带 re-read-source 指令」。
 - rollback:revert 落地 commit。
 - trace:motion-glass-audit 工作流 → 轮3/轮5 实现;commit 029e5ab / 9523ddc。
-- 状态:pending
+- 状态:landed@同批(第十三次消化:workflow-orchestration §一.3 半句 + checklist 源料行)
 
 ### workflow-resume-on-quota-death(workflow 中途熄火走断点续跑,不整轮重发)
 - source:Euan-Flutter @ e6a02e2 | pin v0.3.0
