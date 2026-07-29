@@ -14,7 +14,7 @@
 - suggested_landing:playbook/systematic-debugging 或 sop 排障段新增一条「观测优先于假设」;kit/AGENTS-skeleton 排障纪律行补半句「列试验清单前先问:能不能直接看到?」
 - rollback:revert 落地 commit(纯方法论条,无机制依赖)
 - trace:本会话工具输出——五轮往返记录;终局实证 `smtplib.login('resend'|'Resend')` 双跑对照
-- 状态:pending
+- 状态:landed@同批(第十四次消化:sop Phase 6 排障·观测优先 + AGENTS-skeleton 排障纪律半句)
 
 ---
 
