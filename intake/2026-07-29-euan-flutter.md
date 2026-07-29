@@ -26,7 +26,7 @@
 - suggested_landing:playbook/anti-hallucination「工具输出可疑」一节增补「错误码改善 ≠ 修复:先验因果链」;bench 追加本案例(503→429→被吞成202→放开配额后 500 重现)
 - rollback:revert 落地 commit
 - trace:本会话——`/auth/forgot` 503 ×3 → 直调 GoTrue 得 429 `over_email_send_rate_limit` → 网关回 202 → 用户调高配额 → 直调 GoTrue 复现 500
-- 状态:pending
+- 状态:landed@同批(第十四次消化:anti-hallucination 第六型#5 + bench/cases/26)
 
 ---
 

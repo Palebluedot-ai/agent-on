@@ -57,6 +57,7 @@
 2. **「看过片段」≠「读过日志」**:grep/head 过滤后的视图只是片段,「没匹配到」≠「不存在」;基于片段下结论前先确认过滤器本身没坏(Euan 实证:日志行首 job 名前缀 `secrets` 让 grep 命中率 100%,过滤器失效未被察觉,「日志里没有细节」这个事实被淹没)。
 3. **锚点出口前存在性检查**:报告 commit/路径/行号之前先跑 `git cat-file -e` / `ls`——让编造在出口前碎,不是在用户面前碎。
 4. **命令的默认作用域 ≠ 你传的参数范围**:`git add <路径>` 只增不减,不构成「提交范围」限定——暂存区里先有的残留会被一并 commit。声明原子提交前必须读**全暂存区**(`git status --short`),验证不能只信 `git show --stat`(只展示末次 commit,可能掩盖前一笔污染),须配独立交叉命令(如 `git ls-files`)。(Euan 2026-07-26:先 untrack 9 个 supabase/.temp 进暂存,再 `git add CODEOWNERS && commit`,产出把 9 个删除吞入,message 只讲 CODEOWNERS;show --stat 显示 1 file changed 看似正常。)
+5. **错误码「变好」≠ 已修复——先验因果链**:排查期间若状态码/症状改善,先问**改善与我的修复动作之间有没有因果链**;没有因果链的改善不算证据。限流(429)、熔断、降级响应会**覆盖**真实故障码——解除限流后必须复测,才能判定是否真的修复。(Euan 2026-07-29:GoTrue 500 重试触发 `over_email_send_rate_limit`→429,网关防枚举吞成 202,误判「5xx 消失=修好了」;调高邮件配额后 500 立刻重现。)
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 
@@ -80,6 +81,6 @@
 | 完成幻觉 | 7-10 | Phase 4 纪律四件套 + Phase 6 |
 | 完成幻觉·integration-gap | C 附接线锚+实体解析 | phase 卡验收「接线锚/护栏实体」条;配置落地验证 |
 | 决策幻觉 | 11-12 | Phase 0 三分法 + Phase 4 卡内禁区 |
-| 取证幻觉 | 第六型三防线 | kit/review-prompt 禁令段 + 调查/审查类派工词 |
+| 取证幻觉 | 第六型 1–5 防线 | kit/review-prompt 禁令段 + 调查/审查类派工词;案 26 |
 | 生产层幻觉(云上 LLM→API) | dev floor vs prod API gate | 查询层 refuse + 结构化工具;hook 仅开发期 |
 | 静默未挂载配置 | 模块化 prompt 孤儿必须红 | sop 集成清单第 7 条;装配表 + orphan 测试 |
