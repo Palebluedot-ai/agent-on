@@ -50,7 +50,7 @@
 - suggested_landing:**建议并入既有 slug `staged-residue-breaks-atomic-commit`** 作为跨工具第二实例(消化会话按语义归并);双落点:playbook 该条正文补「读取位置类 flag」维度 + kit 的提交/部署纪律行补「不可逆动作前验证作用域」
 - rollback:revert 落地 commit;若判定与 staged-residue 重复度过高,直接 rejected(已被覆盖)
 - trace:本会话——两次 `supabase config push` 的 diff 方向相反(第一次 `+site_url = "https://api.euan.pro"`,第二次 `+admin_email = "noreply@mail.dartify.dev"`);修复后 `/auth/recover` 200
-- 状态:pending
+- 状态:landed@同批(第十四次消化:并入 anti-hallucination 第六型#4 读取位置维 + AGENTS-skeleton/merge-checklist 作用域验证)
 
 ---
 
