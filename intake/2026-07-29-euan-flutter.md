@@ -38,7 +38,7 @@
 - suggested_landing:playbook 测试纪律段补「结构化配置锚:语义层 > 文本层」;kit 的完成判据 checklist 补一行「配置类锚须附反向验证证据」。与既有「动效锚要能判别档位」是同一原则的不同介质,建议合并抽象为一条**「锚必须能判别」**的通则
 - rollback:revert 落地 commit;若判定与既有「锚要能判别」重复,直接 rejected(已被覆盖)
 - trace:本会话——`tomllib` 输出 `routes=None` 且 `assets` 内混入 routes;反向验证两次跑测结果
-- 状态:pending
+- 状态:landed@同批(第十四次消化:anti-hallucination C 附2 + phase-card 配置锚行)
 
 ---
 
