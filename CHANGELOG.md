@@ -4,6 +4,15 @@
 
 ## [未发布]
 
+### 第十四次消化（2026-07-29，Euan 结账 5 卡全 landed；定级 minor 攒批）
+- **observe-dont-interrogate**：sop Phase 6 排障·观测优先于假设 + AGENTS-skeleton 排障纪律半句
+- **ratelimit-masks-real-error**：anti-hallucination 第六型#5 + bench/cases/26（L3 双落点）
+- **text-assertion-cannot-prove-structure**：anti-hallucination C 附2「锚必须能判别」+ phase-card 配置锚行（L3 双落点）
+- **cwd-not-flag-decides-source**：并入第六型#4 读取位置/cwd 维 + AGENTS-skeleton/merge-checklist 不可逆动作前验证作用域
+- **cdn-verify-needs-cachebuster-and-window**：sop 集成清单第 8 条 + merge-checklist §5 静态资产行
+- 附记：收件 05c9c72；一卡一 commit（90cea1d/026e91c/5bed77b/ab0724f/652265e）；README bench 25→26；本批无 major
+- 来源：`intake/2026-07-29-euan-flutter.md`（Euan pin v0.3.0；API 宿主迁 CF + dartify.dev 发信链路）
+
 ### 第十三次消化（2026-07-26，Euan 三结 12 卡全 landed；定级 minor 攒批）
 - **demo-anchor-into-repo-before-build**：kit/phase-card-template §0 Demo 锚点四件套前置检查
 - **serve-dc-html ∪ react-fiber-logic**（语义归并）：bench/cases/25 + README 索引/时机
