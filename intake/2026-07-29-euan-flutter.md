@@ -62,4 +62,4 @@
 - suggested_landing:sop 外部服务集成清单 / 部署验证段新增一条;kit 的部署后验收 checklist 补「静态资产验证带 cache-buster + 二次确认」
 - rollback:revert 落地 commit(纯验证方法条)
 - trace:本会话——首轮 5832/5842 不一致 + 矛盾 grep 输出;带 cache-buster 轮询第 1 次即 5841(去尾换行)一致
-- 状态:pending
+- 状态:landed@同批(第十四次消化:sop 集成清单第 8 条 + merge-checklist §5 静态资产行)
