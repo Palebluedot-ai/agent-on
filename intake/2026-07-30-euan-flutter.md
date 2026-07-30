@@ -96,7 +96,7 @@
 - suggested_landing:playbook sop 验收节补「依赖受阻先做能力-依赖对照,再决定挂起范围」;kit/phase-card-template 验收行可提示「本项验证的真实依赖是什么」
 - rollback:revert 落地 commit
 - trace:本会话真机排障段(system_profiler 零命中 → 转模拟器 → 双 provider 生产实证)
-- 状态:pending
+- 状态:landed@同批(第十六次消化:sop Phase 6 能力-依赖对照 + phase-card 验收旁注)
 
 ### human-console-checklist-must-be-doc-verified(要用户照着点的清单,每条必须官方文档核实——过时清单比没清单更危险)
 - source:Euan-Flutter @ 9428d29 | pin v0.5.1
