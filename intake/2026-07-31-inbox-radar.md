@@ -120,7 +120,7 @@
 - suggested_landing:playbook/iteration-loop；kit/run-ledger schema 的 retroactive-data 禁令
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「编排账本」+ agent-on.lock.md local_deviations
-- 状态:pending
+- 状态:landed@同批(第十七·包5:iteration-loop + run-card-logging 禁 retroactive)
 
 ### config-truth-needs-nonsecret-executable-probe（运行配置不要从叙述文档推断）
 - source:inbox-radar @ c37c9aa | pin v0.3.0
@@ -130,7 +130,7 @@
 - suggested_landing:playbook/anti-hallucination 的配置取证；kit/preflight 的 secret-safe 输出约定
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「配置真相」
-- 状态:pending
+- 状态:landed@同批(第十七·包6:anti-hallucination 第六型#7)
 
 ### cross-runtime-contracts-need-adversarial-matrices（跨运行时契约要锁可观察语义）
 - source:inbox-radar @ cd7d694 | pin v0.3.0
@@ -140,7 +140,7 @@
 - suggested_landing:playbook/anti-hallucination 的边界契约；kit/review-prompt 的 cross-runtime matrix 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「跨运行时路径语义」
-- 状态:pending
+- 状态:landed@同批(第十七·包6:anti-hallucination #8 + review-prompt)
 
 ### validate-at-producer-and-consumer-boundaries（不可信数据要生产者和消费者双门）
 - source:inbox-radar @ cd7d694 | pin v0.3.0
@@ -150,7 +150,7 @@
 - suggested_landing:playbook/sop 数据边界；kit/review-prompt 的 producer/consumer 双门检查
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「生产者/消费者双门」
-- 状态:pending
+- 状态:landed@同批(第十七·包6:anti-hallucination #9 + review-prompt)
 
 ### new-review-findings-invalidate-inflight-gates（新 P1 会让正在跑的旧门禁过期）
 - source:inbox-radar @ cd7d694 | pin v0.3.0
@@ -160,7 +160,7 @@
 - suggested_landing:playbook/workflow-orchestration 的并行复审时序；kit/merge-checklist 的 stale gate 规则
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「并行复审时序」
-- 状态:pending
+- 状态:landed@同批(第十七·包7:orchestration §一.5 + merge 7c)
 
 ### operations-docs-are-executable-release-surface（运维文档里的命令也是执行面）
 - source:inbox-radar @ 3283821 | pin v0.3.0
@@ -170,7 +170,7 @@
 - suggested_landing:playbook/sop 运维文档审查；kit/review-prompt 的 executable docs 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「运维文档也是执行面」
-- 状态:pending
+- 状态:landed@同批(第十七·包8:sop §6½.9 + review-prompt executable docs)
 
 ### ephemeral-divergence-belongs-in-live-commands（分支计数等易变证据只在动作前 fresh 查询）
 - source:inbox-radar @ 3283821 | pin v0.3.0
@@ -190,7 +190,7 @@
 - suggested_landing:playbook/anti-hallucination 的测试锚；kit/review-prompt 的 phrase-oracle 检查
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「合同测试锁不变量」
-- 状态:pending
+- 状态:landed@同批(第十七·包6:anti-hallucination #10 + review-prompt)
 
 ### capability-scoped-release-gates-enable-narrow-rollout（全局门未闭环时按能力做窄发布）
 - source:inbox-radar @ b6fbc39 | pin v0.5.1

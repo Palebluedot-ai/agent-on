@@ -36,3 +36,13 @@
 3. **只让 CONFIRMED(及有条件的 PARTIAL)进检讨报告**;REFUTED 的错误归因拦在门外(实证:「PR #19 单方面改验收锚」实为用户参与拍板;「CODEOWNERS 路径失效导致某 commit」实为直推使 CODEOWNERS 本就无效)。
 
 单层审计把指控直接写进报告 = **把叙事当证据**。切片收口审查仍用上文模板;本变体专用于合规/多周回看类审计。
+
+---
+
+## 发布/边界附加检查(inbox-radar 2026-07-31)
+
+- [ ] **cross-runtime matrix**:跨语言边界是否有 adversarial 输入族与可观察 accept/reject?
+- [ ] **producer/consumer 双门**:持久化不可信字段是否两边都 fail-closed?
+- [ ] **phrase-oracle**:合同测试是否锁不变量而非旧措辞?
+- [ ] **executable docs**:runbook 的 load/start 示例是否就近带齐门禁前置?
+- [ ] **ambiguous side-effect**:解析失败时是否冻结 replay 并要求只读 read-back?

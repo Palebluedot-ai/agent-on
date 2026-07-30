@@ -67,6 +67,10 @@
    - **读取位置/cwd**:决定工具读哪份文件的常是 **cwd**,不是你传的 `--workdir` 类 flag。「我传了 flag」≠「工具照做了」。**不可逆动作**(config push / deploy / publish)前必须验证作用域真的生效——先跑只读命令看工具报告的实际路径,或核对将要应用的 diff **方向**。「知道两份文件不同」≠「工具会用对的那份」。(Euan 2026-07-29:`supabase config push --workdir <worktree>` 仍读主目录旧配置,把当日 site_url/白名单/配额全部冲回旧值;cd 进 worktree 再推才正确。)
 5. **错误码「变好」≠ 已修复——先验因果链**:排查期间若状态码/症状改善,先问**改善与我的修复动作之间有没有因果链**;没有因果链的改善不算证据。限流(429)、熔断、降级响应会**覆盖**真实故障码——解除限流后必须复测,才能判定是否真的修复。(Euan 2026-07-29:GoTrue 500 重试触发 `over_email_send_rate_limit`→429,网关防枚举吞成 202,误判「5xx 消失=修好了」;调高邮件配额后 500 立刻重现。)
 6. **交给人执行的步骤 = 最高取证标准(外化面)**:凡是**用户去外部控制台照着点**的清单(OAuth client 类型、域名、密钥勾选),每条必须有**官方文档原文**背书并就地标 `[doc]`(URL 或引用);抓不到的老实标 `[待查证]`,禁止补「看起来合理」的路径。**过时/臆测清单比没有清单更危险**——没清单人会查文档,有错清单人会照做,且常表现为无差别 401,自查成本极高。(Euan 2026-07-30:external-setup 旧版教 iOS+Android OAuth client,官方实为 web+iOS;Apple 纯原生不需 Services ID。)
+7. **配置真相用 secret-safe 探针,不靠叙述反推**:迁移/审计运行配置时,写只输出布尔分类的可执行探针(协议/位置/能力);叙述文档只做线索——不得从文档反推 secret、endpoint 或当前 provider。(inbox-radar:历史说明误认 provider,探针证两路合规 HTTPS 且不打印密钥。)
+8. **跨运行时契约锁可观察语义 + adversarial matrix**:不要假设 Python/Worker/URL 路径规范化「应该一样」;先写 decode→canonicalize→accept/reject 契约,再在各实现上跑同一 adversarial 输入族。
+9. **不可信字段生产者+消费者双门**:会持久化并跨运行时消费的字段,producer 写入前净化,每个 consumer 仍独立 fail-closed——单边校验不够。
+10. **合同测试锁不变量,不锁旧措辞**:文档/安全合同断言必需概念与禁止路径;phrase oracle 会阻止更安全的语义升级——先保留 RED 证据再改结构 oracle。
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 

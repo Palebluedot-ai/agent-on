@@ -32,6 +32,7 @@
 | [26](26-ratelimit-masks-real-error.md) | 限流盖住真故障 | 排查期错误码「变好」须先验因果链;限流/降级解除后复测才可结案 |
 | [27](27-two-collision-diseases.md) | 互踩≠撞题≠撞号 | 环境→worktree;撞题→开工声明;撞号→取号即落盘 |
 | [28](28-audit-adversarial-verifiers.md) | 审计对抗复核 | 合规审计指控与定罪分离;复核以推翻为目标;事实与归因分判 |
+| [29](29-ambiguous-side-effect-readback.md) | 外部副作用 read-back | 解析失败≠传输失败;可能已送达时冻结重放,先只读对账 |
 
 ## 使用时机
 
@@ -47,3 +48,4 @@
 - **跑 Claude Design / .dc.html 交互 demo 前**:案 25(HTTP 服务 + fiber 无头截基线)
 - **排障期错误码突然「变好」时**:案 26(限流/熔断是否盖住真因)
 - **多周合规/harness 审计时**:案 28(取证+对抗复核双层)
+- **外部消息/API 可能已产生副作用时**:案 29(先 read-back 再重试)

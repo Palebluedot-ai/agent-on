@@ -11,6 +11,8 @@
 
 关系一句话:**jsonl 是原始颗粒(每步一卡),主表是聚合视图(每 run 一行)——先有卡片,合流时再据卡片汇一行进主表。**
 
+**禁 retroactive 伪造**:run 已开始后才接入台账时,不得事后编造 task/result 时间戳与 token;只允许人读摘要 + 在 agent-on.lock `local_deviations` 登记「未回填 JSONL」。
+
 ## 二、文件规范
 
 - 路径:`ledger/runs/<run_id>.jsonl`,一个 run 一个文件。
