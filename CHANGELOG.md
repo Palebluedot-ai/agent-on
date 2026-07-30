@@ -4,6 +4,18 @@
 
 ## [未发布]
 
+### 第十七次消化（2026-07-31，inbox-radar 首结 21 卡全 landed；定级 minor 攒批）
+- **包1 真相面**(5 卡归并)：truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行
+- **包2 发布门**(6 卡归并)：sop Phase 6½ + phase preflight/scope + progress blockers + merge §5/7c
+- **包3 远端取证**(2 卡)：sop §6½.8 + merge 7d + **bench 29** ambiguous read-back
+- **包4 运行态**：sop runtime clean checkout + merge §5
+- **包5 台账**：iteration-loop + run-card-logging 禁 retroactive 伪造
+- **包6 边界**(4 卡)：anti-hallucination 第六型 #7–10 + review-prompt 附加检查
+- **包7 stale gate**：workflow-orchestration §一.5 时序 + merge 7c
+- **包8 可执行文档**：sop §6½.9 + review-prompt executable docs
+- 附记：收件 0395b74；21 卡 8 语义包 / 3 内容 commit；README bench 28→29；本批无 major；pin 旧 v0.3.0 摩擦未单开 rejected（规则仍适用）
+- 来源：`intake/2026-07-31-inbox-radar.md`
+
 ### 第十六次消化（2026-07-30 晚，Euan 二结 6 卡全 landed；定级 minor 攒批）
 - **shared-id-namespace-collision**：multi-contributor 第三型撞号 + AGENTS 取号即落盘 + bench 27 扩（并入 two-collision）
 - **rename-wave-rebase-derive-the-map**：merge-checklist §1b 改名浪潮三步（映射→残差→新增扫尾）
