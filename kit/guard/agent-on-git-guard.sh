@@ -10,7 +10,6 @@
 # 来源:deep-research run wf_9c47f385-3e2(2026-07-13)+ Euan 越界事故(5b4ecdd);可移植路径 2026-07-16。
 import json
 import os
-import re
 import shlex
 import sys
 
@@ -27,8 +26,14 @@ WRITE_OPS = {
     "cherry-pick", "stash", "tag", "rm", "mv", "restore", "checkout",
     "switch", "clean", "am", "apply", "update-ref",
 }
-# 命令文本里可能指向工作仓的路径片段(仅作候选;最终以 B realpath 前缀判定)
-PATH_RE = re.compile(r"[~/][\w@.\-/\\]*agent-on[\w@.\-/\\]*", re.IGNORECASE)
+# 写子命令后「吃掉下一个 token」的 flag——其参数是数据不是 pathspec
+# (Euan 2026-07-30: 不可把 -m 消息/heredoc 里的路径当 git 目标)
+FLAGS_TAKE_ARG = {
+    "-m", "--message", "-F", "--file", "--author", "--date",
+    "--fixup", "--onto", "--strategy", "-s", "-X",
+    "--reuse-message", "--reedit-message", "-C",  # commit -C <commit>
+    "--template", "-t", "--exec",
+}
 
 
 def norm(p: str, base: str) -> str:
@@ -104,6 +109,26 @@ def main() -> int:
                             break  # 读形态,不算写
                     write_hit = True
                     targets.append(git_dir)
+                    # pathspec:只收集写子命令后的位置路径,不扫整条命令字符串
+                    # (误拦实证:echo 内容含 B 绝对路径 + git add 项目文件 → 旧 PATH_RE 全文匹配)
+                    k = j + 1
+                    while k < len(toks):
+                        tk = toks[k]
+                        if tk in ("&&", "||", ";", "|"):
+                            break
+                        if tk.startswith("-"):
+                            flag = tk.split("=", 1)[0]
+                            if (
+                                flag in FLAGS_TAKE_ARG
+                                and "=" not in tk
+                                and k + 1 < len(toks)
+                            ):
+                                k += 2
+                                continue
+                            k += 1
+                            continue
+                        targets.append(norm(tk, git_dir))
+                        k += 1
                 break  # 第一个非选项 token 即子命令,判完就走
             i = j + 1
             continue
@@ -111,10 +136,6 @@ def main() -> int:
 
     if not write_hit:
         return 0
-
-    # 命令文本里显式出现的 agent-on 路径(cd/-C 之外的形态)也算目标
-    for m in PATH_RE.findall(cmd):
-        targets.append(norm(m, cwd))
 
     if not any(inside_agent_on(t) for t in targets):
         return 0

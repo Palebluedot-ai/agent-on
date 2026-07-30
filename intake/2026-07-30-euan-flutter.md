@@ -117,4 +117,4 @@
 - rollback:revert 修复 commit 回到现状。方向纪律:**误拦有绕法、漏拦无补救**,修复必须保持 fail-closed 倾向,宁可继续误拦也不要放宽成「找不到就放行」
 - trace:本会话结账 step 5 与写卡两次被拦全文 + 三组对照 exit code;规则出处 = 该脚本的 PATH_RE 定义行
 - 补充(自伤路径):settlement §6 **要求**把消化粘贴令(含 `$WRITE_ROOT` 绝对路径)写进项目 loop-notes 待办位 —— 于是**协议第 6 步产出的内容会拦住协议第 5 步的回执提交**。这是两个 agent-on 机制自撞,不是项目端用错。修好前的绕法:回执改用编辑工具落盘、命令行里不出现该绝对路径(本次即如此,并已在项目 loop-notes 就地留注)
-- 状态:pending
+- 状态:landed@同批(第十六次消化:guard 收窄 pathspec 目标识别 + README 失效面)

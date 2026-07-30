@@ -21,6 +21,8 @@ python3 kit/guard/agent_on_paths.py --cwd /path/to/project
 
 只拦：**会话根不在已登记的 B 内，却对 B 执行 git 写**。读操作与 B 内会话一律放行。未登记 B → exit 0（fail-open）。
 
+**目标识别（2026-07-30 收窄）**：只认 ①`cd`/`git -C` 解析出的工作目录 ②写子命令后的 **pathspec 位置参数**。**不**再全文正则扫命令字符串——否则 heredoc/`echo`/`-m` 消息里出现 B 路径会被当写目标，误拦项目端回执（Euan 结账 step5 自撞；digest guard-path-regex）。方向纪律：误拦有绕法、漏拦无补救；收窄后仍 fail-closed 于真实 `-C`/pathspec 指向 B。
+
 ### 注册
 
 **路 B · Plugin（推荐，路径可移植）**：仓内 [`hooks/hooks.json`](../../hooks/hooks.json) 随 Claude plugin 启用：
@@ -39,6 +41,10 @@ export AGENT_ON_ROOT=/path/to/agent-on-clone   # 或写 config.json
 
 echo '{"tool_input":{"command":"git -C '"$AGENT_ON_ROOT"' commit -m x"},"cwd":"/tmp"}' \
   | CLAUDE_PROJECT_DIR=/tmp python3 kit/guard/agent-on-git-guard.sh; echo "expect 2"
+
+# 命令文本含 B 路径但 pathspec 是项目文件 → 应放行(旧版误拦)
+echo '{"tool_input":{"command":"echo '"$AGENT_ON_ROOT"' > note.md && git add note.md"},"cwd":"/tmp"}' \
+  | CLAUDE_PROJECT_DIR=/tmp python3 kit/guard/agent-on-git-guard.sh; echo "expect 0"
 
 # 未登记 B → fail-open
 env -u AGENT_ON_ROOT HOME=/tmp/no-config \
