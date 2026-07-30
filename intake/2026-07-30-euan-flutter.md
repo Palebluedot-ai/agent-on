@@ -10,7 +10,7 @@
 - suggested_landing:playbook 纪律/协作篇立「机制须带闸」原则;kit AGENTS-skeleton 加一行「本条靠什么闸?」自问
 - rollback:revert 落地 commit
 - trace:本会话 harness 审计 workflow wf_2a0aa710-b24(9 代理,402 tool_uses)
-- 状态:pending
+- 状态:landed@同批(第十五次消化:multi-contributor §三½ + AGENTS-skeleton 机制须带闸)
 
 ### truth-surface-feeding-table(状态面登记「谁喂/何时喂/什么闸」三元组,没人喂的面比没有面更危险)
 - source:Euan-Flutter @ 44b944a | pin v0.3.0

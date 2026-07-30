@@ -51,6 +51,12 @@
 - 可委托(团队大了轮值),但**同刻只有一位在任**——两个 maintainer 同时 sync progress.yaml 又变成多写者了。
 - maintainer 的 review 用对抗式(kit/review-prompt 人类版):跑命令核对而非读声明、删测审计、边界审计。执行者自评永远系统性偏乐观,这条对人对 agent 一样成立(S2 审查抓 Critical 的教训)。
 
+## 三½、机制须带闸(纸面规则无闸 = 装样子)
+
+> 源流:Euan harness 审计 2026-07-30——issue 建制 24 天 0 使用、logs/ 24 天零文件、merge --no-ff 被 7/7 squash、PR review 记录全空;三机制在双人期同周失守。digest paper-mechanism-rots-silently。
+
+写协作/状态/流程规则时必须**同批交付机械闸**(CI 断言 / pre-receive / 脚本校验 / 必须绿的检查)。交付不了就**明写**「靠自觉 + 接受定期审计」——别假装有护栏。被审计证实**空转两周以上**的纸面机制:机械化或删除,不许留着装样子。第二个高速贡献者到来时,无闸机制会同时失守。
+
 ## 四、诚实的约束(不粉饰)
 
 - **私有免费仓无分支保护**:GitHub 不给 API(实测 403)。当前靠 约定 + CODEOWNERS 软 review + CI 硬门 三层替代,够 2-3 人;≥3 人或出事 → 升 GitHub Team。**软护栏不是真护栏,写清楚比假装安全好。**
