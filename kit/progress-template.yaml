@@ -7,6 +7,8 @@ current_phase: "[一句话:现在在哪]"
 # 禁止把 human-async 单独写成全局瓶颈(人审 Excel/人买域名/人给密钥等)——那些进 phases 并行 todo 或单卡 status:blocked。
 # 实证:IPONews 2026-07-16 excel 审阅占 bottleneck 冻结整仓;改并行 todo 后同日多 Loop 交付。
 current_bottleneck: "[当前最大瓶颈——仅 agent 动手阻塞;human-async 勿独占此字段]"
+# 发布 blocker 证据(可选):结构化记「已通过项 + 正确阻塞项」,安全阻塞也是进展(inbox-radar preflight)
+# release_blockers: [{check: env|Graph|…, status: pass|block, evidence: "…"}]
 monitoring_summary: "[最近一次合流的战报摘要:测试数/关键交付/悬点裁决]"
 
 phases:

@@ -30,7 +30,7 @@
 - suggested_landing:playbook/sop 的发布阶段；kit/phase-card-template 的 production preflight 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「生产前置需要机器门禁」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ 发布门 + phase preflight + progress blockers)
 
 ### safe-block-is-progress-evidence（安全阻塞本身也是发布进展证据）
 - source:inbox-radar @ 36c7c15 | pin v0.3.0
@@ -40,7 +40,7 @@
 - suggested_landing:playbook/sop 发布状态；kit/progress-template 的 blocker 证据格式
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「安全阻塞是进展证据」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ + progress blockers)
 
 ### verify-remote-state-through-authoritative-api（远端状态先查权威 API，不靠页面感觉）
 - source:inbox-radar @ abcdc89 | pin v0.3.0
@@ -50,7 +50,7 @@
 - suggested_landing:playbook/sop 外部系统取证；kit/merge-checklist 的 fresh remote state 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「PR 状态不要靠页面感觉」
-- 状态:pending
+- 状态:landed@同批(第十七·包3:sop §6½ + merge 7d)
 
 ### historical-docs-need-drift-quarantine（历史文档必须隔离，不能继续伪装当前规则）
 - source:inbox-radar @ 6dd9100 | pin v0.3.0
@@ -70,7 +70,7 @@
 - suggested_landing:playbook/sop 发布门；kit/preflight/checklist 的三态语义
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「跳过检查必须保持红灯」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ skip 保持红)
 
 ### release-gate-must-wrap-the-execution-entry（发布门必须包住唯一执行入口）
 - source:inbox-radar @ 53e7101 | pin v0.3.0
@@ -80,7 +80,7 @@
 - suggested_landing:playbook/sop 发布执行面；kit/phase-card-template 的“门禁接线到入口”验收行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「文档门禁必须接到执行入口」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ 门包入口 + merge §5)
 
 ### truth-surfaces-and-code-must-close-together（最终合流要同时核代码与状态面）
 - source:inbox-radar @ c37c9aa | pin v0.3.0
@@ -100,7 +100,7 @@
 - suggested_landing:playbook/sop 部署运行态；kit/deployment checklist 的 runtime isolation 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「运行态隔离」
-- 状态:pending
+- 状态:landed@同批(第十七·包4:sop §6½ 运行态隔离 + merge §5)
 
 ### final-gate-evidence-must-follow-the-last-edit（最终门禁证据必须晚于最后一次改动）
 - source:inbox-radar @ c37c9aa | pin v0.3.0
@@ -110,7 +110,7 @@
 - suggested_landing:playbook/sop 验证时序；kit/merge-checklist 的 exact-HEAD final gate 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「证据闭环」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ + merge 7c)
 
 ### do-not-fabricate-retroactive-run-ledgers（漏记实时台账时不要事后伪造）
 - source:inbox-radar @ c37c9aa | pin v0.3.0
@@ -200,7 +200,7 @@
 - suggested_landing:playbook/sop 渐进发布；kit/phase-card-template 的 capability scope / excluded capabilities 字段
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-31「按能力拆发布门」
-- 状态:pending
+- 状态:landed@同批(第十七·包2:sop §6½ 能力 scope + phase 字段)
 
 ### ambiguous-external-effects-require-readback-before-retry（外部副作用不明时先查实况再重试）
 - source:inbox-radar @ 467f0ac | pin v0.5.1
@@ -210,4 +210,4 @@
 - suggested_landing:playbook/sop 恢复与幂等；kit/review-prompt 的 ambiguous side-effect read-back 行；bench 案例
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-31「外部副作用不明时先 read-back，禁止盲重放」
-- 状态:pending
+- 状态:landed@同批(第十七·包3:sop §6½ + bench 29)
