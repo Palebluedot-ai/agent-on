@@ -106,7 +106,7 @@
 - suggested_landing:anti-hallucination 第六型「取证幻觉」补一条外化面(交给人执行的步骤=最高取证标准);kit 文档模板补 `[doc]`/`[待查证]` 双标记约定
 - rollback:revert 落地 commit
 - trace:external-setup.md 旧 :117 vs 新 §七B;重写 commit 235ebc1
-- 状态:pending
+- 状态:landed@同批(第十六次消化:anti-hallucination 第六型#6 + sop 集成清单第 9 条)
 
 ### guard-path-regex-matches-content-not-target(护栏把「要写进文件的内容」当成 git 目标 → 拦掉协议自己要求的回执)
 - source:Euan-Flutter @ 9428d29 | pin v0.5.1
