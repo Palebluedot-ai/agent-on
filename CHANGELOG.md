@@ -4,6 +4,16 @@
 
 ## [未发布]
 
+### 第十六次消化（2026-07-30 晚，Euan 二结 6 卡全 landed；定级 minor 攒批）
+- **shared-id-namespace-collision**：multi-contributor 第三型撞号 + AGENTS 取号即落盘 + bench 27 扩（并入 two-collision）
+- **rename-wave-rebase-derive-the-map**：merge-checklist §1b 改名浪潮三步（映射→残差→新增扫尾）
+- **classify-red-check-origin-before-blocking**：merge-checklist §2b 红灯先分来源
+- **blocked-dependency-check-actual-requirement**：sop 能力-依赖对照 + phase-card 验收旁注
+- **human-console-checklist-must-be-doc-verified**：anti-hallucination 第六型#6 + sop 集成清单第 9 条
+- **guard-path-regex-matches-content-not-target**：`agent-on-git-guard.sh` 收窄 pathspec 目标识别 + README（**代码修复**；回归 A/B/C/D/E）
+- 附记：收件 82e0692；卡2+3 合 commit（merge-checklist 同文件）；本批无 major
+- 来源：`intake/2026-07-30-euan-flutter.md` 追加批（社交登录 + 五连合并；pin v0.5.1）
+
 ### 第十五次消化（2026-07-30，Euan harness 审计结账 5 卡全 landed；定级 minor 攒批）
 - **paper-mechanism-rots-silently**：multi-contributor §三½ 机制须带闸 + AGENTS-skeleton 自问行（L3）
 - **truth-surface-feeding-table**：truth-hierarchy §五½ 喂养表 + dashboard-template 三元组（L3）
