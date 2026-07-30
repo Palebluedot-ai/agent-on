@@ -40,7 +40,7 @@
 - suggested_landing:playbook 需求变更/纪律篇;kit 需求协议模板加追认条款行
 - rollback:revert 落地 commit
 - trace:审计 harness-compliance 维度 §9 指控(CONFIRMED,复核员补抓隐私缺口)
-- 状态:pending
+- 状态:landed@同批(第十五次消化:AGENTS-skeleton §9 事后追认条款)
 
 ### audit-with-adversarial-verifiers(合规审计用「取证代理+对抗复核代理」双层,复核以推翻为目标)
 - source:Euan-Flutter @ 44b944a | pin v0.3.0
