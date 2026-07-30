@@ -166,7 +166,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 | [BOOTSTRAP.md](BOOTSTRAP.md) + `boot/` | **Boot** | 新项目冷启动（含定档三问）· 存量项目接入书 adopt · 会话续接握手 · 结账/升级执行书 · 深挖版问卷 |
 | `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、合流 checklist（含 DoD 门禁）、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
 | `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）+ 机制七篇（mechanisms/） |
-| `bench/` | **Bench** | 翻车案例集 26 卡（[bench/cases/](bench/cases/README.md)，Euan 实战 23 + IPONews 1 + 前身仓标本 2）+ 能力探针 + 能力真相表 + 修正闭环 |
+| `bench/` | **Bench** | 翻车案例集 28 卡（[bench/cases/](bench/cases/README.md)，Euan 实战 25 + IPONews 1 + 前身仓标本 2）+ 能力探针 + 能力真相表 + 修正闭环 |
 | `ledger/` | **Ledger** | run 台账模板 + Euan 九次 run 实测数据（**散文台账，真实跑过**）· jsonl 落盘规范 + audit-lint 状态机校验脚本（**机件，L 档多 agent 编排时启用，尚未在真实项目验证**）|
 | `intake/` | — | 承接层：各项目「结账」回流的落点（目录即仪表盘，`ls` 一眼见积压） |
 | `snapshot/` `legacy/` | — | 决策快照（工具定义、融合地图）· 前身仓考古层 |

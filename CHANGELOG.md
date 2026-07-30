@@ -4,6 +4,15 @@
 
 ## [未发布]
 
+### 第十五次消化（2026-07-30，Euan harness 审计结账 5 卡全 landed；定级 minor 攒批）
+- **paper-mechanism-rots-silently**：multi-contributor §三½ 机制须带闸 + AGENTS-skeleton 自问行（L3）
+- **truth-surface-feeding-table**：truth-hierarchy §五½ 喂养表 + dashboard-template 三元组（L3）
+- **two-collision-diseases-two-cures**：multi-contributor §二.2 互踩≠撞题 + bench/cases/27（L3）
+- **code-first-needs-retroactive-ledger**：AGENTS-skeleton §9 48h 事后追认 + 外围义务检查
+- **audit-with-adversarial-verifiers**：review-prompt 合规审计变体 + bench/cases/28
+- 附记：收件 408e9a2；一卡一 commit（94b9f14/3e0e963/0cc4eab/4a28ed2/5118235）；README bench 26→28；本批无 major
+- 来源：`intake/2026-07-30-euan-flutter.md`（Euan pin v0.3.0；harness v3 重建 / PR #22）
+
 ### 第十四次消化（2026-07-29，Euan 结账 5 卡全 landed；定级 minor 攒批）
 - **observe-dont-interrogate**：sop Phase 6 排障·观测优先于假设 + AGENTS-skeleton 排障纪律半句
 - **ratelimit-masks-real-error**：anti-hallucination 第六型#5 + bench/cases/26（L3 双落点）
