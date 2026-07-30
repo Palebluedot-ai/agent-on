@@ -66,7 +66,7 @@
 - suggested_landing:playbook 编排并行篇「两种撞车」节扩为三型(与 two-collision-diseases-two-cures 语义归并);kit/AGENTS-skeleton 决策台账行补「取号即落盘」半句
 - rollback:revert 落地 commit;若判定与 two-collision 卡重复度过高,合并为一卡三型即可
 - trace:本会话 rebase 段;requirements.md:42-43 与 commit 6872144
-- 状态:pending
+- 状态:landed@同批(第十六次消化:multi-contributor 第三型撞号 + AGENTS 取号即落盘 + bench 27 扩)
 
 ### rename-wave-rebase-derive-the-map(撞上大规模改名时,先从已合并侧反推映射表再机械套用)
 - source:Euan-Flutter @ 9428d29 | pin v0.5.1

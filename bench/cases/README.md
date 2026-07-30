@@ -30,7 +30,7 @@
 | [24](24-fanout-without-probe.md) | 无探针大扇出 | 大扇出前 1 个探针子代理先验关键工具通路;探针不过 = 不扇出,改主会话定向抓取 |
 | [25](25-dc-html-http-and-fiber-drive.md) | .dc.html HTTP+fiber 驱动 | Claude Design 导出禁止 file:// 验收;基线截图走 fiber 无头直切,可一键再生 |
 | [26](26-ratelimit-masks-real-error.md) | 限流盖住真故障 | 排查期错误码「变好」须先验因果链;限流/降级解除后复测才可结案 |
-| [27](27-two-collision-diseases.md) | 互踩≠撞题 | 环境互踩→独立 worktree;工作撞题→开工声明广播;禁会话数是误诊 |
+| [27](27-two-collision-diseases.md) | 互踩≠撞题≠撞号 | 环境→worktree;撞题→开工声明;撞号→取号即落盘 |
 | [28](28-audit-adversarial-verifiers.md) | 审计对抗复核 | 合规审计指控与定罪分离;复核以推翻为目标;事实与归因分判 |
 
 ## 使用时机
