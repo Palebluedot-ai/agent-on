@@ -11,6 +11,9 @@
 - [ ] **5. 部署 + 生产 canary + 并行轨各跑 LIVE**(有部署面/双轨时):部署后跑边缘出口的 LIVE 探针——平台会剥头/整形/缓存,本地绿不算数(Run #7:Vercel 剥 Server-Timing/304 剥光)。**双轨并行时,合流前让每轨各自跑一发 LIVE 当发现器**(不只验证已知):并行 LIVE 会撞出串行/单测永远遇不到的真分支——权限边界、精度窗、回放态(Euan Run #4 GoTrue global-logout 401 真分支 / #6 微秒窗 / #8 清号回放,项目内 3 次独立复现)。**推送/部署前验证作用域**:多 worktree 时确认 CLI 读的是目标树(cwd 常压过 flag),diff 方向正确再不可逆。**静态资产**:带 cache-buster 请求 + 留传播窗口后二次确认再判部署成败(sop 集成清单第 8 条)。
 - [ ] **6. 上机人验**:装真机/模拟器,给用户一句「去点哪里看什么」。
 - [ ] **7. 记账五件套 + 触发扫尾**:progress.yaml 状态 + run-ledger 一行(时长/冲突/悬点/返工/成本)+ loop-notes 六触发扫尾(返工/撞车/用户纠正/Error Signal/手工重复/脚手架不合身——**漏记=合流不过**,出仓候选升 memory_card 且 evidence 必填)+ **更新 dashboard.html(M/L,从真相源重绘,别手填)** + qa 三桶(如有)+ commit&push;**worktree 全量巡检**:`git worktree list` 逐个核(不只清本次的)——拆前三查(工作区脏?/有独有 commit?/是否已是 main 的 ancestor?),孤儿 commit 先收编再拆,死枝当场清(Euan 一次清 7 个 + agent-on 自身残留,双项目实证)。
+- [ ] **7b. 状态面与代码同批收口**:核对 exact HEAD + 测试输出 + progress/phase/dashboard(及计划 TODO 当前态)一致;禁止代码已前进而状态面仍写已关闭 P0 或未来时态。易变计数(ahead/behind)不写入长期真相——push 前 fresh fetch。
+- [ ] **7c. 最终门禁绑 exact SHA**:最后一次代码/文档改动之后重跑;会话内旧「已通过」不能覆盖后续提交。门禁运行中新发现 P1/边界反例 → **取消旧门禁**,修完复审清零后只对最终 HEAD 跑一次有效门禁。
+- [ ] **7d. 远端状态权威 API**:PR/CI/部署下一步前 `gh pr view` / `gh run view`(或等价) fresh read-back;页面感觉只做线索。
 
 ## DoD 门禁(一代移植)
 

@@ -10,7 +10,7 @@
 - suggested_landing:playbook/truth-hierarchy 的状态面喂养规则；kit/phase-card-template 的收口检查行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「计划文档也会制造 phantom P0」
-- 状态:pending
+- 状态:landed@同批(第十七次消化·包1:truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行)
 
 ### durable-status-must-not-self-pin-live-head（长期状态文件不要追逐当前 HEAD）
 - source:inbox-radar @ 36c7c15 | pin v0.3.0
@@ -20,7 +20,7 @@
 - suggested_landing:playbook/truth-hierarchy 的动态事实边界；kit/dashboard-template 的“当前值来源”提示
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「状态提交自指漂移」+ §2026-07-18「证据避免自指」
-- 状态:pending
+- 状态:landed@同批(第十七次消化·包1:truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行)
 
 ### release-prerequisites-need-machine-readable-preflight（生产前置要变成机器可判的 preflight）
 - source:inbox-radar @ 36c7c15 | pin v0.3.0
@@ -60,7 +60,7 @@
 - suggested_landing:playbook/truth-hierarchy 的历史证据层；kit/AGENTS-skeleton 的 superseded-doc 纪律
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-21「历史业务文档也会污染未来判断」
-- 状态:pending
+- 状态:landed@同批(第十七次消化·包1:truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行)
 
 ### skipped-production-check-must-stay-red（跳过生产检查不能返回绿色）
 - source:inbox-radar @ 2df1cf5 | pin v0.3.0
@@ -90,7 +90,7 @@
 - suggested_landing:playbook/truth-hierarchy；kit/merge-checklist 的状态面 closure 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「真相漂移」
-- 状态:pending
+- 状态:landed@同批(第十七次消化·包1:truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行)
 
 ### production-runtime-needs-clean-persistent-checkout（生产调度不要运行在开发 checkout）
 - source:inbox-radar @ c37c9aa | pin v0.3.0
@@ -180,7 +180,7 @@
 - suggested_landing:与 `durable-status-must-not-self-pin-live-head` 语义归并；kit/merge-checklist fresh fetch 行
 - rollback:revert 对应 agent-on 落地 commit
 - trace:loop-notes.md §2026-07-18「证据避免自指」
-- 状态:pending
+- 状态:landed@同批(第十七次消化·包1:truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行)
 
 ### contract-tests-should-lock-invariants-not-old-phrases（合同测试锁不变量，不锁旧措辞）
 - source:inbox-radar @ 6f76d35 | pin v0.3.0
