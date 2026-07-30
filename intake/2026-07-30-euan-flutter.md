@@ -76,7 +76,7 @@
 - suggested_landing:kit/merge-checklist 新增「撞上改名浪潮」小节(反推映射→残差分档→新增文件扫尾三步);playbook workflow-orchestration 合流节引一句
 - rollback:revert 落地 commit
 - trace:本会话 rebase 段(6 次 `--continue`);残差分档命令输出 0/4/8/10/16/23
-- 状态:pending
+- 状态:landed@同批(第十六次消化:merge-checklist §1b 改名浪潮三步)
 
 ### classify-red-check-origin-before-blocking(红灯先分来源:仓内硬门 vs 外部集成,别把噪音当缺陷)
 - source:Euan-Flutter @ 9428d29 | pin v0.5.1
@@ -86,7 +86,7 @@
 - suggested_landing:kit/merge-checklist CI 门那一步补「红灯先分来源」两行;anti-hallucination 映射表可挂一行(把噪音当缺陷=错误归因型)
 - rollback:revert 落地 commit
 - trace:PR #28 check-runs 取证;ci.yml job 清单
-- 状态:pending
+- 状态:landed@同批(第十六次消化:merge-checklist §2b 红灯先分来源)
 
 ### blocked-dependency-check-actual-requirement(依赖受阻时先问「这项验证真需要它吗」,别让一个堵点停掉整条线)
 - source:Euan-Flutter @ 9428d29 | pin v0.5.1
