@@ -20,7 +20,7 @@
 - suggested_landing:playbook truth-hierarchy 补「喂养表」节;kit dashboard/状态页模板头部加三元组注释位
 - rollback:revert 落地 commit
 - trace:审计维度 truth-page + harness-compliance,verdicts CONFIRMED
-- 状态:pending
+- 状态:landed@同批(第十五次消化:truth-hierarchy §五½ + dashboard-template 喂养表三元组)
 
 ### two-collision-diseases-two-cures(互踩≠撞题:共用目录用 worktree 隔离治,同活双做用开工声明治)
 - source:Euan-Flutter @ 44b944a | pin v0.3.0
