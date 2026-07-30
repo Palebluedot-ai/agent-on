@@ -30,7 +30,7 @@
 - suggested_landing:playbook 编排并行篇「两种撞车」节;bench 案例(带两组机器证据)
 - rollback:revert 落地 commit
 - trace:PR #23 commit 81e68eb 正文 + 审计 collab-worktree 维度 CONFIRMED
-- 状态:pending
+- 状态:landed@同批(第十五次消化:multi-contributor §二.2 两种事故 + bench/cases/27)
 
 ### code-first-needs-retroactive-ledger(代码先行禁不住,给它 48h 事后追认通道,重点查外围义务)
 - source:Euan-Flutter @ 44b944a | pin v0.3.0

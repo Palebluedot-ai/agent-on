@@ -34,6 +34,9 @@
 - `api/` + `app/` + `website/` 可三人并行;两人都要动 `app/` → 先拆到不同子目录或排队。
 - **契约是例外**:`contracts/` 谁都依赖,所以 maintainer 独占 + 先冻结(下条)。
 - **何时开 worktree(对 agent 轨道同样成立)**:单轨/单人**不开**(YAGNI——Euan 曾误开并行会话改同一目录,git+文件布局撞乱,整套脚手架返工的实证);仅当 ≥2 轨真并行**且**文件域可切不重叠时才开,一轨一 worktree。**三个共享面必须归口单一轨**:`design/`、`contracts/fixtures/`、`docs/state/progress.yaml`——两轨同碰任何一个 = 撞车前置条件成立。跨轨回流走 append-only 新文件(与 intake 规则 1 同构:不动他人文件,git 层物理不撞)。
+- **两种并行事故,两种解药**(先分型再立规,禁会话数/禁同目录是误诊):
+  1. **环境互踩**:多会话挤同一工作目录 → test/analyze 把错报在没碰过的文件上。解药=**每会话独立 git worktree**(隔离归机制)。(Euan PR #23:5 分支挤一目录)
+  2. **工作撞题**:同 base 上各自独立做同一主题(同文件/同功能)。解药=**开工前在唯一状态面声明主题**(广播防撞,不是独占锁)。(Euan 87205ce 与 PR #21 同 3 文件双做第九轮底栏)
 
 ### 3. 契约先冻结 —— 三方合同不能随手改
 - fixture 改一下,所有依赖它的实现全受影响。所以:改 fixture 走 `needs-contract` issue → maintainer 批 + 冻结进 main(契约 PR 先合)→ 实现方 rebase 跟进。
