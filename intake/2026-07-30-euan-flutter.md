@@ -50,4 +50,4 @@
 - suggested_landing:kit review/audit prompt 模板(加「复核员以推翻为目标+事实归因分判」两行);bench 案例
 - rollback:revert 落地 commit
 - trace:workflow wf_2a0aa710-b24 verdicts 字段(CONFIRMED/PARTIAL/REFUTED 三态全出现)
-- 状态:pending
+- 状态:landed@同批(第十五次消化:review-prompt 合规审计变体 + bench/cases/28)
