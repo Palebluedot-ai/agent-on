@@ -21,7 +21,7 @@
 - suggested_landing: kit 或 skill 里 /loop 用户可见说明半句
 - rollback: revert 落地 commit
 - trace: conversation 2026-08-01 loop clarification
-- 状态: pending
+- 状态: landed@同批(第十八次消化:phase §2b cadence≠截止 + skill Loop 用户可见半句)
 
 ### do-not-block-on-competitor-private-stack
 - source: hk-sfc-licensees @ pending-main-push | pin v0.5.1
@@ -31,7 +31,7 @@
 - suggested_landing: playbook/anti-hallucination 或 tech-selection 短则
 - rollback: revert 落地 commit
 - trace: teardown §6 confidence table
-- 状态: pending
+- 状态: landed@同批(第十八次消化:anti-hallucination 第六型#11 + elicitation/BOOTSTRAP 竞品选型)
 
 ### scheduler-stop-must-match-real-product-scope
 - source: hk-sfc-licensees @ loop task 019fbce71e3a | pin v0.5.1
@@ -41,4 +41,4 @@
 - suggested_landing: boot 或 skill loop 模板 stop condition checklist
 - rollback: revert 落地 commit
 - trace: fire DONE message track1–3 vs user follow-up W1 skeleton request
-- 状态: pending
+- 状态: landed@同批(第十八次消化:phase §2b stop 对齐产品范围 + skill 默认不自删)

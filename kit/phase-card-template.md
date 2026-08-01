@@ -45,7 +45,8 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 
 ## 2b. 可选·长任务 Loop 台账（跨会话 / 一天多 Loop 时启用）
 
-<!-- 源流:IPONews phase-p-rag 实证 2026-07-16;digest long-task-loop-ledger-on-phase -->
+<!-- 源流:IPONews phase-p-rag 实证 2026-07-16;digest long-task-loop-ledger-on-phase
+     hk-sfc-licensees 2026-08-01: cadence≠deadline; stop 对齐用户「做完」范围 -->
 跨会话长主线（一天多 Loop、多日同一 phase）时，在本卡开篇或专节建 **append-only Loop 台账**，勿只靠会话记忆或 loop-notes 散文：
 
 | 日期 | Loop# | 目标（一句话） | 验收命令 | 结果（贴输出或 commit） |
@@ -54,4 +55,6 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 
 - 新会话：读 `progress.yaml` 的 `next` / `current_phase` + **台账最后一行**断点续跑
 - 单 Loop ≤ `max_feedback_loop_min` 可验证时间盒；做不到就拆 Loop 或拆卡
+- **cadence ≠ 截止**: recurring 开火间隔（如 30m）是调度间距，**不是**「30 分钟内做完全部代码」的工时预算——对用户说明时必须拆开讲
+- **stop 对齐产品范围**: 自动 loop 的停止条件必须覆盖用户心中的「做完」；若 stop 只覆盖文档/局部 UI，回报须写明「云上线/数据轨未完成」，**默认不自删 scheduler**，或拆成命名清晰的多 loop
 - 业务实现细节不回流 agent-on；可复用的是「台账编排」本身

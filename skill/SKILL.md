@@ -42,6 +42,8 @@ python3 scripts/setup.py                  # → 默认目录 + config
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
 | `doctor` | （本文件 + 跑 `agent_on_paths.py`） | 打印 read_root / work_root / 登记指引 | 无 |
 
+**Loop / 定时开火（用户可见）**: cadence（开火间隔）≠ 任务截止或工时预算。stop condition 必须对齐用户「做完」范围；局部完成（只文档/局部 UI）时默认**不自删**调度，并在回报写明未完成轨（见 kit/phase-card-template §2b）。
+
 **上游贡献**(非独立子命令):用户说「贡献上游 / 开 intake PR」时,读 `$READ_ROOT/boot/settlement.md`「上游贡献形态」——只运 `intake/` 或 Issue 卡片,**禁止**指导用户 PR 直改 playbook/kit。
 
 ## 规则

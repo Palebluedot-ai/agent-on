@@ -71,6 +71,7 @@
 8. **跨运行时契约锁可观察语义 + adversarial matrix**:不要假设 Python/Worker/URL 路径规范化「应该一样」;先写 decode→canonicalize→accept/reject 契约,再在各实现上跑同一 adversarial 输入族。
 9. **不可信字段生产者+消费者双门**:会持久化并跨运行时消费的字段,producer 写入前净化,每个 consumer 仍独立 fail-closed——单边校验不够。
 10. **合同测试锁不变量,不锁旧措辞**:文档/安全合同断言必需概念与禁止路径;phrase oracle 会阻止更安全的语义升级——先保留 RED 证据再改结构 oracle。
+11. **竞品私有栈不可证 ≠ 阻塞本项目选型**:合法公开面挖不到的引擎/库名不得当前置阻塞;选型用可验证产品约束 + 可逆分层,公开 teardown 只作线索(hk-sfc-licensees competitor teardown §6)。
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 
