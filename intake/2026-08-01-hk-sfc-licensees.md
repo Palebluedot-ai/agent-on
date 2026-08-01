@@ -11,7 +11,7 @@
 - suggested_landing: playbook 产品/运行时双层 + kit/AGENTS-skeleton 一句「runtime ≠ product surface」
 - rollback: revert 落地 commit
 - trace: snapshot 2026-08-01-174803 Key Decisions D19/D20
-- 状态: pending
+- 状态: landed@同批(第十八次消化:AGENTS-skeleton runtime≠product + BOOTSTRAP 需求六问 Q3)
 
 ### loop-cadence-is-not-deadline
 - source: hk-sfc-licensees @ pending-main-push | pin v0.5.1
