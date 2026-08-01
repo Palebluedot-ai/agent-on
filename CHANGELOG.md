@@ -4,6 +4,14 @@
 
 ## [未发布]
 
+### 第十八次消化（2026-08-01，hk-sfc-licensees 首结 4 卡全 landed；定级 minor 攒批）
+- **local-dev-constraint-is-not-product-endstate**：AGENTS-skeleton `runtime ≠ product surface` + BOOTSTRAP 需求六问 Q3
+- **loop-cadence-is-not-deadline**：phase-card §2b cadence≠截止 + skill Loop 用户可见半句
+- **do-not-block-on-competitor-private-stack**：anti-hallucination 第六型#11 + elicitation/BOOTSTRAP 竞品选型
+- **scheduler-stop-must-match-real-product-scope**：phase §2b stop 对齐产品范围 + skill 默认不自删
+- 附记：收件 981f270；2 内容 commit（卡1 / 卡2–4）；本批无 major、无 bench 新增
+- 来源：`intake/2026-08-01-hk-sfc-licensees.md`（pin v0.5.1）
+
 ### 第十七次消化（2026-07-31，inbox-radar 首结 21 卡全 landed；定级 minor 攒批）
 - **包1 真相面**(5 卡归并)：truth-hierarchy §五¾ + merge 7b + dashboard ⑥ + phase 收口行
 - **包2 发布门**(6 卡归并)：sop Phase 6½ + phase preflight/scope + progress blockers + merge §5/7c
