@@ -46,3 +46,7 @@
 - [ ] **phrase-oracle**:合同测试是否锁不变量而非旧措辞?
 - [ ] **executable docs**:runbook 的 load/start 示例是否就近带齐门禁前置?
 - [ ] **ambiguous side-effect**:解析失败时是否冻结 replay 并要求只读 read-back?
+- [ ] **入口校验收紧**:本次是否收紧 schema/鉴权/限长?夹具还能到达被测路径吗?
+- [ ] **多入口同字段界**:注册/登录/改密等是否共用同一 password schema?
+- [ ] **扫描结论范围**:gitleaks 等是否带范围指标(耗时/文件数)?exit 0 是否可能静默空跑?
+- [ ] **验证面**:PR 证据是合并后全量还是 diff 子集?

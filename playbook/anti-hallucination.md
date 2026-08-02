@@ -72,6 +72,10 @@
 9. **不可信字段生产者+消费者双门**:会持久化并跨运行时消费的字段,producer 写入前净化,每个 consumer 仍独立 fail-closed——单边校验不够。
 10. **合同测试锁不变量,不锁旧措辞**:文档/安全合同断言必需概念与禁止路径;phrase oracle 会阻止更安全的语义升级——先保留 RED 证据再改结构 oracle。
 11. **竞品私有栈不可证 ≠ 阻塞本项目选型**:合法公开面挖不到的引擎/库名不得当前置阻塞;选型用可验证产品约束 + 可逆分层,公开 teardown 只作线索(hk-sfc-licensees competitor teardown §6)。
+12. **工具静默降级伪装合格**:扫描类工具的 `exit 0`/末行「通过」必须连同**范围指标**(文件数/耗时/是否真 git 仓)一起读——worktree 指针 `.git` 可让 gitleaks 先 ERR 再 INF no leaks exit 0。CI 把「取工具」与「跑工具」拆 step,基建超时红 ≠ 扫出密钥。(Dartify 2026-08-02)
+13. **入口校验收紧 → 夹具可达性**:改 schema/鉴权/限长后全仓扫测试夹具是否仍到达被测路径;夹具值满足新约束且明显是夹具,勿用卡边界短值。
+14. **边缘身份键只信覆写头**:CF 等上限流 IP 只认 `CF-Connecting-IP`(或等价边缘覆写),取不到 fail-closed 落 unknown 桶,禁止回退可伪造 XFF。
+15. **多入口同凭证字段同一 schema**:注册/登录/改密共享 password 上下界,禁止写宽读窄。
 
 (Euan 全链条实证:CI 调 gitleaks 无 `-v` 只打统计行 → agent 编出「api/.dev.vars.example L7 · generic-api-key · commit 4a91c3…」全套似真细节 → `git log --all` 证实该文件全历史不存在、commit 号不存在;正确动作事后验证有效:本地开 `-v` 复跑一分钟拿到真 finding。)
 

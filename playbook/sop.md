@@ -104,6 +104,7 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 7. **运行态隔离**:本机生产调度用干净、持久、专用 runtime checkout;开发 dirty 树不能承载定时生产。
 8. **远端与外部副作用**:PR/CI 用权威 API;ambiguous 外部结果先只读 read-back 再重试(禁止盲重放)。
 9. **运维文档即执行面**:runbook 里可复制的 start/load 命令必须就近带齐前置。
+10. **状态面更新 ≠ 发布动作**:改 progress/TODO/dashboard 是记账,不是部署。CI 须把 **docs/state 路径**与 **build/deploy 路径**拆开(paths-filter);否则「只更新 to-do」也会跑满量生产流水线,脚手架升级与 Cloud 假红缠在一起,越修越乱。(Dartify 实证形态:连合 PR 后真相面落后 + 验证裁剪导致合并后 114 红——根因是门禁接线,不是再拷一遍 kit。)
 
 ## Phase 7 — 收口沉淀
 
@@ -133,6 +134,8 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 7. **模块化 prompt / know-how 禁止静默孤儿**:system prompt 由多文件拼装时,磁盘上存在却未列入装配表(manifest)的规则文件必须使测试/门禁失败(或显式草稿命名豁免如 `*.draft.md` / `_*.md`);禁止「写了 know-how 以为生效、模型从未读到」(IPONews 2026-07-18 listOrphanKnowHow + 测试红)
 8. **CDN/边缘静态资产验证带 cache-buster + 传播窗口**:部署工具「上传成功」与「边缘可见」是两个事件。验证请求必须带 cache-buster 参数,并留传播窗口后**二次确认**再下结论——把缓存滞后误判成部署失败会引向完全错误的排查方向。(Euan 2026-07-29:wrangler 报 Uploaded 3/3,立刻验 reset.html 仍旧字节;带 cache-buster 等约 1 分钟后三页与仓内一致。)
 9. **人点控制台清单须文档背书**:`external-setup` / 控制台步骤每条标 `[doc]` 或 `[待查证]`,见 anti-hallucination 第六型第 6 条——禁止凭经验编 OAuth/域名勾选项
+10. **宿主迁移 = runbook 对表**:安全/成本作战手册写死某云控制台步骤时,Vercel→CF 等迁移须**同批**改文档,否则 L0 人工清单会指挥人去错误控制台空放
+11. **目标写「攻击」而策略禁 exploit**:默认路径=静态审查 + 防御回归测试 + 理论攻击场景表;plan 写清矛盾消解,勿半套 PoC
 
 ## 下个项目的启动清单(照抄即用)
 

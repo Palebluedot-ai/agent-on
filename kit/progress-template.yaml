@@ -9,6 +9,7 @@ current_phase: "[一句话:现在在哪]"
 current_bottleneck: "[当前最大瓶颈——仅 agent 动手阻塞;human-async 勿独占此字段]"
 # 发布 blocker 证据(可选):结构化记「已通过项 + 正确阻塞项」,安全阻塞也是进展(inbox-radar preflight)
 # release_blockers: [{check: env|Graph|…, status: pass|block, evidence: "…"}]
+# TODO/推迟项触发格式(Dartify): 机械信号 path∩diff 或 日历死线 YYYY-MM-DD —— 禁止「下次动 X 时顺手」
 monitoring_summary: "[最近一次合流的战报摘要:测试数/关键交付/悬点裁决]"
 
 phases:

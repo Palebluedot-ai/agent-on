@@ -54,14 +54,17 @@ Canonical(当前)  >  承接(迁入)  >  举证(原始)
 
 > 源流:Euan 2026-07-30 harness 审计——dashboard 停 07-27(生产域仍写旧 api.euan.pro、等你区已办完的 CF 项仍催、语音 0% 而 PR #18 已上);AGENT-HANDOFF 分工快照 4 天过期。digest truth-surface-feeding-table。
 
-每张状态面(人读或机器读)开面时登记**三元组**,缺一不开新面:
+每张状态面(人读或机器读)开面时登记**四元组**,缺一不开新面:
 
-| 面 | 唯一写者 | 喂养时机 | 机械闸 |
-|---|---|---|---|
-| 例:dashboard.html | orchestrator | 合流必更 / 口令「更新仪表盘」 | 握手核 mtime vs progress.yaml |
-| 例:progress.yaml | orchestrator | 阶段切换 / 合流 | 单写者约定(+可选 CI 拒非 orch 改) |
+| 面 | 唯一写者 | 喂养时机 | 机械闸 | **漏喂怎么发现** |
+|---|---|---|---|---|
+| 例:dashboard.html | orchestrator | 合流必更 / 口令「更新仪表盘」 | 握手核 mtime vs progress | handshake 标红 / PR checklist 勾状态面 |
+| 例:progress.yaml | orchestrator | 阶段切换 / 合流 | 单写者 | CI 或 merge 核对 phase status vs 已合 PR |
+| 例:TODOS 推迟项 | 认领人 | 触发命中时 | **禁「下次顺手」** | 触发须=机械信号(路径∩改动)或日历死线;CI/对账脚本扫过期触发 |
 
 **无人喂养的面比没有面更危险**——按错误信息源处理:当场从真相源重绘,或声明存档/删除,不许放着继续误导决策。
+
+**推迟项触发纪律**(Dartify 2026-08-02:一次对账 10 条「下次顺手」已命中未回表):写成「下次动 X 时顺手」= **没有闸**,必然静默过期。要么绑可机械检查的信号,要么写日历死线。真相面同理:只登记「谁喂」不够——**漏喂必须可发现**。
 
 ### 五¾、易变事实 / 幽灵 backlog / 历史隔离(inbox-radar 2026-07-31)
 
