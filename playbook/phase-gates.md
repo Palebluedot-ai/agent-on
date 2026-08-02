@@ -50,7 +50,7 @@
 
 只有口令没指名,或只指名没口令,都不解锁,保持冻结。这样澄清对话再多,也带不动冻结物。
 
-## 五、历史教训:别照搬重防御
+## 五、历史教训:别照搬重防御(死亡名单)
 
 二代最早的实现是**每轮口令复述硬拦**——每条回复末尾都得贴 Global / In-Scope / Out-of-Scope / Next / Drift Check 一整套,靠固定中文口令逐轮闸门。那是弱模型时代的产物:模型记不住主线,只能靠机械复述硬顶。
 
@@ -61,3 +61,5 @@
 - 会话续接时做一次握手对齐(见 [../boot/session-handshake.md](../boot/session-handshake.md)),而不是每轮都背一遍。
 
 保留的是**精神**(三态分离、Next 不被澄清带偏、fail-closed);扔掉的是**形式**(每轮口令复述)。把重防御当默认,只会淹没真正该拦的那一次。
+
+**产品立场(2026-08,对照 deep-research)**:「每轮 Global/In-Scope/Next 锁口令复述」列入**过时形式 / 禁止复活为开箱默认仪式**。agent-on 推荐路径不得要求每轮复述整套口令。交叉:[snapshot/2026-08-03-research-residual-audit.md](../snapshot/2026-08-03-research-residual-audit.md) §二、[2026-08-02-light-hard-premium-mrd.md](../snapshot/2026-08-02-light-hard-premium-mrd.md) 降权表。

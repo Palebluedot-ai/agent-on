@@ -123,4 +123,4 @@
 - [ ] 骨架已 commit：`git log --oneline` 非空且含骨架文件（落盘未 commit = 初始化未完成）
 - [ ] 以上每条都有实际文件路径或命令输出作证（L2 对你自己同样生效）
 
-档播错了怎么办：改 AGENTS 里的档位标记 + lock 的 local_deviations 记一行即可，**不重播**——升档补件走 boot/adopt.md §二，降档只删不用的件。
+档播错了怎么办：**禁止静默降档**。升档补件走 [boot/adopt.md](boot/adopt.md) §二；**降档**（误播高档 / 项目变瘦）走 adopt **§三**——须用户显式批准、只删不用的件、不重播、local_deviations 登记。改 AGENTS 档位标记 alone 不够，要按 §三清单勾完。

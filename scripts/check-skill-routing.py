@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Assert agent-on open-box skill routing defaults (and optional agent-memory paths).
+"""Assert agent-on open-box defaults: skill routing, demotion protocol, demotions.
 
 Scans real file paths. Exit 0 only if required phrases exist and forbidden
-"default Superpowers implementer" patterns are absent from kit templates.
+patterns (default Superpowers implementer; resurrected lock-token ritual as
+recommended default) are absent.
 
 Usage:
   python3 scripts/check-skill-routing.py
@@ -49,6 +50,10 @@ def check_agent_on() -> None:
     readme = ROOT / "README.md"
     ledger = ROOT / "ledger" / "run-card-logging.md"
     mrd = ROOT / "snapshot" / "2026-08-02-light-hard-premium-mrd.md"
+    adopt = ROOT / "boot" / "adopt.md"
+    schemas = ROOT / "kit" / "schemas" / "README.md"
+    phase_gates = ROOT / "playbook" / "phase-gates.md"
+    audit = ROOT / "snapshot" / "2026-08-03-research-residual-audit.md"
 
     lite_t = read(lite)
     skel_t = read(skel)
@@ -56,6 +61,10 @@ def check_agent_on() -> None:
     readme_t = read(readme)
     ledger_t = read(ledger)
     mrd_t = read(mrd)
+    adopt_t = read(adopt)
+    schemas_t = read(schemas)
+    phase_t = read(phase_gates)
+    audit_t = read(audit)
 
     # lite: institution + suppress Superpowers default
     must_contain(
@@ -94,6 +103,7 @@ def check_agent_on() -> None:
             r"默认心态偏 S|拿不准取低档",
             r"不默认 Superpowers",
             r"制度",
+            r"adopt\.md.*§三|降档.*§三|§三.*降档",
         ],
     )
     must_contain(
@@ -123,7 +133,76 @@ def check_agent_on() -> None:
         ],
     )
 
-    print("OK agent-on:", lite.name, skel.name, bootstrap.name, readme.name, ledger.name, mrd.name)
+    # (A) demotion protocol — equal footing with promote
+    must_contain(
+        adopt,
+        adopt_t,
+        [
+            r"## 三、降档",
+            r"禁止静默降档",
+            r"只删不用的件",
+            r"不重播",
+            r"local_deviations",
+            r"显式批准",
+        ],
+    )
+
+    # (B) schemas + ledger class demotion visible at schemas entry
+    must_contain(
+        schemas,
+        schemas_t,
+        [
+            r"旁路",
+            r"开箱.*勿启用|勿启用",
+            r"未.*真实项目跑通|尚未在真实项目验证",
+        ],
+    )
+
+    # lock-token ritual: historical death list, not recommended default
+    must_contain(
+        phase_gates,
+        phase_t,
+        [
+            r"每轮口令复述",
+            r"不要照搬|扔掉的是.*形式|禁止复活",
+            r"fail-closed",
+        ],
+    )
+    # must not re-introduce "every reply must paste Global/In-Scope" as current required default
+    must_not_contain(
+        phase_gates,
+        phase_t,
+        [
+            r"开箱默认.*每轮.*Global\s*/\s*In-Scope",
+            r"推荐路径.*每轮口令复述硬拦",
+        ],
+    )
+
+    # residual audit inventory present
+    must_contain(
+        audit,
+        audit_t,
+        [
+            r"三不变量|完成=证据|单一状态写者",
+            r"jsonl|旁路",
+            r"锁口令|每轮口令复述",
+            r"下次顺手|降档协议",
+        ],
+    )
+
+    print(
+        "OK agent-on:",
+        lite.name,
+        skel.name,
+        bootstrap.name,
+        readme.name,
+        ledger.name,
+        mrd.name,
+        adopt.name,
+        schemas.name,
+        phase_gates.name,
+        audit.name,
+    )
 
 
 def check_agent_memory(home: Path) -> None:

@@ -6,6 +6,13 @@
 
 （自 v0.6.1 起攒）
 
+### 轻主路径余量（2026-08-03，对照 deep-research）
+- **降档协议**：`boot/adopt.md` §三 — 与升档对等；禁止静默降档；须用户显式批准；只删不用的件、不重播；local_deviations 登记；BOOTSTRAP 档错指针改走 §三
+- **空转件可见降权**：`kit/schemas/README.md` 开箱勿启用横幅；`phase-gates` §五死亡名单交叉 research 审视；jsonl/ledger 旁路立场保持
+- **审视清单**：`snapshot/2026-08-03-research-residual-audit.md`（保留主干 / 降权废除 / 本批与 deferred）
+- **断言**：`scripts/check-skill-routing.py` 扩展扫降档协议、schemas 旁路、锁口令非默认
+- **上轮已入主（回顾）**：Superpowers 退出默认推荐（kit/BOOTSTRAP/README）+ MRD B1；本机路由 C1 在 agent-memory，不在本仓 tag 范围
+
 ## v0.6.1（2026-08-02）——消化收尾必打 tag（发版硬门）
 
 > **patch**：不用知道也能用；存量 pin v0.6.0 可直升。无 major。
