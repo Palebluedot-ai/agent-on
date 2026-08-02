@@ -4,7 +4,14 @@
 
 ## [未发布]
 
-（自 v0.7.0 起攒）
+（自 v0.7.1 起攒）
+
+## v0.7.1（2026-08-03）——文案纠偏（audit-lint 引用）
+
+> **patch**：不用知道也能用。
+
+- 修正 merge-checklist / schemas / run-card-logging 中 `agent-on audit-lint` 引用笔误
+
 
 ## v0.7.0（2026-08-03）——可执行面 Rust 化（去掉 Python 交付依赖）
 

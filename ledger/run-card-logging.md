@@ -33,7 +33,7 @@
 
 ## 四、校验与落地
 
-- 校验用 ``agent-on audit-lint``(与卡片 schema 同批次另一轨在写,这里只引用,不检查是否已存在)。它按 `../kit/schemas/` 校验每张卡的结构、检查上面四条硬约束(顺序 / durable 有 memory / run_id 对齐 / task_id 齐全)。
+- 校验用 `agent-on audit-lint <run>.jsonl`(L 旁路)。检查状态机合法迁移与必填字段(对齐 `kit/schemas/audit-event.schema.json`)。
 - 落地时机挂在编排流程上:orchestrator 派工时写 `task_card`,收到子代理完成报告时写 `result_card`,决定沉淀时写 `memory_card`;合流(merge-checklist)时据这批卡汇一行进 `run-ledger-template.md` 主表。
 - 校验失败即视为该 run 的落盘不合格——和「验证后才说完成」同源:台账没通过 lint,这次 run 的记录就不算数。
 

@@ -38,4 +38,4 @@ durable(要进主干、算数)的任务,`task_card` / `result_card` / `memory_ca
 
 `queued → triaged → planned → running → reviewing → done | failed`
 
-只许走 `kit/schemas/audit-event.schema.json` 定义的合法迁移,跳级(如 queued 直接 running)由 `ledger/agent-on audit-lint` 拦下。`reviewing=revise` 不得标 done;迁到 failed 必须记 error_type。
+只许走 `kit/schemas/audit-event.schema.json` 定义的合法迁移,跳级(如 queued 直接 running)由 `agent-on audit-lint` 拦下。`reviewing=revise` 不得标 done;迁到 failed 必须记 error_type。
