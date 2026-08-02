@@ -14,9 +14,9 @@ argument-hint: [init|adopt|handshake|settle|digest|upgrade|doctor]
 
 ## 路径：A 运行包 vs B 工作仓
 
-| 符号 | 角色 | 能否写 | 解析序（实现与 `kit/guard/agent_on_paths.py` 一致） |
+| 符号 | 角色 | 能否写 | 解析序（实现与 `agent-on doctor` / `cli` 一致） |
 |---|---|---|---|
-| **`$READ_ROOT`** | 读 BOOTSTRAP/kit/playbook | 只读即可 | plugin 根 → 否则同 B；都无 → 提示 `scripts/setup.py` / plugin，**禁止**猜 `Projects` |
+| **`$READ_ROOT`** | 读 BOOTSTRAP/kit/playbook | 只读即可 | plugin 根 → 否则同 B；都无 → 提示 `agent-on setup` / plugin，**禁止**猜 `Projects` |
 | **`$WRITE_ROOT`** | 结账写 intake、消化改 canonical | **必须可写 git clone** | ① `AGENT_ON_ROOT` ② config `work_root` ③ lock「本地路径」 ④ 默认目录 mac/linux `~/.local/share/agent-on`、Windows `%LOCALAPPDATA%\agent-on`（须已是合法仓）⑤ 都无 → settle/digest **拒绝** |
 
 「像 agent-on 仓」= 根有 `CHARTER.md` + `BOOTSTRAP.md`。
@@ -24,11 +24,12 @@ argument-hint: [init|adopt|handshake|settle|digest|upgrade|doctor]
 **登记 B（推荐 setup）**：
 
 ```bash
-python3 scripts/setup.py                  # → 默认目录 + config
+cargo install --path cli --force   # 一次
+agent-on setup                     # → 默认目录 + config
 # 或 export AGENT_ON_ROOT=... / 手写 config / lock 本地路径
 ```
 
-自检：`python3 kit/guard/agent_on_paths.py` 或 `/agent-on doctor`；贡献前 `python3 ledger/intake-lint.py`。
+自检：`agent-on doctor` 或 `/agent-on doctor`；贡献前 `agent-on intake-lint`。
 
 ## 子命令表
 
@@ -40,7 +41,7 @@ python3 scripts/setup.py                  # → 默认目录 + config
 | `settle` | `$READ_ROOT/boot/settlement.md`（上半场） | 教训回流 intake | **必须 `$WRITE_ROOT`**；intake 只写 B，禁止写 plugin cache |
 | `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 会话**；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
-| `doctor` | （本文件 + 跑 `agent_on_paths.py`） | 打印 read_root / work_root / 登记指引 | 无 |
+| `doctor` | （本文件 + 跑 `agent-on doctor`） | 打印 read_root / work_root / 登记指引 | 无 |
 
 **Loop / 定时开火（用户可见）**: cadence（开火间隔）≠ 任务截止或工时预算。stop condition 必须对齐用户「做完」范围；局部完成（只文档/局部 UI）时默认**不自删**调度，并在回报写明未完成轨（见 kit/phase-card-template §2b）。
 
@@ -50,10 +51,10 @@ python3 scripts/setup.py                  # → 默认目录 + config
 
 - **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。
 - **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
-- **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `python3 scripts/setup.py`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
+- **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `agent-on setup`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
 - **对表/升级诚实播报**：若 B 的 HEAD 领先最新 tag，报「未发布变化 N commit」——未发布 ≠ 可升级版本。
-- **消化收尾硬门**：canonical 有改动则必须封版打 tag 并 push（`scripts/tag-release.py`）；禁止「消化完成、tag 留到以后」。
+- **消化收尾硬门**：canonical 有改动则必须封版打 tag 并 push（`agent-on tag-release`）；禁止「消化完成、tag 留到以后」。
 - **认不出的子命令**：列表让用户重选。
 - 读到目标文件后**照它执行**，不在这里复述改写步骤。
 - 中文口令「agent-on 结账 / 升级」与本 skill 等价。

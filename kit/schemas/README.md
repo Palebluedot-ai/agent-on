@@ -1,8 +1,8 @@
 # kit/schemas — 四张编排契约卡
 
-> ⚠️ **启用范围(2026-08 可见降权)**:本目录 schema + `ledger/audit-lint.py` + jsonl 四卡流 = **L 档旁路机件**。**至今未在任何真实项目跑通**——开箱、S/M 主路径**勿启用**。S/M 结账走散文 loop-notes → Promotion Card(见 `boot/settlement.md`)。没有 `ledger/runs/` 是正常的。详见 `ledger/run-card-logging.md` 横幅与 [snapshot/2026-08-03-research-residual-audit.md](../../snapshot/2026-08-03-research-residual-audit.md)。
+> ⚠️ **启用范围(2026-08 可见降权)**:本目录 schema + ``agent-on audit-lint`` + jsonl 四卡流 = **L 档旁路机件**。**至今未在任何真实项目跑通**——开箱、S/M 主路径**勿启用**。S/M 结账走散文 loop-notes → Promotion Card(见 `boot/settlement.md`)。没有 `ledger/runs/` 是正常的。详见 `ledger/run-card-logging.md` 横幅与 [snapshot/2026-08-03-research-residual-audit.md](../../snapshot/2026-08-03-research-residual-audit.md)。
 >
-> 职责边界:本目录只放「一次编排 run 里流转的四张卡」的 JSON Schema 与说明;不放实例数据、不放校验逻辑(校验在 `ledger/audit-lint.py`)。
+> 职责边界:本目录只放「一次编排 run 里流转的四张卡」的 JSON Schema 与说明;不放实例数据、不放校验逻辑(校验在 ``agent-on audit-lint``)。
 > 源流:一代 agent-orchestration-playbook/04_contracts/,memory_card 部分并入 evolving-memory-system/04_protocols,2026-07-07 批二移植去平台化。
 
 ## 四张卡各是什么、何时产生
@@ -41,4 +41,4 @@
 python3 -c "import json;json.load(open('task-card.schema.json'))"   # 逐个验证 JSON 合法
 ```
 
-状态机迁移合法性(audit_event 的 jsonl)由 `ledger/audit-lint.py` 校验,字段名与本目录 `audit-event.schema.json` 对齐。
+状态机迁移合法性(audit_event 的 jsonl)由 ``agent-on audit-lint`` 校验,字段名与本目录 `audit-event.schema.json` 对齐。

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "agent-on/kit/schemas/audit-event.schema.json",
   "title": "audit_event",
-  "description": "审计事件:任务状态每次变更追加一行(jsonl)。状态机固定,合法迁移由 ledger/audit-lint.py 校验。源流:一代 agent-orchestration-playbook/04_contracts/audit-event-schema-v1.json,2026-07-07 批二移植去平台化。",
+  "description": "审计事件:任务状态每次变更追加一行(jsonl)。状态机固定,合法迁移由 agent-on audit-lint 校验。源流:一代 agent-orchestration-playbook/04_contracts/audit-event-schema-v1.json,2026-07-07 批二移植去平台化。",
   "type": "object",
   "required": [
     "run_id",

@@ -4,7 +4,23 @@
 
 ## [未发布]
 
-（自 v0.6.3 起攒）
+（自 v0.7.0 起攒）
+
+## v0.7.0（2026-08-03）——可执行面 Rust 化（去掉 Python 交付依赖）
+
+> **minor**：不动手不坏（方法论 markdown 不变）；装机/校验/guard/发版助手从 Python 迁到 **Rust CLI**。存量 pin v0.6.x 直升即可；要跑 doctor/setup/lint/tag 需安装 `agent-on` 二进制（`cargo install --path cli`）。无 major。
+
+### 用户可见主线
+- **单一 CLI**：`cli/` crate → `agent-on` 子命令：`doctor` · `guard` · `intake-lint` · `audit-lint` · `check routing` · `tag-release` · `setup`
+- **删除主树交付用 `.py`**：原 `scripts/*.py`、`kit/guard/agent_on_paths.py`、原 python shebang 的 `agent-on-git-guard.sh`、`ledger/*-lint.py`
+- **hooks**：PreToolUse 改为 `bash …/kit/guard/agent-on-git-guard`（shim → release 二进制或 PATH）
+- **文档/ skill / settlement / AGENTS**：默认命令改为 `agent-on …`；装机依赖 rustup + git
+- **测试**：`cargo test`（paths / guard 矩阵 / intake evidence 硬门 / audit 状态机 / tag-release 临时仓 / routing 缺文案失败）
+
+### 迁移（给人）
+1. 安装 [rustup](https://rustup.rs)
+2. 在 B 仓：`cargo install --path cli --force`（或 `cargo build --release --manifest-path cli/Cargo.toml` 供 plugin hooks）
+3. 原 `python3 scripts/…` 一律改 `agent-on …`
 
 ## v0.6.3（2026-08-03）——本仓对话 commit 必打 tag
 

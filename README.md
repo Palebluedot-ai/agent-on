@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.6.3`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.7.0`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.6.3`** |
+| **推荐 pin** | **`v0.7.0`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -29,26 +29,20 @@
 
 ### 1. 一键 setup（三家共用，推荐先跑）
 
+依赖：**Rust**（[rustup](https://rustup.rs)）+ **git**（不再需要 Python）。
+
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.6.3
-python3 scripts/setup.py --with-plugins --with-symlinks
+git checkout v0.7.0
+cargo install --path cli --force
+agent-on setup --with-plugins --with-symlinks
 ```
 
-Windows（PowerShell / cmd，已装 Python）：
+`agent-on setup` 会：clone/更新 **默认 B 目录** → checkout pin → 写 config →（可选）装 Claude/Codex plugin + skill symlink → doctor + `intake-lint`。  
+细节：[scripts/README.md](scripts/README.md) · 源码 [`cli/`](cli/)。
 
-```text
-git clone https://github.com/Palebluedot-ai/agent-on.git %TEMP%\agent-on-src
-cd %TEMP%\agent-on-src
-git checkout v0.6.3
-py -3 scripts\setup.py --with-plugins --with-symlinks
-```
-
-`setup.py` 会：clone/更新 **默认 B 目录** → checkout pin → 写 config →（可选）装 Claude/Codex plugin + skill symlink → doctor + `intake-lint`。  
-细节：[scripts/README.md](scripts/README.md)。决策：[snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)。
-
-若已有 B、只想登记：`python3 scripts/setup.py --config-only --work-root <路径>`。
+若已有 B、只想登记：`agent-on setup --config-only --work-root <路径>`。
 
 ---
 
@@ -85,7 +79,7 @@ codex plugin install agent-on@agent-on
 
 **工具从哪来**：能跑 Grok 编程会话，且加载全局 **`AGENT.md`**（或 agent-memory `setup.sh` 注入的共用真相）。**没有** npm / Claude 式 `/plugin install`。
 
-1. 跑完上面的 **scripts/setup.py**（保证默认 B 与执行书在本机）。  
+1. 跑完上面的 **`agent-on setup`**（保证默认 B 与执行书在本机）。  
 2. 全局规则含 Agent-On 路由：新项目读 `BOOTSTRAP.md`，结账读 `boot/settlement.md`，入口 `skill/SKILL.md`（路径 = setup 打印的 `work_root`）。  
 3. 开工中文主路：「初始化本项目」/「接管本项目」/「握手后继续」/「agent-on 结账」。
 
@@ -105,8 +99,7 @@ codex plugin install agent-on@agent-on
 结账需要 B：setup 已登记则直接「agent-on 结账」。贡献官方只交 `intake/` 卡片，先跑：
 
 ```bash
-python3 ~/.local/share/agent-on/ledger/intake-lint.py   # mac/linux 默认 B
-# Windows: py -3 %LOCALAPPDATA%\agent-on\ledger\intake-lint.py
+agent-on intake-lint
 ```
 
 见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。**卡住了**：找推荐人，或开 GitHub Issue。
@@ -193,7 +186,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 | **A 运行包** | 读模板 / skill / hook 脚本 | `plugin install` 即可；路径由 Claude 注入 `CLAUDE_PLUGIN_ROOT` |
 | **B 工作仓** | 结账写 intake、消化改方法论 | `git clone` 到**任意路径**后登记：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或项目 lock「本地路径」 |
 
-只 init/adopt 的用户可以**只有 A、没有 B**。settle/digest 前必须有 B，否则 skill 拒绝并提示登记。自检：`/agent-on doctor` 或 `python3 …/kit/guard/agent_on_paths.py`。
+只 init/adopt 的用户可以**只有 A、没有 B**。settle/digest 前必须有 B，否则 skill 拒绝并提示登记。自检：`/agent-on doctor` 或 `agent-on doctor`。
 
 **Q：远程（非本机 path）怎么装 Claude？**
 ```bash
@@ -239,7 +232,8 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.3 ✅ 达成（2026-07-09）**：Euan 倒仓首次结账 + 首次消化跑通，闭环真转过一圈，已封 `v0.3.0`（冻结令随之解除）
 - **v0.4 ✅ 达成（2026-07-15）**：AInvestment 完成 BOOTSTRAP 全流程 dogfood + 两默认件验证，已封 `v0.4.0`。超预期交付：规划链 §1.5（MRD→PRD→phase 卡路由）、强制约束层（agent-on-git-guard，双工具 PreToolUse 机械拦截跨仓越界）、项目端零 git 边界、防幻觉第六型
 - **v0.5 ✅**：`v0.5.0` Plugin/路径/贡献；**`v0.5.1`** 默认目录 `setup.py` + 三工具装机文档（patch）。诚实边界：Codex plugin hook 未接线（#16430）。
-- **v0.6 ✅**：**`v0.6.0`** 消化攒批。**`v0.6.1`** 消化收尾必打 tag。**`v0.6.2`** 轻主路径 + 降档 + Superpowers 退出默认。**`v0.6.3`** 本仓对话 commit 必打 tag（扩围硬门）。
+- **v0.6 ✅**：**`v0.6.0`–`v0.6.3`** 攒批/tag 硬门/轻主路径/降档/Superpowers 退出默认。  
+- **v0.7 ✅**：**`v0.7.0`** 可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

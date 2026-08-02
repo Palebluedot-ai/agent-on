@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# agent-on-git-guard — PreToolUse shim (no Python)
+# Prefers plugin-local release binary, then PATH `agent-on`.
+# Missing binary → fail-open (exit 0) so machines without cargo still work until setup.
+set -euo pipefail
+ROOT="${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}"
+if [[ -n "${ROOT}" && -x "${ROOT}/cli/target/release/agent-on" ]]; then
+  exec "${ROOT}/cli/target/release/agent-on" guard
+fi
+# walk up from this script: kit/guard -> repo
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "${HERE}/../.." && pwd)"
+if [[ -x "${REPO}/cli/target/release/agent-on" ]]; then
+  exec "${REPO}/cli/target/release/agent-on" guard
+fi
+if command -v agent-on >/dev/null 2>&1; then
+  exec agent-on guard
+fi
+# fail-open when binary missing (guard must not be a single point of failure)
+exit 0

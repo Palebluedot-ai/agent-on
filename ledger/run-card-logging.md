@@ -33,7 +33,7 @@
 
 ## 四、校验与落地
 
-- 校验用 `ledger/audit-lint.py`(与卡片 schema 同批次另一轨在写,这里只引用,不检查是否已存在)。它按 `../kit/schemas/` 校验每张卡的结构、检查上面四条硬约束(顺序 / durable 有 memory / run_id 对齐 / task_id 齐全)。
+- 校验用 ``agent-on audit-lint``(与卡片 schema 同批次另一轨在写,这里只引用,不检查是否已存在)。它按 `../kit/schemas/` 校验每张卡的结构、检查上面四条硬约束(顺序 / durable 有 memory / run_id 对齐 / task_id 齐全)。
 - 落地时机挂在编排流程上:orchestrator 派工时写 `task_card`,收到子代理完成报告时写 `result_card`,决定沉淀时写 `memory_card`;合流(merge-checklist)时据这批卡汇一行进 `run-ledger-template.md` 主表。
 - 校验失败即视为该 run 的落盘不合格——和「验证后才说完成」同源:台账没通过 lint,这次 run 的记录就不算数。
 
@@ -43,7 +43,7 @@
 - [ ] 至少有 `task_card` + `result_card`
 - [ ] durable 任务有 `memory_card`
 - [ ] `run_id` 与文件名一致、每卡有 `task_id`
-- [ ] `audit-lint.py` 校验通过
+- [ ] `agent-on audit-lint` 校验通过
 - [ ] 主表(run-ledger-template.md)据本 run 汇了一行
 
 一句话带走:**机器台账是原料(每步一卡、可 lint、可统计),人读主表是成品(每 run 一行、供复盘);durable 任务必须留 memory_card,是「沉淀不落盘就等于没沉淀」这条纪律的物理执行点。**

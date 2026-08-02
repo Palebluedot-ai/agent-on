@@ -12,7 +12,7 @@
 ## 路径约定（可移植）
 
 - **脚本定位（A）**：`${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` → plugin 装机面，OS 无关。
-- **边界判定（B）**：`kit/guard/agent_on_paths.py`——`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` → lock「本地路径」。**无 Chao 默认路径**；未登记 B 时 guard fail-open。
+- **边界判定（B）**：`agent-on doctor` / `cli` 路径解析——`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` → lock「本地路径」。**无 Chao 默认路径**；未登记 B 时 guard fail-open。
 - **个人 scope**：可选；不要在对外文档写死 `Projects/Agent-On`。
 
 ## 闸门（发版前必过）

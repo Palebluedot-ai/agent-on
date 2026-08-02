@@ -29,7 +29,7 @@ codex plugin install agent-on@agent-on
 钉版本：clone 后 `git checkout v0.5.0`（plugin 远程装以 marketplace/manifest version 为准）。
 
 - skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
-- 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」。见 `skill/SKILL.md` 与 `kit/guard/agent_on_paths.py`。
+- 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」。见 `skill/SKILL.md` 与 `agent-on doctor`。
 - **朋友向总入口**（含 Claude / Grok 对照）：根目录 [README.md](../README.md)「给朋友的 5 分钟装机」。
 
 ## 谁写谁读

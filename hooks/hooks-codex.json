@@ -2,10 +2,11 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/kit/guard/agent-on-git-guard.sh\"",
+            "command": "bash \"${PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"",
             "timeout": 15
           }
         ]
