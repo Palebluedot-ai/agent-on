@@ -3,7 +3,7 @@
 use crate::intake_lint::{default_intake_paths, lint_paths};
 use crate::paths::{
     config_path, default_work_root, doctor_report, looks_like_agent_on, write_config_work_root,
-    DEFAULT_PIN, OFFICIAL_HTTPS,
+    write_config_work_root_to, DEFAULT_PIN, OFFICIAL_HTTPS,
 };
 use std::env;
 use std::fs;
@@ -50,6 +50,8 @@ pub struct SetupOpts {
     pub with_plugins: bool,
     pub with_symlinks: bool,
     pub config_only: bool,
+    /// Override config.json path (tests); default `~/.config/agent-on/config.json`
+    pub config_path_override: Option<PathBuf>,
 }
 
 pub fn run_setup(opts: &SetupOpts) -> i32 {
@@ -82,7 +84,14 @@ pub fn run_setup(opts: &SetupOpts) -> i32 {
         return 1;
     }
 
-    match write_config_work_root(&work_root) {
+    let write_cfg = |wr: &Path| -> std::io::Result<PathBuf> {
+        if let Some(ref c) = opts.config_path_override {
+            write_config_work_root_to(c, wr)
+        } else {
+            write_config_work_root(wr)
+        }
+    };
+    match write_cfg(&work_root) {
         Ok(cfg) => println!("wrote config = {}", cfg.display()),
         Err(e) => {
             eprintln!("ERROR writing config: {e}");
@@ -305,4 +314,59 @@ pub fn default_pin() -> &'static str {
 
 pub fn default_remote() -> &'static str {
     OFFICIAL_HTTPS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn markers(dir: &Path) {
+        fs::write(dir.join("CHARTER.md"), "x").unwrap();
+        fs::write(dir.join("BOOTSTRAP.md"), "x").unwrap();
+    }
+
+    #[test]
+    fn config_only_rejects_invalid_tree() {
+        let d = tempdir().unwrap();
+        // no markers
+        let code = run_setup(&SetupOpts {
+            work_root: Some(d.path().to_path_buf()),
+            pin: DEFAULT_PIN.into(),
+            remote: OFFICIAL_HTTPS.into(),
+            with_plugins: false,
+            with_symlinks: false,
+            config_only: true,
+            config_path_override: Some(d.path().join("cfg.json")),
+        });
+        assert_eq!(code, 1);
+        assert!(!d.path().join("cfg.json").exists());
+    }
+
+    #[test]
+    fn config_only_writes_config_for_valid_tree() {
+        let d = tempdir().unwrap();
+        markers(d.path());
+        let cfg = d.path().join("nested").join("config.json");
+        let code = run_setup(&SetupOpts {
+            work_root: Some(d.path().to_path_buf()),
+            pin: DEFAULT_PIN.into(),
+            remote: OFFICIAL_HTTPS.into(),
+            with_plugins: false,
+            with_symlinks: false,
+            config_only: true,
+            config_path_override: Some(cfg.clone()),
+        });
+        assert_eq!(code, 0, "config-only on valid tree must succeed");
+        assert!(cfg.is_file());
+        let text = fs::read_to_string(&cfg).unwrap();
+        assert!(text.contains("work_root"), "{text}");
+        // work_root value is absolute path to d
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let wr = v["work_root"].as_str().unwrap();
+        let got = PathBuf::from(wr);
+        let expect = fs::canonicalize(d.path()).unwrap();
+        assert_eq!(got, expect);
+    }
 }

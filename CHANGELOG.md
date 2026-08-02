@@ -4,7 +4,16 @@
 
 ## [未发布]
 
-（自 v0.7.1 起攒）
+（自 v0.7.2 起攒）
+
+## v0.7.2（2026-08-03）——guard 路径边界 + setup 测试
+
+> **patch**：不用知道也能用。
+
+- **guard**：`inside_agent_on` 要求路径分隔符边界，拒绝 `B`/`B-evil` 前缀误匹配；单测 sibling 会话不得放行写 B
+- **fail-open**：B 未登记/非法 env 时 `guard_decision` 断言 exit 0
+- **setup**：`config-only` 正反例单测 + CLI `--config-only` 实跑
+
 
 ## v0.7.1（2026-08-03）——文案纠偏（audit-lint 引用）
 

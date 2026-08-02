@@ -62,13 +62,20 @@ fn norm(p: &str, base: &Path) -> PathBuf {
     std::fs::canonicalize(&joined).unwrap_or(joined)
 }
 
-fn inside_agent_on(p: &Path, agent_on: &Path) -> bool {
-    // macOS: /var vs /private/var — always canonicalize before prefix compare
+/// True iff `p` is the agent-on root or a path *inside* it (component boundary).
+/// Rejects sibling prefixes like `/tmp/B` vs `/tmp/B-evil`.
+pub(crate) fn inside_agent_on(p: &Path, agent_on: &Path) -> bool {
+    // macOS: /var vs /private/var — canonicalize when possible
     let p = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     let a = std::fs::canonicalize(agent_on).unwrap_or_else(|_| agent_on.to_path_buf());
     let pl = p.to_string_lossy().to_lowercase();
     let al = a.to_string_lossy().to_lowercase();
-    pl == al || pl.starts_with(&(al.clone() + std::path::MAIN_SEPARATOR_STR)) || pl.starts_with(&al)
+    if pl == al {
+        return true;
+    }
+    // Require path separator after root — bare starts_with would match B-evil for B
+    let prefix = format!("{}{}", al, std::path::MAIN_SEPARATOR);
+    pl.starts_with(&prefix)
 }
 
 /// Core decision given parsed tool payload JSON.
@@ -289,12 +296,92 @@ mod tests {
     #[test]
     fn fail_open_without_b() {
         let _g = ENV_LOCK.lock().unwrap();
-        env::remove_var("AGENT_ON_ROOT");
+        // Force resolve_work_root → None without relying on host default_B/config
+        env::set_var("AGENT_ON_ROOT", "/nonexistent/agent-on-xyz-no-such");
+        env::remove_var("CLAUDE_PROJECT_DIR");
         let data = json!({
             "tool_input": {"command": "git -C /somewhere/agent-on commit -m x"},
             "cwd": "/tmp"
         });
-        // may still resolve default_work_root if real machine has it — only assert non-panic
-        let _ = guard_decision(&data);
+        assert_eq!(
+            guard_decision(&data),
+            0,
+            "B unregistered/invalid must fail-open (allow)"
+        );
+        env::remove_var("AGENT_ON_ROOT");
+    }
+
+    #[test]
+    fn sibling_prefix_not_inside_b() {
+        let base = tempdir().unwrap();
+        let b = base.path().join("B");
+        let evil = base.path().join("B-evil");
+        fs::create_dir_all(&b).unwrap();
+        fs::create_dir_all(&evil).unwrap();
+        fs::write(b.join("CHARTER.md"), "x").unwrap();
+        fs::write(b.join("BOOTSTRAP.md"), "x").unwrap();
+        // no need markers on evil
+        assert!(
+            !inside_agent_on(&evil, &b),
+            "B-evil must not count as inside B"
+        );
+        assert!(inside_agent_on(&b, &b));
+        let nested = b.join("intake");
+        fs::create_dir_all(&nested).unwrap();
+        assert!(inside_agent_on(&nested, &b));
+    }
+
+    #[test]
+    fn sibling_session_does_not_bypass_guard() {
+        // CLAUDE_PROJECT_DIR=B-evil must NOT allow git -C B write
+        let base = tempdir().unwrap();
+        let b = base.path().join("B");
+        let evil = base.path().join("B-evil");
+        fs::create_dir_all(&b).unwrap();
+        fs::create_dir_all(&evil).unwrap();
+        fs::write(b.join("CHARTER.md"), "x").unwrap();
+        fs::write(b.join("BOOTSTRAP.md"), "x").unwrap();
+
+        let _g = ENV_LOCK.lock().unwrap();
+        env::set_var("AGENT_ON_ROOT", &b);
+        env::set_var("CLAUDE_PROJECT_DIR", &evil);
+        let data = json!({
+            "tool_input": {"command": format!("git -C {} commit -m x", b.display())},
+            "cwd": evil
+        });
+        assert_eq!(
+            guard_decision(&data),
+            2,
+            "session under B-evil must not authorize writes into B"
+        );
+        env::remove_var("AGENT_ON_ROOT");
+        env::remove_var("CLAUDE_PROJECT_DIR");
+    }
+
+    #[test]
+    fn write_to_sibling_not_blocked_as_b() {
+        // git -C B-evil from outside: target is not B → allow (not our boundary)
+        let base = tempdir().unwrap();
+        let b = base.path().join("B");
+        let evil = base.path().join("B-evil");
+        fs::create_dir_all(&b).unwrap();
+        fs::create_dir_all(&evil).unwrap();
+        fs::write(b.join("CHARTER.md"), "x").unwrap();
+        fs::write(b.join("BOOTSTRAP.md"), "x").unwrap();
+
+        let _g = ENV_LOCK.lock().unwrap();
+        env::set_var("AGENT_ON_ROOT", &b);
+        env::set_var("CLAUDE_PROJECT_DIR", "/tmp");
+        let data = json!({
+            "tool_input": {"command": format!("git -C {} commit -m x", evil.display())},
+            "cwd": "/tmp"
+        });
+        assert_eq!(
+            guard_decision(&data),
+            0,
+            "writes to B-evil are not B — guard should not false-block"
+        );
+        env::remove_var("AGENT_ON_ROOT");
+        env::remove_var("CLAUDE_PROJECT_DIR");
     }
 }

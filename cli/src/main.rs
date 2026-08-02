@@ -189,6 +189,7 @@ fn main() {
             with_plugins,
             with_symlinks,
             config_only,
+            config_path_override: None,
         }),
     };
     process::exit(code);
