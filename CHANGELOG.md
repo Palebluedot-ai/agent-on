@@ -4,6 +4,25 @@
 
 ## [未发布]
 
+（自 v0.6.0 起攒）
+
+## v0.6.0（2026-08-02）——消化攒批：真相面 / 发布门 / Dartify 协作与安全
+
+> **minor**：不动手不坏。存量项目 pin 从 v0.5.x **直升即可**，已实例化文件默认不动（新工件与读 B 仓正文自然用新规则）。无 major、无迁移注记。
+>
+> 封版依据：v0.5.1 后 59 个 commit 全在 [未发布] 攒批（第 11–19 次消化 + guard 修复等）；下游 pin 钉在 v0.5.1 无法「agent-on 升级」——发版解除空操作。
+
+### 用户可见主线
+- **真相面治理**：喂养四元组（漏喂怎么发现）、幽灵 backlog、易变事实禁 self-pin、历史文档隔离
+- **发布门 / 运行态**（sop Phase 6½）：机器 preflight、skip 保持红、门包执行入口、exact-SHA 门禁、能力级窄发布、runtime clean checkout
+- **并行四种事故**：互踩 / 工作重复 / 撞号 / **主题撞题（提交前再查重）**
+- **Dartify 痛点**：docs-only 与生产 CI 解耦；推迟项禁「顺手」；验证全量与夹具可达；边缘 IP / 密码界 / 扫描静默降级
+- **其他**：runtime≠product surface；loop cadence≠截止；竞品私有栈不阻塞选型；guard pathspec 收窄
+
+### 消化批次（细节见下列各节原文）
+第 11–19 次消化已全部 landed；bench 案例增至 29 张。
+
+
 ### 第十九次消化（2026-08-02，Dartify 结账 11 卡全 landed；定级 minor 攒批）
 - **包A 推迟项/真相面/CI 解耦**(痛点):truth-hierarchy 喂养**四元组**+漏喂发现;TODO 禁「顺手」;sop 状态面≠发布;merge 7f docs-only 不触发生产
 - **包B 并行**:第四型主题撞题(提交前再查重)+ handoff 不抢轨 + merge 7e 同名分派点死代码;bench 27 扩四型
@@ -86,8 +105,6 @@
 - **session-receipt-before-gated-actions**：kit/guard README L-进场会话回执模式 + AGENTS-skeleton 可选 preflight 行
 - **modular-prompt-orphan-must-fail**：sop 外部服务集成清单第 7 条 + anti-hallucination 映射行
 - 附记：开场收件 970ccf1/573346f；一卡一 commit（ae9bec8/e0cef89/af03b2f/69c7cc6/0c7b2e7）；来源 intake/2026-07-16-IPONews.md + 2026-07-18-IPONews.md
-
-（自 v0.5.1 起攒）
 
 ## v0.5.1（2026-07-16）——默认目录 setup + 三工具装机文档
 
