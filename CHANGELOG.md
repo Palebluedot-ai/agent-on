@@ -4,6 +4,14 @@
 
 ## [未发布]
 
+### 第十九次消化（2026-08-02，Dartify 结账 11 卡全 landed；定级 minor 攒批）
+- **包A 推迟项/真相面/CI 解耦**(痛点):truth-hierarchy 喂养**四元组**+漏喂发现;TODO 禁「顺手」;sop 状态面≠发布;merge 7f docs-only 不触发生产
+- **包B 并行**:第四型主题撞题(提交前再查重)+ handoff 不抢轨 + merge 7e 同名分派点死代码;bench 27 扩四型
+- **包C 验证**:夹具可达性 / 合并后全量验证 / 扫描静默降级(anti-hallucination #12–13)
+- **包D 安全**:边缘 IP 单源 / 密码界共享 schema / 宿主迁移 runbook / 禁 exploit 静态路径(#14–15 + sop #10–11)
+- 附记：收件 ca7c1db；1 内容 commit 归并 11 卡；本批无 major
+- 来源：`intake/2026-08-02-dartify.md`（pin v0.5.1；用户口述 progress/CI/Cloud 反复失效）
+
 ### 第十八次消化（2026-08-01，hk-sfc-licensees 首结 4 卡全 landed；定级 minor 攒批）
 - **local-dev-constraint-is-not-product-endstate**：AGENTS-skeleton `runtime ≠ product surface` + BOOTSTRAP 需求六问 Q3
 - **loop-cadence-is-not-deadline**：phase-card §2b cadence≠截止 + skill Loop 用户可见半句
