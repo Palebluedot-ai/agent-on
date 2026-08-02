@@ -15,7 +15,7 @@
 | ②采 | 项目 orchestrator | 六类触发当场留痕 | 写项目 loop-notes.md / run jsonl 的 memory_card |
 | ③结 | 项目 orchestrator(口令「agent-on 结账」) | 打包 Promotion Card,跨仓写承接层 | 写 agent-on `intake/<日期>-<项目>.md`;**绝不碰 canonical** |
 | ④消化 | **agent-on 仓自己的会话**(单写者) | 三态分诊 → 落成具体文件修改 | 写 playbook/kit/bench 正文;intake 卡原地标去向 |
-| ⑤发布 | 同上,消化收尾 | CHANGELOG 条目 + annotated git tag | 写 CHANGELOG.md,打 tag |
+| ⑤发布 | 同上,消化收尾 | CHANGELOG 封版 + **必打** annotated git tag 并 push | 写 CHANGELOG.md,打 tag,更新推荐 pin;禁止跨会话只攒不发(2026-08-02) |
 | ⑥升级 | 项目 orchestrator(独立口令「agent-on 升级」) | 读 CHANGELOG 区间,bump pin | 写项目 lock;仅 major 才动实例化文件(用户批准) |
 
 ## 二、项目侧:回流账本只新增一个文件
@@ -45,7 +45,7 @@
 **负担预算(硬验收,超了就砍门禁)**:结账 = 一句口令 + 零确认;消化 = 一场会话 + 一组选择题;升级 = 一次 diff 批准。
 
 - **结账**(项目会话):对表播报(落后几版、是否含 major,**不强制升级**)→ 收集 `sync_status=pending` 的出仓卡 → 装配 Promotion Card(六项缺一拒收)→ 写 intake 一个新文件、单独 commit → 卡标 synced + lock 记回执 → 播报 intake 积压(≥3 份未消化或跨项目同 pattern → 建议当场开消化,这是全流程唯一的问句)
-- **消化**(**必须换 agent-on 仓会话**——会话上下文=装载的规则集,没读本仓 AGENTS.md 的会话不许动本仓 canonical):开场 pattern 频次扫描(同 slug ≥2 项目 → 置顶 + 强制升 L3)→ correction-loop 三态分诊(低风险 + bench 案例追加 = AI 直落;中高风险 = 打包成**一组选择题**一次拍完)→ 每张卡原地标 `landed@commit` / `rejected(原因)` / `deferred` → **至少一处具体文件改动**(meta-principles 第三条,只读不改 = 消化失败)→ CHANGELOG 条目(L3 改动强制成对列 playbook+kit 双落点,堵上游侧双写漂移)→ 用户确认定级,该打 tag 就打
+- **消化**(**必须换 agent-on 仓会话**——会话上下文=装载的规则集,没读本仓 AGENTS.md 的会话不许动本仓 canonical):开场 pattern 频次扫描(同 slug ≥2 项目 → 置顶 + 强制升 L3)→ correction-loop 三态分诊(低风险 + bench 案例追加 = AI 直落;中高风险 = 打包成**一组选择题**一次拍完)→ 每张卡原地标 `landed@commit` / `rejected(原因)` / `deferred` → **至少一处具体文件改动**(meta-principles 第三条,只读不改 = 消化失败)→ CHANGELOG 条目(L3 改动强制成对列 playbook+kit 双落点,堵上游侧双写漂移)→ 用户确认定级 → **封 `[未发布]` + annotated tag + push tag**(缺 tag = 消化失败;下游 pin 只能钉 tag,**禁止**跨会话「minor 攒批」积压不发版——实证:v0.5.1 后 59 commit 未 tag 导致 Dartify 等「无可升级版本」)
 
 **明确不设**:fail-closed 背压禁令(会锁死口令入口——最弱环节不能当全局断路器)、archive 目录(intake 原地标注即收口,目录即仪表盘,`ls` 一眼见积压)。
 

@@ -87,11 +87,18 @@
    - pin 旧版、新版已修复的摩擦:直接 `rejected(升级 pin 即解)`——这也是版本漂移探测器
    - **预算线(硬)**:选择题一场一组、≤10 题;超线不硬撑——按 intake 文件先旧后新,处理到预算线即收口(收尾三件照做),剩余原样留承接层,播报「本批消化 X 份,剩 Y 份下批」
 3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。**一卡一 commit**:每张卡落完当场 commit(去向标注与落地改动同 commit,hash 自指写不了就标 `landed@同批`+文件落点),不许攒批——agent-on 工作区是所有项目会话的服务面(执行书按路径读工作区,不按 pin 读),攒批 = 拉长 canonical 中间态窗口,并发读者会读到半截规则(2026-07-13 实证:第六次消化 12 文件一批收口,窗口期被 Euan 会话撞见未提交 BOOTSTRAP)。
-4. **收尾三件**(缺一 = 消化失败):
+4. **收尾四件**(缺一 = 消化失败;**tag 是硬门,不是可选项**):
    - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
    - CHANGELOG 条目:动了什么、来自哪份 intake、L3 改动成对列双落点、semver 档位(用户确认:major=不动手会坏 / minor=不动手不坏 / patch=不用知道)
-   - 该打 tag 就打 annotated tag;major 无迁移注记不许打
-   - 顺手第四件(轻):**README 对表**——数字与状态截面(案例数/篇数/口令数/路线段)与实况核一遍,漂了当场修(实证:两次消化都在 README 里抓到过期信息;绑此事件,不设定时器)
+   - **发版硬门(2026-08-02 立,防下游「无可升级版本」)**:本场消化一旦改了 canonical / CHANGELOG / 推荐 pin 口径,收尾必须:
+     1. 把 `CHANGELOG` 的 `[未发布]` 本批内容**封进新版本节**(勿只写「minor 攒批」却不发 tag)
+     2. 打 **annotated tag** 并 `git push origin main --tags`(或 `push` + `push <tag>`)
+     3. 更新 README / AGENTS「当前推荐 pin」为该 tag
+     - **默认档位**:本批全 patch 文案/案例 → `patch`;有 L3 双落点或新节/新机制 → `minor`;破坏存量实例化 → `major`(无迁移注记**不许**打 tag)
+     - **禁止**:「消化完成但 HEAD 仍领先最新 tag」——下游 pin 只能钉 tag,未发布 commit **不是**可升级版本;攒批只允许**同一消化会话内**多卡同封一版,禁止跨会话积压不发版
+     - 机械助手:`python3 scripts/tag-release.py --level minor --title "一句话"`(在干净工作区、已 commit 后跑;会校验 HEAD 超前、写 tag、打印 push 命令)
+     - major 无迁移注记不许打
+   - 顺手第五件(轻):**README 对表**——数字与状态截面(案例数/篇数/口令数/路线段)与实况核一遍,漂了当场修(实证:两次消化都在 README 里抓到过期信息;绑此事件,不设定时器)
 
 ## 升级(独立口令「agent-on 升级」,在项目仓)
 

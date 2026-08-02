@@ -5,8 +5,18 @@
 | 脚本 | 作用 |
 |---|---|
 | [setup.py](setup.py) | 一键：默认目录 clone/checkout pin + 写 `~/.config/agent-on/config.json` + 可选 plugin/symlink + doctor + intake-lint |
+| [tag-release.py](tag-release.py) | **消化收尾发版硬门**：按 patch/minor/major 打 annotated tag；`--push` 推远程。禁止「消化完不打 tag」 |
 | 路径解析 | `kit/guard/agent_on_paths.py` |
 | 卡片校验 | `ledger/intake-lint.py` |
+
+### 消化后发版（必做）
+
+```bash
+# 先把 CHANGELOG [未发布] 封进版本节、推荐 pin 写进 README/AGENTS，并 commit
+python3 scripts/tag-release.py --level minor --title "一句话" --push
+# 仅本地打 tag、稍后手推:
+python3 scripts/tag-release.py --level patch --title "措辞修正"
+```
 
 ## setup 默认目录
 

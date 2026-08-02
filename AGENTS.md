@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.6.0`**（minor 攒批：第 11–19 次消化——真相面 / 发布门 / 并行四型 / Dartify 协作与安全）。  
+**最新推荐 pin：`v0.6.1`**（patch：消化收尾必打 tag 硬门；方法论正文见 v0.6.0）。  
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
@@ -35,7 +35,7 @@
 ## 迭代闭环中的本仓职责（机制全文 playbook/iteration-loop.md）
 
 - **intake/ 是承接层**：项目「结账」只许写那里；canonical（playbook/kit/bench 正文）只有本仓的消化会话能改——没读本文件的会话不许动 canonical
-- **消化会话收尾三件缺一不可**：至少一处具体文件改动、CHANGELOG 条目（L3 改动成对列 playbook+kit 双落点）、该打 tag 就打（major 无迁移注记不许打）
+- **消化会话收尾四件缺一不可**：至少一处具体文件改动、CHANGELOG 条目（L3 改动成对列 playbook+kit 双落点）、**annotated tag 必打并 push**（封 `[未发布]`、更新推荐 pin；禁止跨会话攒批不发版——2026-08-02 硬门）、README 对表。major 无迁移注记不许打。助手：`scripts/tag-release.py`
 - **上游贡献**：社区只交 intake-only PR / Issue；禁止直改 playbook/kit（见 boot/settlement.md「上游贡献形态」）
 - 本仓是唯一对外供货源；Euan 等项目侧仅 lock + loop-notes 等采集件
 

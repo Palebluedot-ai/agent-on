@@ -53,6 +53,7 @@ python3 scripts/setup.py                  # → 默认目录 + config
 - **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `python3 scripts/setup.py`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
 - **对表/升级诚实播报**：若 B 的 HEAD 领先最新 tag，报「未发布变化 N commit」——未发布 ≠ 可升级版本。
+- **消化收尾硬门**：canonical 有改动则必须封版打 tag 并 push（`scripts/tag-release.py`）；禁止「消化完成、tag 留到以后」。
 - **认不出的子命令**：列表让用户重选。
 - 读到目标文件后**照它执行**，不在这里复述改写步骤。
 - 中文口令「agent-on 结账 / 升级」与本 skill 等价。

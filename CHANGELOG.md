@@ -4,7 +4,16 @@
 
 ## [未发布]
 
-（自 v0.6.0 起攒）
+（自 v0.6.1 起攒）
+
+## v0.6.1（2026-08-02）——消化收尾必打 tag（发版硬门）
+
+> **patch**：不用知道也能用；存量 pin v0.6.0 可直升。无 major。
+
+### 发版硬门：消化收尾必打 tag
+- **协议**：`boot/settlement.md` 收尾由「该打 tag 就打」改为 **必打 annotated tag 并 push**；禁止跨会话「minor 攒批」积压不发版（实证：v0.5.1 后 59 commit 导致下游「无可升级版本」）
+- **助手**：`scripts/tag-release.py --level patch|minor|major --title "…" [--push]`
+- **双落点**：AGENTS 消化收尾四件、iteration-loop ⑤发布站、skill 硬门半句
 
 ## v0.6.0（2026-08-02）——消化攒批：真相面 / 发布门 / Dartify 协作与安全
 
