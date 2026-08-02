@@ -5,7 +5,11 @@
 ## §0 agent-on 映射
 
 方法论来自 agent-on(版本与偏离登记见项目根 `agent-on.lock.md`,只映射不复制)。口令:「agent-on 结账」(沉淀回流)/「agent-on 升级」(bump pin)。
-本机装了多套 skill 体系时,谁优先、谁点名禁用写在这里一行——不点名 = 可被抢跑(轻装也别省这行)。
+
+**§skill 路由(默认·轻装也写死)**：
+- **制度在 agent-on**(完成=贴证据 / 暂停项禁令 / 外向先确认 / 结账回流)——不外包给任何环节 skill。
+- **有 GStack 时**环节点名走 GStack(规划/审查/发布/调试等);**无则**主会话 + kit fallback,不开第二套流程宗教。
+- **不默认 Superpowers**:禁用 `superpowers:brainstorming` / `writing-plans` 抢跑 init 与规划;实现**不**走 subagent-driven-development 默认引擎(太重)。用户口头点名某 skill 才例外。
 
 ## §1 铁律(三条,轻装也不许省)
 

@@ -142,8 +142,8 @@ python3 ~/.local/share/agent-on/ledger/intake-lint.py   # mac/linux 默认 B
 
 三条规则：
 
-1. **拿不准取低档；允许升档，不许静默降档**——S 档项目开始碰真实数据的那天就是升档日（升档协议在 [boot/adopt.md](boot/adopt.md) §二，信号→动作写死了）。
-2. **轻装也有三条底线**：完成要贴命令输出、暂停项写成禁令、外向操作先确认——这不是流程，是诚实，不分档。
+1. **默认心态偏 S；拿不准取低档；允许升档，不许静默降档**——别为了「看起来专业」默认全装。S 档项目开始碰真实数据的那天就是升档日（升档协议在 [boot/adopt.md](boot/adopt.md) §二）。
+2. **轻装也有三条底线**：完成要贴命令输出、暂停项写成禁令、外向操作先确认——这是**制度**，不是流程税，不分档。
 3. **闭环不分档**：S 档也保留 lock + loop-notes，因为小项目的教训一样值钱，结账一样回流。
 
 ## 它解决什么（30 秒）
@@ -167,7 +167,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 | `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、合流 checklist（含 DoD 门禁）、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
 | `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）+ 机制七篇（mechanisms/） |
 | `bench/` | **Bench** | 翻车案例集 29 卡（[bench/cases/](bench/cases/README.md)，Euan 实战 25 + IPONews 1 + inbox-radar 1 + 前身仓标本 2）+ 能力探针 + 能力真相表 + 修正闭环 |
-| `ledger/` | **Ledger** | run 台账模板 + Euan 九次 run 实测数据（**散文台账，真实跑过**）· jsonl 落盘规范 + audit-lint 状态机校验脚本（**机件，L 档多 agent 编排时启用，尚未在真实项目验证**）|
+| `ledger/` | **Ledger** | **主路径 = 散文台账**（Euan 九次 run 实测）。jsonl 四卡 + audit-lint = **L 档旁路机件，零真实项目跑通——开箱勿启用**；S/M 结账走 loop-notes → Promotion Card，不产 jsonl |
 | `intake/` | — | 承接层：各项目「结账」回流的落点（目录即仪表盘，`ls` 一眼见积压） |
 | `snapshot/` `legacy/` | — | 决策快照（工具定义、融合地图）· 前身仓考古层 |
 
@@ -227,7 +227,11 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 
 ## 与其他工具的关系
 
-不冲突，分工明确：GStack / Superpowers 这类强 skill 管**某个环节怎么做**（评审、QA、发布、调试）；agent-on 管**项目怎么启动、怎么推进、怎么不漂、怎么反哺**。相关外部参照：[lipingtababa/agents-zone-skillset](https://github.com/lipingtababa/agents-zone-skillset)。
+不冲突，分工明确（**2026-08 定调**）：
+- **agent-on = 制度层**（启动/推进/不漂/结账回流/完成=证据/跨仓闸）——开箱主责。
+- **GStack 等（若已装）= 环节怎么做**（评审、QA、发布、调试）——点名调用，产物收口进项目仓。
+- **Superpowers 退出默认推荐**（偏重、易抢跑 init/规划）；用户点名才用。新项目 AGENTS 模板默认点名禁用 brainstorming / writing-plans，实现不默认 subagent 引擎。
+相关外部参照：[lipingtababa/agents-zone-skillset](https://github.com/lipingtababa/agents-zone-skillset)。
 
 ## 状态与路线
 

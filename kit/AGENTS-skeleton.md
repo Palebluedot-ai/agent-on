@@ -54,20 +54,24 @@
 
 A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 design-review)。
 
-## §skill 路由(本机已装哪套强 skill,各环节走谁)
+## §skill 路由(制度在 agent-on;环节 skill 可选)
 
-> 填这张表定「审查/发布/调试」各走哪套工具;agent-on 的 kit 模板(review-prompt / merge-checklist 等)是**没有对应 skill 时的 fallback**,避免与本机 skill 撞出双制度。BOOTSTRAP §1 第 5 问采集本机 skill 体系。
+> **默认立场(2026-08 起)**：agent-on 管制度(证据/边界/单写者/结账回流);**不**把 Superpowers 当默认执行栈(偏重、易抢跑)。有 GStack 则环节点名走 GStack;无强 skill → kit 模板 fallback。BOOTSTRAP §1 第 5 问只采集「机器上还装了啥」,不暗示必须双栈。
 
-| 环节 | 本项目用哪套 | 无则 fallback |
+| 环节 | 本项目默认 | 无则 fallback |
 |---|---|---|
-| 规划设计 | [如 GStack /autoplan] | — |
-| 实现执行 | [如 Superpowers subagent-driven-development] | agent-on 六步协议 |
-| 代码/PR 审查 | [如 GStack /review + Codex] | kit/review-prompt-template.md |
-| 合流验收 | [如 GStack /qa] | kit/merge-checklist.md |
-| 发布部署 | [如 GStack /ship] | — |
-| 调试 | [如 GStack /investigate] | playbook/anti-hallucination.md |
+| 规划设计 | [GStack /autoplan · 若已装] | 主会话 + 用户拍板;禁 brainstorming 抢规划 |
+| 实现执行 | **主会话 / 按需子代理** + agent-on 铁律(TDD·完成贴证据) | agent-on 六步协议(并行时);**不**默认 Superpowers subagent-driven-development |
+| 代码/PR 审查 | [GStack /review · 若已装] | kit/review-prompt-template.md(只保留一套审查) |
+| 合流验收 | [GStack /qa · 若已装] | kit/merge-checklist.md |
+| 发布部署 | [GStack /ship · 若已装] | 项目自有 checklist;agent-on pin/结账照常 |
+| 调试 | [GStack /investigate · 若已装] | playbook/anti-hallucination + 完成贴证据 |
 
-**压制条款（防抢跑）**：被路由掉的 skill 在此点名禁用（例：「规划设计走 /autoplan，禁用 superpowers:brainstorming 抢跑」）——本文件是双工具共读层，压制写在这里才对 Claude 与 Codex 同时生效；只写进单工具配置（如 `~/.claude/CLAUDE.md`）另一家照样抢跑。
+**压制条款（防抢跑·必填）**：本文件是双工具共读层——在此点名禁用才同时管住 Claude 与 Codex。默认至少写：
+- 禁用 `superpowers:brainstorming` / `superpowers:writing-plans` 抢跑 init 与规划
+- 实现**不**默认 `superpowers:subagent-driven-development`(用户点名才用)
+- 审查/发布/调试**不**并行再开一套 Superpowers 同名流程(避免双制度)
+只写进 `~/.claude/CLAUDE.md` 不够(AINVESTMENT: Codex 侧仍被抢跑)。
 
 ## §二车道(见 agent-on 的 playbook/freedom-vs-discipline.md)
 
