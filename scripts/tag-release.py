@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""tag-release.py — 消化收尾发版硬门的机械助手
+"""tag-release.py — 本仓发版硬门的机械助手
 
 职责边界:在 agent-on 工作仓、工作区干净且 HEAD 已超前最新 tag 时:
   - 计算下一 semver(patch|minor|major)
-  - 创建 annotated tag(默认不自动 push,打印命令;--push 才推)
-  - 不改 CHANGELOG 正文(封版文案由消化会话先写好再跑本脚本)
+  - 创建 annotated tag 钉在当前 HEAD(默认不自动 push;--push 才推)
+  - 不改 CHANGELOG 正文(封版 + 推荐 pin 须先 commit 再跑本脚本)
+
+适用范围(2026-08-03):agent-on 本仓**直接对话**凡 commit 交付,收尾必跑
+(不限消化会话)。禁止 HEAD 领先最新 tag。
 
 用法:
   python3 scripts/tag-release.py --level minor --title "一句话说明"
@@ -66,7 +69,7 @@ def bump(level: str, major: int, minor: int, patch: int) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="agent-on 消化收尾: annotated tag")
+    ap = argparse.ArgumentParser(description="agent-on 本仓发版: annotated tag (对话 commit 必打)")
     ap.add_argument("--level", required=True, choices=("patch", "minor", "major"))
     ap.add_argument("--title", required=True, help="tag 说明一句话")
     ap.add_argument(

@@ -5,7 +5,7 @@
 | 脚本 | 作用 |
 |---|---|
 | [setup.py](setup.py) | 一键：默认目录 clone/checkout pin + 写 `~/.config/agent-on/config.json` + 可选 plugin/symlink + doctor + intake-lint |
-| [tag-release.py](tag-release.py) | **消化收尾发版硬门**：按 patch/minor/major 打 annotated tag；`--push` 推远程。禁止「消化完不打 tag」 |
+| [tag-release.py](tag-release.py) | **本仓对话 commit 发版硬门**：patch/minor/major annotated tag；`--push` 推远程。凡本仓直接对话交付的 commit，push 结束 tag 必须钉 HEAD |
 | [check-skill-routing.py](check-skill-routing.py) | 断言开箱 skill 路由：不默认 Superpowers 执行栈、S 轻心态、jsonl 旁路、MRD B1+C1；可选 `--with-agent-memory` |
 | 路径解析 | `kit/guard/agent_on_paths.py` |
 | 卡片校验 | `ledger/intake-lint.py` |

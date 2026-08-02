@@ -4,7 +4,16 @@
 
 ## [未发布]
 
-（自 v0.6.2 起攒）
+（自 v0.6.3 起攒）
+
+## v0.6.3（2026-08-03）——本仓对话 commit 必打 tag
+
+> **patch**：不用知道也能用；存量 pin v0.6.2 可直升。无 major。
+
+### 发版硬门扩围
+- **协议**：agent-on **本仓直接对话**凡 `git commit` 并交付/push，收尾必封 CHANGELOG + 更新推荐 pin + **annotated tag 钉 HEAD 并 push**；禁止只 commit/push 不发版；goal 写「不要求 tag」无效
+- **落点**：AGENTS 自举纪律第 6 条、`boot/settlement.md` 发版硬门、`playbook/iteration-loop.md` 消化条、`scripts/tag-release.py` 适用范围
+- **背景**：用户 2026-08-03 拍板「在本库直接对话的所有 commit 都要加 tag」；此前 v0.6.1 仅绑消化收尾，轻主路径两 commit 曾只 push 导致 HEAD 领先 tag
 
 ## v0.6.2（2026-08-03）——轻主路径 + 降档协议 + Superpowers 退出默认
 

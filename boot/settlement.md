@@ -90,13 +90,15 @@
 4. **收尾四件**(缺一 = 消化失败;**tag 是硬门,不是可选项**):
    - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
    - CHANGELOG 条目:动了什么、来自哪份 intake、L3 改动成对列双落点、semver 档位(用户确认:major=不动手会坏 / minor=不动手不坏 / patch=不用知道)
-   - **发版硬门(2026-08-02 立,防下游「无可升级版本」)**:本场消化一旦改了 canonical / CHANGELOG / 推荐 pin 口径,收尾必须:
-     1. 把 `CHANGELOG` 的 `[未发布]` 本批内容**封进新版本节**(勿只写「minor 攒批」却不发 tag)
-     2. 打 **annotated tag** 并 `git push origin main --tags`(或 `push` + `push <tag>`)
-     3. 更新 README / AGENTS「当前推荐 pin」为该 tag
+   - **发版硬门(2026-08-02 立;2026-08-03 扩到本仓一切对话交付,防下游「无可升级版本」)**:
+     - **范围**:不限消化——**agent-on 本仓直接对话**凡 `git commit` 并 push 交付的改动,收尾都必走下列三步(用户 2026-08-03 拍板:本库对话所有 commit 都要有 tag;goal 写「不要求 tag」无效)
+     - 步骤:
+     1. 把 `CHANGELOG` 的 `[未发布]` 本批内容**封进新版本节**(勿只写「攒批」却不发 tag)
+     2. 更新 README / AGENTS「当前推荐 pin」为将打的 tag
+     3. 打 **annotated tag** 钉在**当前 HEAD** 并 `git push origin HEAD` + `git push origin <tag>`(或 `tag-release.py --push`)
      - **默认档位**:本批全 patch 文案/案例 → `patch`;有 L3 双落点或新节/新机制 → `minor`;破坏存量实例化 → `major`(无迁移注记**不许**打 tag)
-     - **禁止**:「消化完成但 HEAD 仍领先最新 tag」——下游 pin 只能钉 tag,未发布 commit **不是**可升级版本;攒批只允许**同一消化会话内**多卡同封一版,禁止跨会话积压不发版
-     - 机械助手:`python3 scripts/tag-release.py --level minor --title "一句话"`(在干净工作区、已 commit 后跑;会校验 HEAD 超前、写 tag、打印 push 命令)
+     - **禁止**:「commit/push 完成但 HEAD 仍领先最新 tag」——下游 pin 只能钉 tag,未发布 commit **不是**可升级版本;同一交付轮次内可多层 commit,**push 结束时必须一 tag 钉 HEAD**(一批一 tag 覆盖这批全部 commit)
+     - 机械助手:`python3 scripts/tag-release.py --level patch|minor|major --title "一句话" --push`(工作区干净、已 commit 后跑)
      - major 无迁移注记不许打
    - 顺手第五件(轻):**README 对表**——数字与状态截面(案例数/篇数/口令数/路线段)与实况核一遍,漂了当场修(实证:两次消化都在 README 里抓到过期信息;绑此事件,不设定时器)
 
