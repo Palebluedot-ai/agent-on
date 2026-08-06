@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.8.0`**（minor：记账棘轮 / worktree 回收模式；CLI 见 v0.7.0）。  
+**最新推荐 pin：`v0.8.1`**（minor：记账棘轮 / worktree 回收模式；CLI 见 v0.7.0）。  
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
