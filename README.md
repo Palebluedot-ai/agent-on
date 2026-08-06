@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.7.2`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.7.3`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.7.2`** |
+| **推荐 pin** | **`v0.7.3`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.7.2
+git checkout v0.7.3
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -159,7 +159,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 | [BOOTSTRAP.md](BOOTSTRAP.md) + `boot/` | **Boot** | 新项目冷启动（含定档三问）· 存量项目接入书 adopt · 会话续接握手 · 结账/升级执行书 · 深挖版问卷 |
 | `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、合流 checklist（含 DoD 门禁）、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
 | `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）+ 机制七篇（mechanisms/） |
-| `bench/` | **Bench** | 翻车案例集 29 卡（[bench/cases/](bench/cases/README.md)，Euan 实战 25 + IPONews 1 + inbox-radar 1 + 前身仓标本 2）+ 能力探针 + 能力真相表 + 修正闭环 |
+| `bench/` | **Bench** | 翻车案例集 31 卡（[bench/cases/](bench/cases/README.md)）+ 能力探针 + 能力真相表 + 修正闭环 |
 | `ledger/` | **Ledger** | **主路径 = 散文台账**（Euan 九次 run 实测）。jsonl 四卡 + audit-lint = **L 档旁路机件，零真实项目跑通——开箱勿启用**；S/M 结账走 loop-notes → Promotion Card，不产 jsonl |
 | `intake/` | — | 承接层：各项目「结账」回流的落点（目录即仪表盘，`ls` 一眼见积压） |
 | `snapshot/` `legacy/` | — | 决策快照（工具定义、融合地图）· 前身仓考古层 |
@@ -233,7 +233,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.4 ✅ 达成（2026-07-15）**：AInvestment 完成 BOOTSTRAP 全流程 dogfood + 两默认件验证，已封 `v0.4.0`。超预期交付：规划链 §1.5（MRD→PRD→phase 卡路由）、强制约束层（agent-on-git-guard，双工具 PreToolUse 机械拦截跨仓越界）、项目端零 git 边界、防幻觉第六型
 - **v0.5 ✅**：`v0.5.0` Plugin/路径/贡献；**`v0.5.1`** 默认目录 `setup.py` + 三工具装机文档（patch）。诚实边界：Codex plugin hook 未接线（#16430）。
 - **v0.6 ✅**：**`v0.6.0`–`v0.6.3`** 攒批/tag 硬门/轻主路径/降档/Superpowers 退出默认。  
-- **v0.7 ✅**：**`v0.7.2`** 可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
+- **v0.7 ✅**：**`v0.7.3`** 可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

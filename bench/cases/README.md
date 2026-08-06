@@ -33,6 +33,8 @@
 | [27](27-two-collision-diseases.md) | 互踩≠撞题≠撞号 | 环境→worktree;撞题→开工声明;撞号→取号即落盘 |
 | [28](28-audit-adversarial-verifiers.md) | 审计对抗复核 | 合规审计指控与定罪分离;复核以推翻为目标;事实与归因分判 |
 | [29](29-ambiguous-side-effect-readback.md) | 外部副作用 read-back | 解析失败≠传输失败;可能已送达时冻结重放,先只读对账 |
+| [30](30-ledger-ratchet-and-author-deadlock.md) | 记账棘轮+作者闸死锁 | merge 记账须 CI 闸;守卫允许集扩面 maintainer 同分支重开 |
+| [31](31-worktree-gc-orphan-rescue.md) | 回收执行体+孤本 | 日历死线须进程;无 PR worktree 只报告不删,先 push 再收 |
 
 ## 使用时机
 
@@ -49,3 +51,4 @@
 - **排障期错误码突然「变好」时**:案 26(限流/熔断是否盖住真因)
 - **多周合规/harness 审计时**:案 28(取证+对抗复核双层)
 - **外部消息/API 可能已产生副作用时**:案 29(先 read-back 再重试)
+- **merge 记账依从率崩 / 多 worktree 堆积时**:案 30/31

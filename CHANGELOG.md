@@ -4,7 +4,18 @@
 
 ## [未发布]
 
-（自 v0.7.2 起攒）
+（自 v0.7.3 起攒）
+
+## v0.7.3（2026-08-06）——第二十次消化：记账棘轮 / worktree 回收 / 孤本
+
+> **minor**：不动手不坏。存量 pin v0.7.x 直升；新模式见 kit 两份 pattern 文件。
+
+### 第二十次消化（Dartify 治理机制化 4 卡全 landed）
+- **ledger-ratchet-mechanism**：multi-contributor §三½.1 + kit/ledger-ratchet-pattern.md + merge-checklist 7b + bench 30
+- **calendar-deadline-needs-executor**：§三½.2 + kit/worktree-gc-pattern.md + bench 31
+- **guard-allowlist-author-deadlock**：§三½.3 协作者出口 + bench 30
+- **orphan-work-rescue-before-reap**：§三½.4 孤本三步 + worktree-gc 无 PR 档 + bench 31
+- 附记：收件 afbf19d；bench 29→31；来源 `intake/2026-08-06-dartify.md`
 
 ## v0.7.2（2026-08-03）——guard 路径边界 + setup 测试
 

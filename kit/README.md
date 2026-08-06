@@ -12,6 +12,8 @@
 | [track-prompt-template.md](track-prompt-template.md) | 轨道 agent 派工 prompt(含 Opus 七脚手架旋钮) | Run #2-#7 派工词 |
 | [review-prompt-template.md](review-prompt-template.md) | 独立对抗审查 prompt(failed→respond→passed) | S2 审查(抓到 Critical 的那次) |
 | [merge-checklist.md](merge-checklist.md) | 合流七步 checklist | sop.md Phase 5 + Run #3 教训 |
+| [ledger-ratchet-pattern.md](ledger-ratchet-pattern.md) | merge 记账 CI 棘轮模式 | 依从率断档时(Dartify) |
+| [worktree-gc-pattern.md](worktree-gc-pattern.md) | worktree 回收执行体 + 孤本保护 | 多 worktree / 日历死线 |
 | [progress-template.yaml](progress-template.yaml) | 单写者状态文件骨架 | docs/state/progress.yaml |
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
