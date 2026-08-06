@@ -4,7 +4,21 @@
 
 ## [未发布]
 
-（自 v0.8.0 起攒）
+（自 v0.8.3 起攒）
+
+## v0.8.3（2026-08-06）——推荐 pin 与 HEAD tag 对齐
+
+> **patch**。
+
+- 推荐 pin / checkout 与 `v0.8.3` 同 commit（避免 tag-release 后 pin 文案落后一代）
+
+## v0.8.2（2026-08-06）——docs 对齐
+
+> **patch**。中间 tag；见 git history。
+
+## v0.8.1（2026-08-06）——docs 对齐
+
+> **patch**。中间 tag。
 
 ## v0.8.0（2026-08-06）——第二十次消化：记账棘轮 / worktree 回收 / 孤本
 
