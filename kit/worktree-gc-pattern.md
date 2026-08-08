@@ -39,3 +39,14 @@
 ## dry-run 必做
 
 首跑 `--dry-run`:抓变量名编码 bug、误把 `.DS_Store` 当活动文件等——再启用真删。
+
+## 交付前对表(硬门 · Dartify 2026-08-08)
+
+worktree 是**创建那一刻** default branch 的快照,之后 main 前进**不会**提醒你。凡装机 / 演示 / 截图给人看 / 对外发布:
+
+1. `git fetch origin`
+2. `git rev-list --count HEAD..origin/<default>` —— **非 0 则先对齐再构建**(ff-only 或 rebase)
+3. 播报必须写:**commit hash + 与 origin/default 落差**(例:`@3fcbbc4,与 origin/main 落差 0`)
+4. **禁止**从本地 HEAD 随口说「最新」——交付物(已装 App)往往不自带版本号,用户只能靠「感觉没变」发现,反馈链极长
+
+与「squash 换 hash 误判」同族:都是 worktree 与 main 的**时间差**在不同环节咬人。

@@ -4,7 +4,17 @@
 
 ## [未发布]
 
-（自 v0.8.3 起攒）
+（自 v0.9.0 起攒）
+
+## v0.9.0（2026-08-08）——第二十一次消化：交付前对表 worktree
+
+> **minor**：不动手不坏。
+
+### 第二十一次消化（Dartify 真机交付 3 卡全 landed）
+- **worktree-snapshot-shipped-as-latest**：kit/worktree-gc-pattern 交付前对表 + multi-contributor + merge §6 + bench 32
+- **env-hypothesis-crowds-out-delivery-self-check**：sop 没生效先查交付链 + anti-hallucination #16
+- **classifier-denies-command-not-goal**：anti-hallucination #17 + guard README 诊断 + bench 32
+- 附记：收件 6bc8f9d；来源 `intake/2026-08-08-dartify.md`；bench 31→32
 
 ## v0.8.3（2026-08-06）——推荐 pin 与 HEAD tag 对齐
 

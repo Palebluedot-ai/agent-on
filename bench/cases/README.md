@@ -35,6 +35,7 @@
 | [29](29-ambiguous-side-effect-readback.md) | 外部副作用 read-back | 解析失败≠传输失败;可能已送达时冻结重放,先只读对账 |
 | [30](30-ledger-ratchet-and-author-deadlock.md) | 记账棘轮+作者闸死锁 | merge 记账须 CI 闸;守卫允许集扩面 maintainer 同分支重开 |
 | [31](31-worktree-gc-orphan-rescue.md) | 回收执行体+孤本 | 日历死线须进程;无 PR worktree 只报告不删,先 push 再收 |
+| [32](32-worktree-stale-ship-and-classifier.md) | 陈旧 worktree 装机 | 交付前对表 default branch;没生效先查交付链;闸拒字面≠禁目标 |
 
 ## 使用时机
 
@@ -52,3 +53,4 @@
 - **多周合规/harness 审计时**:案 28(取证+对抗复核双层)
 - **外部消息/API 可能已产生副作用时**:案 29(先 read-back 再重试)
 - **merge 记账依从率崩 / 多 worktree 堆积时**:案 30/31
+- **从 worktree 装机/演示前**:案 32(对表落差 + 交付链先于环境)
