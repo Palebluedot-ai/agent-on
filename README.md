@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.9.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.9.1`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.9.0`** |
+| **推荐 pin** | **`v0.9.1`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.9.0
+git checkout v0.9.1
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -233,7 +233,9 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.4 ✅ 达成（2026-07-15）**：AInvestment 完成 BOOTSTRAP 全流程 dogfood + 两默认件验证，已封 `v0.4.0`。超预期交付：规划链 §1.5（MRD→PRD→phase 卡路由）、强制约束层（agent-on-git-guard，双工具 PreToolUse 机械拦截跨仓越界）、项目端零 git 边界、防幻觉第六型
 - **v0.5 ✅**：`v0.5.0` Plugin/路径/贡献；**`v0.5.1`** 默认目录 `setup.py` + 三工具装机文档（patch）。诚实边界：Codex plugin hook 未接线（#16430）。
 - **v0.6 ✅**：**`v0.6.0`–`v0.6.3`** 攒批/tag 硬门/轻主路径/降档/Superpowers 退出默认。  
-- **v0.7 ✅**：**`v0.9.0`** 可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
+- **v0.7 ✅**：可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
+- **v0.8 ✅**：记账棘轮 / worktree 回收模式（`v0.8.0`–`v0.8.3`）。
+- **v0.9 ✅**：**`v0.9.1`** 交付前 worktree 对表 + 交付链先于环境 + 闸拒命令字面（Dartify 真机）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
