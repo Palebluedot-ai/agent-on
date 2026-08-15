@@ -30,4 +30,4 @@
 - suggested_landing:playbook 变更范围/删功能纪律；kit/merge-checklist 或 plan 模板「shared term 不随 feature 删除」行
 - rollback:revert 落地 commit
 - trace:2026-08-14 会话口令「发送开户文件 onboarding…可删」+ 明确「不要删除多了」；commit 57cc3b6
-- 状态:pending
+- 状态:landed@同批（sop 删功能先划标识边界 + merge 2d）
