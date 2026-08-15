@@ -31,6 +31,7 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 - [ ] [运行面·若本卡接定时/Webhook/开放平台]:配置勾选 / agent 已 load / 日历开火都不算完成;须 runs+exit+产物,或 tail 见入站事件。一应用一事件 URL(anti-hallucination C 附3)
 - [ ] [配置锚·若本卡改 TOML/YAML/JSON 等结构化配置]:语义层断言(真解析器或位置/结构判别)+ **反向验证**(改坏必须红)——纯文本「字符串在文件里」假绿(anti-hallucination C 附2)
 - [ ] [判别式·若本卡要证明某约束生效]:压力测试不够;须一个只有约束成立才可能出现的值(暗号/nonce),并递非法约束看上游会不会照单全收(anti-hallucination 第六型 18)
+- [ ] [输出校验·若 schema 允许空数组 fallback]:空数组只代表结构真不存在;结构化清单非空时禁止摘要写「无待办」(anti-hallucination C 附4)
 - [ ] [收口·计划状态]:本卡相关 TODO/阶段表当前态已随验收证据更新,指向 progress 权威源——禁止幽灵 P0
 - [ ] [生产 preflight·若碰 load/deploy]:只读机器可判 pass/block 列表;skip/unsupported 保持整体红;门禁接在唯一执行入口(非仅 runbook)
 - [ ] [capability scope·窄发布时]:本 scope 必绿门 / 明确不适用门 / 禁用能力 三列写清

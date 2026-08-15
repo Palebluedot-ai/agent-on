@@ -10,7 +10,7 @@
 - suggested_landing:playbook/anti-hallucination 或 LLM 输出校验一节；kit 里 structured-output / prompt contract 检查行；bench 短案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-08-13「fallback 空数组会吞掉正文清单」
-- 状态:pending
+- 状态:landed@同批（C 附4 + phase-card 输出校验）
 
 ### no-invented-directory-without-human-confirm（目录/花名册条目不得仅凭邮箱出现在 mailbox 就发明）
 - source:inbox-radar @ 03fe9d4 | pin v0.5.1
@@ -20,7 +20,7 @@
 - suggested_landing:playbook/anti-hallucination 身份/目录纪律；kit/roster 或 actor-directory 生成 checklist 行
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-08-13「花名册只登记 Chao 确认的邮箱」
-- 状态:pending
+- 状态:landed@同批（C 附5 + AGENTS-skeleton 不发明花名册）
 
 ### feature-delete-must-not-collapse-shared-domain-terms（删功能先划标识边界，勿把共享业务词一并拆掉）
 - source:inbox-radar @ 57cc3b6 | pin v0.5.1
