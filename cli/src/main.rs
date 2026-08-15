@@ -125,6 +125,20 @@ enum WorktreeCmd {
         #[arg(long)]
         repo: Option<PathBuf>,
     },
+    /// Read-only, fail-closed reclaim audit; never removes worktrees or branches
+    Gc {
+        /// Required safety acknowledgement; this command has no apply mode
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long)]
+        base: Option<String>,
+        #[arg(long, default_value_t = 24)]
+        quiet_hours: u64,
+    },
     /// Remove a landed/parked lane record after its worktree is already gone
     Forget {
         #[arg(long)]
@@ -303,6 +317,32 @@ fn main() {
                     env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
                 });
                 let (c, out) = worktree::run_audit(&repo, json, true);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Gc {
+                dry_run,
+                json,
+                repo,
+                base,
+                quiet_hours,
+            } => {
+                let repo = repo.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::run_gc(
+                    &repo,
+                    &worktree::GcOpts {
+                        dry_run,
+                        json,
+                        base,
+                        quiet_hours,
+                    },
+                );
                 if c == 0 {
                     print!("{out}");
                 } else {
