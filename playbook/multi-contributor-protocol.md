@@ -33,8 +33,10 @@
 - 9 次 run 证明「目录切分 = 零冲突」。人类版:issue 打 `track:` label = 认领目录;同目录同刻单写者。
 - `api/` + `app/` + `website/` 可三人并行;两人都要动 `app/` → 先拆到不同子目录或排队。
 - **契约是例外**:`contracts/` 谁都依赖,所以 maintainer 独占 + 先冻结(下条)。
-- **何时开 worktree(对 agent 轨道同样成立)**:单轨/单人**不开**(YAGNI——Euan 曾误开并行会话改同一目录,git+文件布局撞乱,整套脚手架返工的实证);仅当 ≥2 轨真并行**且**文件域可切不重叠时才开,一轨一 worktree。**三个共享面必须归口单一轨**:`design/`、`contracts/fixtures/`、`docs/state/progress.yaml`——两轨同碰任何一个 = 撞车前置条件成立。跨轨回流走 append-only 新文件(与 intake 规则 1 同构:不动他人文件,git 层物理不撞)。
+- **何时开 worktree(对 agent 轨道同样成立)**:单轨/单人**不开**(YAGNI——Euan 曾误开并行会话改同一目录,git+文件布局撞乱,整套脚手架返工的实证);仅当 ≥2 条写轨真并行**且**文件域可切不重叠时才开。第二个写者出现前先让主树 clean；并行期主树退为只读控制/合流面，**每条写轨**各占一棵 worktree。**三个共享面必须归口单一轨**:`design/`、`contracts/fixtures/`、`docs/state/progress.yaml`——两轨同碰任何一个 = 撞车前置条件成立。跨轨回流走 append-only 新文件(与 intake 规则 1 同构:不动他人文件,git 层物理不撞)。
 - **轨道合同把隔离变成可查询事实**:第二个写 worktree 出现时,每轨开工前用 `agent-on worktree claim` 登记单一 goal / 互斥 owns / depends_on / base;提交与合流前 `worktree check` 机械核实际 diff。运行态落 git common dir,各 worktree 共见但不进 commit,避免多分支抢写 progress。衍生功能另开 lane,禁止长寿 worktree 无限扩 scope;完整生命周期见 `kit/worktree-control-plane.md`。
+- **新目标不继承旧 HEAD**:优先宿主原生 worktree 路径；手工路径按项目声明（未声明可 `.worktrees/<lane-id>`），分支 `<type>/<issue-or-lane>-<slug>`。每次先 fetch，从 fresh `origin/<default>` 创建；squash 会换 hash，从上一任务 HEAD 续长会把已 landed diff 再背进新 PR。
+- **回收是实时证据，不是手填名单**:`agent-on worktree gc --dry-run` 每日及每次合流后重算三判据（已进入 base / 无未保存孤本 / clean），再叠加 unlocked、非活跃与静默窗口。squash 以 MERGED PR + head coverage 为权威；dirty/locked/unknown/无 PR 孤本只报 `review|rescue`。JSON `candidates` 是派生 known-reclaim list；CLI 没有 apply/delete 模式，删除目录/分支与跨树 commit 必须人工且目标明确授权。(Dartify babysit 2026-08-16 + Agent-On 四树动态实盘)
 - **交付前对表(硬门)**:从 worktree 装机/演示/截图给人看之前,必须 `fetch` 并对表 default branch(`rev-list --count HEAD..origin/<default>` 非 0 → 先对齐再构建)。worktree ≠ main 的活别名;播报写 hash + 落差,禁空口「最新」。(Dartify 2026-08-08:落后 17 commit 装真机,用户感觉全是旧版)
 - **三种并行事故,三种解药**(先分型再立规,禁会话数/禁同目录是误诊):
   1. **环境互踩**:多会话挤同一工作目录 → test/analyze 把错报在没碰过的文件上。解药=**每会话独立 git worktree**(隔离归机制)。(Euan PR #23:5 分支挤一目录)
@@ -78,11 +80,11 @@
 
 ### 三½.2 日历死线须有执行体 + worktree 回收
 
-「定期清理 / 某日裁决」写进 TODOS 却**没有任何进程会读日期** = 不会发生(Dartify T51/T58 双双过期零后果)。正解:配 **launchd/cron 每日脚本**当执行体——判据全自动才可删,拿不准只报告;日志替人看死线。
+「定期清理 / 某日裁决」写进 TODOS 却**没有任何进程会读日期** = 不会发生(Dartify T51/T58 双双过期零后果)。正解:配 **launchd/cron 每日报告**当执行体——每次重算候选，日志替人看死线；删除仍是独立人工动作，定时器不得顺接 `worktree remove`。
 
-**worktree 回收判据(全中才删)**:PR 状态以 `gh` 为准(防 squash 换 hash 误判) + 无未推提交 + clean 或纯假脏白名单 + 静默窗口(如 24h)。**分支默认保留**。**无 PR / detached 且非 main 祖先 → 一律只报告不删**(可能是从未开 PR 的唯一副本)。macOS 细节:StartCalendarInterval(睡眠补跑)、PATH/HOME 显式、原子锁、日志进 `~/Library/Logs/`。模式见 kit/worktree-gc-pattern.md。
+**worktree 回收判据(全中才进候选)**:PR 状态以 `gh` 为准(防 squash 换 hash 误判) + 无未推/独有提交 + clean + 静默窗口(如 24h) + unlocked / 非活跃。通用层不替项目认“假脏”；dirty 原样报告给人分类。**分支默认保留**。**无 PR 孤本 / detached 归属不明 / locked / unknown → 一律只报告不删**。macOS 细节:StartCalendarInterval(睡眠补跑)、PATH/HOME 显式、原子锁、日志进 `~/Library/Logs/`。模式见 kit/worktree-gc-pattern.md。
 
-本机即时面先跑 `agent-on worktree status`:它按合同 + git 事实给 `safe|review|rescue`;CLI 刻意不自动删。`safe` 仍只是本地强证据,远端 PR/squash 状态须 fresh read-back;定时清理继续走上面的完整判据。
+本机即时面先跑 `agent-on worktree status` 看合同/边界，再跑 `agent-on worktree gc --dry-run` 聚合远端 PR、三判据、locked、du 与 quiet。JSON `candidates` 是当次派生名单；CLI 没有 apply/delete 模式。
 
 ### 三½.3 守卫允许集 × PR 作者闸的协作者出口
 

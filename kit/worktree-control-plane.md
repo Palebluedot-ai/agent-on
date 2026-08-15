@@ -4,7 +4,7 @@
 
 ## 一句话
 
-**一个写代码的会话 = 一个 worktree = 一个轨道合同；没有合同就不开工。**
+**单写会话可以留在主 worktree；一旦同时有两条及以上写会话，每条写会话（包括原主会话）都必须进入独立 worktree，并登记一份轨道合同。**
 
 “一个会话一个 worktree”只解决环境互踩，没解决工作撞题、文件越界、依赖倒序和遗忘回收。轨道合同补齐五个事实：
 
@@ -24,7 +24,7 @@
 
 - 单一合流权威；独占 `docs/state/progress.yaml`、契约、共享设计稿和顺序编号。
 - 创建 worktree、登记合同、裁决依赖、逐条合流、合流后记账。
-- 默认不与执行轨同时改业务文件；需要亲自实现时，也要像普通执行轨一样 claim 明确文件域。
+- 只有一条写会话时，可以直接在主 worktree 做单线工作；准备启动第二条写会话前，先让主树 clean，再把**所有**写会话迁进独立执行轨。并行期间主树只做只读盘点与逐条合流，不改业务文件。
 
 ### 执行轨（feature worktree）
 
@@ -36,9 +36,30 @@
 
 调研、审查、解释代码且不写文件时不需要新 worktree，也不 claim。只读会话一旦要落修改，先转成执行轨。
 
-## 开轨：先切边界，再开会话
+## 并发门：第二个写者出现时切换姿势
 
-先用普通 git 建 worktree，然后在那个 worktree 中登记：
+只读调研、审查和值守不计入写会话；一旦它要落文件，就算写者。切到并行模式时：
+
+1. 主树先提交、转存或明确分类现有改动；主树 dirty 时不得再开第二个写者；
+2. 每个写者各建 worktree + branch，并分别 claim lane；
+3. 主树退回控制轨，直到并行写者归零。
+
+这比“所有项目从第一分钟就必须开 worktree”轻，也比“主会话可以边合边写”清楚。阈值是**同时写的人数**，不是打开了多少聊天窗口。
+
+## 开轨：fresh base、稳定命名、再登记边界
+
+优先用宿主的原生 worktree 工具；Claude Code 常落在 `.claude/worktrees/<lane-id>`，其他工具生成的合法路径同样接受。手工创建时沿用项目在 AGENTS / lock 中声明的 worktree root；未声明才建议 `.worktrees/<lane-id>`，不要把某一家工具目录强制成跨工具标准。
+
+分支统一用 `<type>/<issue-or-lane>-<slug>`，例如 `feat/142-auth-api` 或 `docs/truth-page-history`。**每个新目标都从 fresh `origin/<default>` 长，不从上一任务的 HEAD 长**；squash merge 会换 hash，从旧 HEAD 续开会把已经 landed 的改动重新背进新 PR。
+
+```bash
+git fetch origin
+git worktree add -b feat/142-auth-api .worktrees/auth-api origin/main
+```
+
+若项目声明的 default branch 不是 `main`，替换为实际名字。无法 fetch 时不能声称 base 是 fresh；先报告离线状态，再由人决定是否接受旧 base。
+
+创建后进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane：
 
 ```bash
 agent-on worktree claim \
@@ -58,7 +79,7 @@ agent-on worktree claim \
 
 **边界按路径段匹配**：`app` 包含 `app/pages/a.ts`，但不包含 `apple/a.ts`。能拆到文件就别只写大目录；两个目标必须改同一共享文件时，不并行，排队给同一 owner。
 
-## 日常对表：一条命令看全场
+## 盘点节奏：握手、每日、合流三次都要看
 
 ```bash
 agent-on worktree status
@@ -66,6 +87,10 @@ agent-on worktree status --json
 ```
 
 它同时报告：未登记 worktree、活跃边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类。
+
+- **会话握手 / 转写前**：跑 `status`，确认 cwd、branch、lane 与写者数量；第二个写者出现就触发上面的并发门。
+- **每天一次**：跑 `agent-on worktree gc --dry-run`；需要机器消费时加 `--json`。这是动态盘点，不是删除任务。
+- **每次合流后**：远端 read-back，标记 `landed`，再跑一次 `status` + `gc --dry-run`，马上暴露可回收与待抢救项。
 
 写代码前、提交前、合流前跑严格闸：
 
@@ -127,17 +152,30 @@ agent-on worktree set-status landed --id auth-api
 
 ## 回收：分类，不猜
 
-`status` 的 `reclaim` 只有四类：
+`status` 的 `reclaim` 使用下列保守分类：
 
 | 分类 | 含义 | 动作 |
 |---|---|---|
-| `safe` | 已标 landed、clean，且 HEAD 是 base 祖先 | 可人工 `git worktree remove <path>`；默认保留分支 |
+| `safe` | landed 有权威证据、无未保存孤本、clean 且未 locked | 仅表示“已知回收候选”；仍由人精确执行 `git worktree remove <path>`，默认保留分支 |
 | `review` | 没有明显孤本，但状态/祖先关系不足以自动判断 | 查 PR / merge 权威后再决定 |
 | `rescue` | 脏、越界或有未进入 base 的独有 commit | 先 push / commit / 开 PR，禁止删 |
 | `metadata` / `review-missing` | worktree 已不在，只剩合同记录 | landed/parked 可留作本机历史；活跃记录则需调查 |
 | `primary` | 这是主 worktree | 永不作为回收目标 |
 
-squash merge 会让“HEAD 是否为 base 祖先”失真，所以 `safe` 判据刻意保守；PR 状态以 `gh pr view` 或托管平台 API 为权威。CLI 本轮**不提供自动删除命令**，避免唯一副本被误收。
+三条证据必须全中，缺一条就留：
+
+1. **已 landed**：PR / 托管平台状态是权威；`merge-base --is-ancestor` 的“是”可作正证据，“否”遇到 squash 不能证明未合；
+2. **无孤本**：没有未推送、也没有未被目标 base 或 MERGED PR 权威覆盖的提交；远端分支不存在、无 upstream、无 PR 都只能判 unknown/review，不能顺手当作 0；
+3. **工作区无价值改动为零**：通用安全值是 clean。项目可以另立“生成物/机器噪音”规则辅助人工分类，但 Agent-On 不内置某个项目的假脏白名单，也不会替人认定 dirty 内容无价值。
+
+`locked`、dirty、PR/open、PR/unknown、审计失败或 detached 且归属不明，一律不得进入 `safe`。squash merge 会让祖先关系失真，所以 PR 状态以 `gh pr view` 或托管平台 API 为权威；MERGED PR 还必须确实以当前目标 base 为 base，并由 `headRefOid` 覆盖现有 HEAD，不能拿“合进另一条父分支”的 PR 冒充已进 main。
+
+```bash
+agent-on worktree gc --dry-run
+agent-on worktree gc --dry-run --json
+```
+
+`gc` 是 **report-only**：`--dry-run` 是显式安全门，命令不删除目录或分支。它把每棵树判为 `primary|keep|review|rescue|candidate`；只有 `candidate` 进入 JSON `candidates`。这份当次结果就是“known reclaim list”，会随 git / PR / registry 事实重算，**不得再手填一份常青名单**。需要留档时只写本机 git common dir 或本机日志，不把机器路径和过期判断提交进仓。
 
 人工拆掉 worktree 后，若不想保留本机合同历史，可清理精确 metadata：
 
@@ -147,6 +185,13 @@ agent-on worktree forget --id auth-api
 
 它只删 common git dir 里的该条 lane JSON，并且仅在状态为 `landed|parked`、对应 worktree 已不存在时放行；不会删目录或分支。
 
+## 自动化与权限边界
+
+- 自动化只许：读取 git / registry / PR 状态、运行检查、写本机 JSON/日志报告；lane 状态变更仍由显式命令触发，不能由 GC 猜。
+- 必须人工或获得目标明确的用户授权：删除 worktree 目录、删除本地/远端分支、`--force`、进入别的 worktree add/commit、代另一轨处理 dirty 内容。
+- 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
+- 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。
+
 ## 失控时的恢复顺序
 
 已经堆了很多未登记 worktree 时，不要先删：
@@ -154,7 +199,7 @@ agent-on worktree forget --id auth-api
 1. `agent-on worktree status` 列全场；
 2. 每棵树查 `status`、独有 commit、对应 PR；
 3. 仍要做的逐个 claim；撞边界的只留一个 active，其余 blocked/parked；
-4. 无 PR 的孤本先 push 消单点；
+4. 无 PR 的孤本获授权后先 push 消单点；
 5. 按依赖顺序合流；
 6. 只有 `safe` 才拆 worktree，其余保留并写清下一动作。
 

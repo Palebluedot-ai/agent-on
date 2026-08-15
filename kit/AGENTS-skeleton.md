@@ -47,13 +47,17 @@
 ## §10 编排并行协议(orchestrated-parallel)
 
 1. **契约先冻结**:`contracts/fixtures/*.json` 只许主会话改;冻结时把**语义**(排序/空值/上限/口径)一起写死。
-2. **轨道=目录+git worktree+合同**:每个写会话独占一个 worktree;开工前用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前 `agent-on worktree check` 非零即停。
+2. **轨道=目录+git worktree+合同**:单写会话可留主树；一旦同时有 ≥2 条写会话，主树先 clean 并退为控制轨，**每个**写会话进入独立 worktree，再用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前 `agent-on worktree check` 非零即停。
 3. **互相 Fake**:每轨用 fixture 种子造对方的假实现,自身闭环可测。
 4. **契约测试当裁判**:双端各自直接 import 同一份 fixture 断言。
 5. **报告即数据**:轨道最终回复=逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **契约悬点**(把假设显式交出来)+ commit hash;不 push。
 6. **合流顺序**:先契约后实现;悬点集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
 
 **衍生功能不扩轨**:执行中长出可独立目标 → 新 phase + 新 worktree/lane,用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
+
+**开轨与回收硬句**：优先用宿主原生 worktree 工具；手工路径沿用本项目声明的 root，未声明可用 `.worktrees/<lane-id>`（Claude 原生路径 `.claude/worktrees/<lane-id>` 同样合法）。分支名 `<type>/<issue-or-lane>-<slug>`，每个新目标必须先 fetch 并从 fresh `origin/<default>` 创建，禁止从上一任务 HEAD 续长。握手、每日一次、每次合流后盘点；每日命令为 `agent-on worktree gc --dry-run --json`，其 `candidates` 是动态 known reclaim list，不另写静态清单。
+
+**回收权限**：自动化只检查并写本机报告；删除 worktree/本地或远端分支、`--force`、跨 worktree add/commit 必须人工且目标明确授权。locked、dirty、unknown 永不删；squash 场景以 PR 状态为权威，不能只信 `merge-base --is-ancestor` 的否定结果。
 
 ## §QA 三桶(跑通阶段只记账不停下)
 

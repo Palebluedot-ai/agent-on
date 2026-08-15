@@ -1,48 +1,74 @@
-# 模式:worktree 回收执行体 + 孤本保护
+# 模式：worktree 回收报告 + 孤本保护
 
-> 职责边界:给「定期清 worktree / 扫日历死线」配 **launchd/cron 执行体**,不是只写 TODO 日期。判据模板可移植;脚本本体由项目自持。
-> 源流:Dartify 2026-08-06(日历死线过期零后果;首跑回收 11 worktree / 5.2G;2 孤本抢救后合 #84/#85)。
+> 职责边界：把 worktree 生命周期盘点做成可重复的 **report-only** 执行体，而不是在 TODO 里留一个没人读的清理日期。Agent-On 只检查和报告，不自动删除目录或分支。
+> 源流：Dartify 2026-08-01 至 08-16 的真实回收、squash 误判与 babysit 值守；其中项目特有假脏白名单只算来源项目经验，不是通用规则。
 
-多会话项目先启用 [worktree-control-plane.md](worktree-control-plane.md):`agent-on worktree status` 把合同状态与本地 git 事实汇成 `safe|review|rescue`;本篇负责更长期的定时执行体与远端 PR 判据。两者都坚持**拿不准只报告、不自动删**。
+多会话项目先启用 [worktree-control-plane.md](worktree-control-plane.md)：`agent-on worktree status` 管轨道合同与边界；本篇的 `agent-on worktree gc --dry-run` 管回收证据、磁盘占用和动态候选。两者都坚持**拿不准只报告、不自动删**。
 
 ## 日历死线
 
 - **禁**:只在 TODOS 写 `截止日期:YYYY-MM-DD` 而无任何进程读取
-- **要**:每日 job 扫过期行 → 写入日志/日报;清理类动作只在判据全自动满足时执行
+- **要**：每天盘点一次并写本机日志/JSON；删除仍是单独的人工作业，不由定时任务执行
 
-## worktree 删除:全中才删
+## 三判据：全中才列为候选
 
 | 条件 | 说明 |
 |---|---|
-| PR 状态 | 以 `gh pr view` 为准(squash 后本地 hash 不可信) |
-| 无未推提交 | `git log @{u}..` 空或无 upstream 且已评估 |
-| 工作区 | clean,或仅假脏白名单(`.DS_Store` 等) |
-| 静默窗口 | 如 24h 无活动 |
-| **无 PR 档** | **只报告不删**——可能是从未开 PR 的唯一副本 |
+| ① 已进入 base | PR 状态优先；squash 后本地 hash 不可信。`merge-base` 的否不能单独推翻 MERGED，但 MERGED 后又长出的本地提交仍是孤本 |
+| ② 已保存 | 无未推送提交，也无未被 base 或 MERGED PR 权威覆盖、只活在该 worktree 的 post-merge / unique commit；无 upstream 或远端分支消失必须结合 PR/base 判据，不能直接当 0 |
+| ③ 工作区 clean | 通用层只把 clean 判通过。dirty 先看 diff；历史清洗反向、生成物、机器配置是否无价值必须由项目规则或人确认 |
 
-默认:删 worktree 目录,**保留**远程/本地分支名除非另有策略。
+候选还必须满足：不是 primary、未 locked、没有 open PR / active lane，并经过静默窗口（默认 24h）。静默同时看工作目录与 linked worktree 自己的 git admin dir（HEAD/index/reflog 等）活动，但仍只是证据，不证明聊天窗口已经关闭。无 PR 且未进入 base、detached 归属不明、`gh` 失败、CLOSED 但未合、任一关键事实 unknown，都只报告。
+
+“候选”不等于“已授权删除”。人工执行时默认只拆 worktree，分支是否删除另行拍板；远端分支删除永远算外向操作。
 
 ## 孤本抢救三步(与回收解耦)
 
-1. **push 远端**消单点  
+1. 获得外向操作授权后，**push 远端**消单点
 2. **再**回收 worktree  
 3. 择期 rebase/开 PR 落地  
 
 跨大跨度 rebase:契约锁/棘轮测试红 → **显式更新锁**随契约走,不放宽。
 
-## macOS launchd 要点
+## dry-run：唯一产品入口
+
+```bash
+agent-on worktree gc --dry-run
+agent-on worktree gc --dry-run --json
+```
+
+完整参数：
+
+```text
+agent-on worktree gc --dry-run [--json] [--repo PATH] [--base REF] [--quiet-hours N]
+```
+
+- 不带 `--dry-run` 直接拒绝；没有 apply/delete 模式。
+- 命令只读，不更新 registry、不写文件；需要留档时由调用方把 JSON 写进本机 common git dir 或日志目录。
+- JSON 顶层含 `repo / mode / base / quiet_hours / github_pr_query / worktrees / candidates / errors`。`candidates` 是**本次实时推导的 known reclaim list**，不是手填常青名单；下次盘点必须重算。
+- `dirty_entries`、`criteria`、`decision`、`reasons` 都保留在每棵树记录里，让人能看到为什么是 `primary|keep|review|rescue|candidate`。
+
+## 定时与握手频率
+
+- 会话握手：`agent-on worktree status`，确认自己 cwd / branch / lane；
+- 每天一次：`gc --dry-run --json` + `df -h`，JSON 仅落本机；
+- 每次 merge/read-back 后：标记 lane `landed`，立刻重跑一次 GC 报告；
+- 磁盘告急时可加跑，但不能因为空间压力放宽判据。
+
+macOS 要做 launchd 时：
 
 - `StartCalendarInterval`(非纯 `StartInterval`)— 睡眠错过可补跑  
 - `PATH` / `HOME` 显式  
 - 原子锁(无依赖 `flock` 也可 `mkdir`)  
 - 日志: `~/Library/Logs/<job>.log`  
 - `gh` 在用户会话 keyring 下免交互需实测  
+- 定时命令固定为 `gc --dry-run`；禁止在 wrapper 里接 `git worktree remove` 把 report-only 偷换成自动删除。
 
-## dry-run 必做
+## 权限红线
 
-首跑 `--dry-run`:抓变量名编码 bug、误把 `.DS_Store` 当活动文件等——再启用真删。
-
-Agent-On CLI 自身不提供 delete 子命令:先让 `worktree status` 分类,再由项目自持脚本按本篇完整判据处理;否则一条通用命令无法可靠识别 squash merge / 无 PR 孤本。
+- 自动：只读检查、写本机报告；GC 不更新 lane metadata；
+- 人工/目标明确授权：删除目录、删除本地/远端分支、任何 `--force`、跨 worktree add/commit；
+- 永不直接删：locked、dirty、unknown。先解除占用、逐项分类或抢救，再从头跑报告。
 
 ## 交付前对表(硬门 · Dartify 2026-08-08)
 
