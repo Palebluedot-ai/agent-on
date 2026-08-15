@@ -20,7 +20,7 @@
 - suggested_landing:playbook 前端/bundler 边界；kit AGENTS 或 review checklist 一行；bench 案例
 - rollback:revert 974d843 的 barrel 拆分（会把看板打回红）
 - trace:loop-notes.md L11；commit 974d843
-- 状态:pending
+- 状态:landed@同批（AGENTS-skeleton + review-prompt + bench 36）
 
 ### map-required-fields-before-header-reject（多一列表头先映射，禁止整表当错格式）
 - source:SalesDashboard @ 974d843 | pin v0.9.1

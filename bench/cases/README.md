@@ -39,6 +39,7 @@
 | [33](33-config-green-is-not-runtime.md) | 配置面绿≠运行面 | 定时看 runs+exit+产物;Webhook 看入站 POST;一应用一 URL |
 | [34](34-gate-three-faces.md) | 闸的三张面 | 触发面覆盖保护分支;读历史的闸 commit 后跑;直推会脏自己的 PR |
 | [35](35-discriminating-probe.md) | 判别式探针 | 证明约束生效靠暗号值,不靠压力测试恰好合规 |
+| [36](36-browser-entry-no-node-fs.md) | 浏览器入口打进 node:fs | CSR barrel 不得 re-export Node 写盘;读数与写盘分入口 |
 
 ## 使用时机
 

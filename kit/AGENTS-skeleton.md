@@ -28,6 +28,8 @@
 
 **提交纪律(半句)**:声明原子提交前 `git status --short` 读**全暂存区**——`git add <路径>` 不限定提交范围,残留会被吞进 commit。
 
+**浏览器入口不得 re-export Node**:给 CSR/浏览器的公共 barrel 禁止再导出引用 `node:fs` / `path` / `child_process` 的模块。读数与写盘分成两个入口;禁止用「反正 tree-shake」赌打包器。
+
 **不可逆动作前验证作用域**:config push / deploy / publish 前,用只读命令或 diff 方向确认工具读的是**你以为的那份文件**(cwd 常压过 flag;多 worktree 尤其致命)。
 
 **排障纪律(半句)**:列「让对方逐项试」清单前先问——能不能直接看到(截图/只读 API)?能看就先观测,别用试错代替。
