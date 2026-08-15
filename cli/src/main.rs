@@ -7,11 +7,15 @@ mod paths;
 mod routing;
 mod setup;
 mod tag_release;
+mod worktree;
 
 use clap::{Parser, Subcommand};
 use std::env;
 use std::path::PathBuf;
 use std::process;
+
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Parser)]
 #[command(name = "agent-on", version, about = "agent-on toolkit (Rust)")]
@@ -73,6 +77,60 @@ enum Commands {
         with_symlinks: bool,
         #[arg(long)]
         config_only: bool,
+    },
+    /// Register and audit parallel worktree lanes
+    Worktree {
+        #[command(subcommand)]
+        action: WorktreeCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum WorktreeCmd {
+    /// Claim the current worktree with an explicit goal and non-overlapping file boundary
+    Claim {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        goal: String,
+        #[arg(long)]
+        base: Option<String>,
+        #[arg(long = "owns", required = true)]
+        owns: Vec<String>,
+        #[arg(long = "depends-on")]
+        depends_on: Vec<String>,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Change a lane lifecycle state: active, blocked, ready, landed, or parked
+    #[command(name = "set-status")]
+    SetStatus {
+        status: String,
+        #[arg(long)]
+        id: Option<String>,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Show all worktrees, boundaries, drift, dependencies, and reclaim class
+    Status {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+    /// Exit non-zero on unregistered worktrees, boundary violations, or lane overlap
+    Check {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+    /// Remove a landed/parked lane record after its worktree is already gone
+    Forget {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        repo: Option<PathBuf>,
     },
 }
 
@@ -191,6 +249,80 @@ fn main() {
             config_only,
             config_path_override: None,
         }),
+        Commands::Worktree { action } => match action {
+            WorktreeCmd::Claim {
+                id,
+                goal,
+                base,
+                owns,
+                depends_on,
+                cwd,
+            } => {
+                let cwd = cwd.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::claim_lane(
+                    &cwd,
+                    &worktree::ClaimOpts {
+                        id,
+                        goal,
+                        base,
+                        owns,
+                        depends_on,
+                    },
+                );
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::SetStatus { status, id, cwd } => {
+                let cwd = cwd.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::set_lane_status(&cwd, id.as_deref(), &status);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Status { json, repo } => {
+                let repo = repo.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::run_audit(&repo, json, false);
+                print!("{out}");
+                c
+            }
+            WorktreeCmd::Check { json, repo } => {
+                let repo = repo.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::run_audit(&repo, json, true);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Forget { id, repo } => {
+                let repo = repo.unwrap_or_else(|| {
+                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                });
+                let (c, out) = worktree::forget_lane(&repo, &id);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+        },
     };
     process::exit(code);
 }

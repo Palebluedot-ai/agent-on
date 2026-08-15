@@ -27,13 +27,13 @@ pub fn split_cards(text: &str) -> Vec<(String, usize, String)> {
     let mut start = 0usize;
     for (i, line) in lines.iter().enumerate() {
         let line_no = i + 1;
-        if line.starts_with("### ") {
+        if let Some(heading) = line.strip_prefix("### ") {
             if let Some(ref t) = title {
                 if cur.iter().any(|l| l.contains("- source")) {
                     cards.push((t.clone(), start, cur.join("\n")));
                 }
             }
-            title = Some(line[4..].trim().to_string());
+            title = Some(heading.trim().to_string());
             start = line_no;
             cur.clear();
         } else if title.is_some() {
@@ -75,7 +75,7 @@ pub fn lint_card(block: &str) -> Vec<String> {
     if let Some(conf) = field(block, "confidence") {
         if !conf.is_empty() {
             let head = conf
-                .split(|c| c == '（' || c == '(')
+                .split(['（', '('])
                 .next()
                 .unwrap_or("")
                 .trim();
@@ -90,7 +90,7 @@ pub fn lint_card(block: &str) -> Vec<String> {
             if !ok.is_match(&status) {
                 errs.push(format!(
                     "状态取值非法:'{}'(应含 pending | landed@… | rejected… | deferred | 半落@…)",
-                    &status.chars().take(30).collect::<String>()
+                    status.chars().take(30).collect::<String>()
                 ));
             }
         }

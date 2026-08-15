@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 pub const MARKERS: &[&str] = &["CHARTER.md", "BOOTSTRAP.md"];
 pub const LOCK_NAME: &str = "agent-on.lock.md";
 pub const OFFICIAL_HTTPS: &str = "https://github.com/Palebluedot-ai/agent-on.git";
-pub const DEFAULT_PIN: &str = "v0.7.2";
+pub const DEFAULT_PIN: &str = "v0.10.0";
 
 pub fn expand(p: &str) -> PathBuf {
     let t = p.trim().trim_matches(|c| c == '"' || c == '\'');
@@ -231,11 +231,13 @@ pub fn doctor_report(cwd: Option<&Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::sync::Mutex;
-    use tempfile::tempdir;
 
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    #[test]
+    fn default_pin_matches_cli_package_version() {
+        assert_eq!(DEFAULT_PIN, concat!("v", env!("CARGO_PKG_VERSION")));
+    }
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn looks_like_requires_markers() {
@@ -248,7 +250,7 @@ mod tests {
 
     #[test]
     fn resolve_work_root_env() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         let d = tempdir().unwrap();
         fs::write(d.path().join("CHARTER.md"), "x").unwrap();
         fs::write(d.path().join("BOOTSTRAP.md"), "x").unwrap();
@@ -262,7 +264,7 @@ mod tests {
 
     #[test]
     fn invalid_env_fail_open_style() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         env::set_var("AGENT_ON_ROOT", "/nonexistent/agent-on-xyz");
         let (p, src) = resolve_work_root(None);
         env::remove_var("AGENT_ON_ROOT");

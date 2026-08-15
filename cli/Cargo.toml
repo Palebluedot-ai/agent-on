@@ -1,8 +1,8 @@
 [package]
 name = "agent-on"
-version = "0.7.0"
+version = "0.10.0"
 edition = "2021"
-description = "agent-on CLI: doctor, guard, lint, setup, tag-release, check routing"
+description = "agent-on CLI: setup, guards, lint, worktree control plane, and release helpers"
 license = "MIT"
 publish = false
 

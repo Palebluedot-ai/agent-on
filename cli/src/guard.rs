@@ -239,14 +239,11 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::fs;
-    use std::sync::Mutex;
     use tempfile::tempdir;
 
     // env-based tests must not run in parallel
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn with_b_env<F: FnOnce(PathBuf) -> ()>(f: F) {
-        let _g = ENV_LOCK.lock().unwrap();
+    fn with_b_env<F: FnOnce(PathBuf)>(f: F) {
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         let d = tempdir().unwrap();
         fs::write(d.path().join("CHARTER.md"), "x").unwrap();
         fs::write(d.path().join("BOOTSTRAP.md"), "x").unwrap();
@@ -295,7 +292,7 @@ mod tests {
 
     #[test]
     fn fail_open_without_b() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         // Force resolve_work_root → None without relying on host default_B/config
         env::set_var("AGENT_ON_ROOT", "/nonexistent/agent-on-xyz-no-such");
         env::remove_var("CLAUDE_PROJECT_DIR");
@@ -342,7 +339,7 @@ mod tests {
         fs::write(b.join("CHARTER.md"), "x").unwrap();
         fs::write(b.join("BOOTSTRAP.md"), "x").unwrap();
 
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         env::set_var("AGENT_ON_ROOT", &b);
         env::set_var("CLAUDE_PROJECT_DIR", &evil);
         let data = json!({
@@ -369,7 +366,7 @@ mod tests {
         fs::write(b.join("CHARTER.md"), "x").unwrap();
         fs::write(b.join("BOOTSTRAP.md"), "x").unwrap();
 
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = crate::TEST_ENV_LOCK.lock().unwrap();
         env::set_var("AGENT_ON_ROOT", &b);
         env::set_var("CLAUDE_PROJECT_DIR", "/tmp");
         let data = json!({
