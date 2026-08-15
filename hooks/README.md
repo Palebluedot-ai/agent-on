@@ -1,27 +1,42 @@
-# hooks/ — plugin 生命周期内的 hook 注册
+# hooks/ — Claude/Codex 共用的 plugin hook 注册
 
-> 职责边界：本目录是 **plugin 打包形态** 下的 hook 入口（Claude 自动发现 `hooks/hooks.json`；Codex 须在 `.codex-plugin/plugin.json` 的 `hooks` 字段显式指向）。脚本本体仍住 `kit/guard/`（宪章「轻量校验脚本」额度内、canonical 不双头）。个人 scope 手工注册（`~/.claude/settings.json` / `~/.codex/hooks.json`）与本目录**并存过渡**，见 [kit/guard/README.md](../kit/guard/README.md)。
+> 职责边界：本目录只有一份 canonical `hooks.json`。Claude 自动发现它；Codex 由 `.codex-plugin/plugin.json` 显式指向同一文件。执行 shim 仍住 `kit/guard/`，不在两家各养一份规则。
 
 ## 文件
 
 | 文件 | 工具 | 状态 |
 |---|---|---|
-| `hooks.json` | Claude Code | **阶段 2 启用**——PreToolUse 调 guard；命令用 `${CLAUDE_PLUGIN_ROOT}` |
-| `hooks-codex.json` | Codex CLI | **阶段 3 备件**——已写好，但 `.codex-plugin/plugin.json` 仍写 `hooks:{}` 抑制误注册，待 openai/codex#16430 实测通过再接线 |
+| `hooks.json` | Claude Code + Codex | `PreToolUse(Bash)` 调同一 guard；Codex plugin manifest 已接线 |
 
 ## 路径约定（可移植）
 
-- **脚本定位（A）**：`${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` → plugin 装机面，OS 无关。
+- **脚本定位（A）**：hook 命令用 `${CLAUDE_PLUGIN_ROOT}`；Codex plugin 兼容该变量并同时提供 `${PLUGIN_ROOT}`。
 - **边界判定（B）**：`agent-on doctor` / `cli` 路径解析——`AGENT_ON_ROOT` → `~/.config/agent-on/config.json` → lock「本地路径」。**无 Chao 默认路径**；未登记 B 时 guard fail-open。
-- **个人 scope**：可选；不要在对外文档写死 `Projects/Agent-On`。
+- **个人 scope**：可选；plugin hook 是默认。Codex 非 managed 个人 hook 首次运行可能须在 `/hooks` 信任。
+- **低开销**：非 git 与 git 读命令在 Rust 解析后立即返回；只有 `commit/push` 才跑完整 lane/owns audit。
 
-## 闸门（发版前必过）
+## 旧 Codex 个人 hook 迁移
 
-1. **Claude install + hook 注册**（**2026-07-16 已过**，证据见 `snapshot/2026-07-15-v05-plugin-scoping.md`「Claude 闸门实测」）：摘 symlink → marketplace add 本仓 → install → details 含 PreToolUse；debug 见 `Loading hooks from plugin: agent-on`；`${CLAUDE_PLUGIN_ROOT}` 路径合成 PreToolUse 真拦。
-2. **Claude 交互会话真拦**（**仍开**）：已登录的 Claude Code 会话里，非 agent-on 项目触发 `git -C <agent-on> commit`，应被拦。CLI `-p` 本机曾 `Not logged in` 未完成。
-3. **Codex**：验证 plugin 内 hook **是否真执行**（#16430）。若 exit 2 从不出现 → 保持 `hooks:{}` + 个人 scope 手工注册，不接线 `hooks-codex.json`。
+若 `~/.codex/hooks.json` 仍是下面的 v0.6 旧命令：
+
+```text
+python3 "$HOME/Projects/Agent-On/kit/guard/agent-on-git-guard.sh"
+```
+
+升级后的 `.sh` 兼容入口不会再报 Python `SyntaxError`，但建议删除这条个人重复注册，交给 plugin；若仍保留则改为：
+
+```text
+bash "$HOME/Projects/Agent-On/kit/guard/agent-on-git-guard"
+```
+
+状态查询必须提示这类旧注册；Agent-On 不静默改写用户 home。
+
+## 发版闸门
+
+1. Claude 与 Codex plugin 均能加载 `hooks/hooks.json`。
+2. 两种真实 payload 经 shim：普通命令/`git status` exit 0；lane 内 `commit/push` exit 0；越界时 exit 2 且 stderr 含 `OUT-OF-BOUNDS` 与修复命令。
+3. `python3 kit/guard/agent-on-git-guard.sh` 与 `bash kit/guard/agent-on-git-guard.sh` 对同一 payload 给出同一 exit code。
 
 ## 回滚
 
-- Claude：disable/uninstall agent-on plugin，或删本目录后重装旧版；个人 scope 条目不受影响。
-- Codex：保持 `hooks:{}` 即未接线状态。
+- Claude/Codex：disable/uninstall agent-on plugin；个人 scope 条目不受影响。

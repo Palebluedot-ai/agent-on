@@ -13,7 +13,7 @@
    ln -s <本仓路径>/skill ~/.agents/skills/agent-on
    ```
    之后在 Codex 里 `$agent-on <子命令>` 即触发。（旧的 `~/.codex/prompts/agent-on.md` 已降为迁移壳，v0.4 dogfood 后删除。）
-3. **guard**（跨仓 git 边界）：个人 scope 挂 `~/.codex/hooks.json` PreToolUse，命令见 [kit/guard/README.md](../kit/guard/README.md)。
+3. **guard**：plugin 默认接入与 Claude 共用的 `hooks/hooks.json`；首次在 `/hooks` 检查并信任。旧 `~/.codex/hooks.json` 个人注册可删除，迁移口径见 [kit/guard/README.md](../kit/guard/README.md)。
 
 **路径 2 · Plugin（v0.5 推荐，与 symlink 可并存）**
 
@@ -26,9 +26,10 @@ codex plugin install agent-on@agent-on
 
 仅内网/离线时：先 `git clone https://github.com/Palebluedot-ai/agent-on.git <路径>`，再  
 `codex plugin marketplace add <路径>` → `codex plugin install agent-on@agent-on`。  
-钉版本：clone 后 `git checkout v0.12.0`（plugin 远程装以 marketplace/manifest version 为准）。
+钉版本：clone 后 `git checkout v0.12.1`（plugin 远程装以 marketplace/manifest version 为准）。
 
-- skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
+- skill 内核与 PreToolUse guard 都经 plugin 装入；`.codex-plugin/plugin.json` 指向 Claude/Codex 共用的 canonical `hooks/hooks.json`，不存在第二份 Codex 规则。
+- 项目出现并行写会话时，再在该 git 仓跑一次 `agent-on worktree hooks install`：shared `pre-commit/pre-push` 覆盖所有 linked worktree，和 Codex 是否在线无关。可选 `--daily-gc` 只装 report-only 定时报告。
 - 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」。见 `skill/SKILL.md` 与 `agent-on doctor`。
 - **朋友向总入口**（含 Claude / Grok 对照）：根目录 [README.md](../README.md)「给朋友的 5 分钟装机」。
 
@@ -39,7 +40,7 @@ codex plugin install agent-on@agent-on
 
 ## 卸载
 
-`rm ~/.codex/prompts/agent-on.md`（只删 symlink）+ 从 `~/.codex/AGENTS.md` 删掉 Agent-On 一节。
+`codex plugin remove agent-on@agent-on`（若经 plugin 安装）+ `rm ~/.codex/prompts/agent-on.md`（若仍有旧 symlink）+ 从 `~/.codex/AGENTS.md` 删掉 Agent-On 一节。项目内 shared Git hooks 另在该仓执行 `agent-on worktree hooks uninstall`；它不改用户 Codex 配置。
 
 ## 诚实边界
 

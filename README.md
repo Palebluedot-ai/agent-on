@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.12.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.12.1`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.12.0`** |
+| **推荐 pin** | **`v0.12.1`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.12.0
+git checkout v0.12.1
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -73,7 +73,7 @@ codex plugin install agent-on@agent-on
 把 [codex/AGENTS-global-snippet.md](codex/AGENTS-global-snippet.md) 并入 `~/.codex/AGENTS.md`。
 
 开工：`$agent-on init` 或中文「初始化本项目」。  
-**诚实边界**：Codex guard 可能仍须手挂 `~/.codex/hooks.json`（见 [kit/guard/README.md](kit/guard/README.md)）。
+Codex plugin 已接入与 Claude 共用的 PreToolUse guard；非 managed hook 首次运行时在 `/hooks` 检查并信任。Agent-On 不静默改写 `~/.codex/`。
 
 #### C. Grok（Grok Build 等）
 
@@ -83,7 +83,7 @@ codex plugin install agent-on@agent-on
 2. 全局规则含 Agent-On 路由：新项目读 `BOOTSTRAP.md`，结账读 `boot/settlement.md`，入口 `skill/SKILL.md`（路径 = setup 打印的 `work_root`）。  
 3. 开工中文主路：「初始化本项目」/「接管本项目」/「握手后继续」/「agent-on 结账」。
 
-**诚实边界**：多半无 PreToolUse guard；纪律靠规则 + 口令。
+**诚实边界**：多半无 PreToolUse guard；但项目内安装的 shared Git hooks 与宿主无关，Grok 发起的真实 commit/push 同样会被拦。
 
 ---
 
@@ -114,11 +114,18 @@ agent-on worktree claim --id auth-api --goal "登录 API" --base origin/main --o
 agent-on worktree status
 agent-on worktree check
 
-# 每日与每次合流后做一次只读回收盘点
+# 并行模式每个仓只装一次；shared hooks 覆盖全部 linked worktree
+agent-on worktree hooks install
+agent-on worktree hooks status
+
+# 可选：同时安装每日 03:30 的只读回收报告
+agent-on worktree hooks install --daily-gc
+
+# 手工加跑只读回收盘点
 agent-on worktree gc --dry-run
 ```
 
-它会抓未登记 worktree、轨道边界重叠、实际 diff 越界、依赖未落地与孤本风险；GC 再聚合 PR/squash、未推提交、dirty、locked、静默窗口与大小，输出动态 `candidates`。命令只有 dry-run，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
+一次 `hooks install` 会把严格检查接到 shared `pre-commit/pre-push`：未登记、边界重叠、实际 diff 越界会在写入点直接失败；有活跃执行轨时，主 worktree 的普通业务 commit 也会被挡。Git 实际触发 `pre-commit` 的 squash/冲突收口等控制态会自动放行；clean merge 本身不触发这两个 Git hooks，仍由合流清单与后续 `pre-push` 兜底。Claude/Codex plugin 再把同一检查前移到 Agent 的 PreToolUse。可选调度只执行 `gc --dry-run --json`，输出动态 `candidates`，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
 
 ## 指令速查 · Command Reference（中英）
 
@@ -224,7 +231,7 @@ Windows 同样：clone 到如 `D:\dev\agent-on`，`work_root` 填该绝对路径
 | **A · Plugin（推荐）** | ① GitHub marketplace add + install ② 需要 B 则 clone 任意路径并写 config ③ 全局口令路由随 agent-memory（个人） |
 | **B · symlink（兼容）** | clone 任意路径 → `ln -s <仓>/skill ~/.claude/skills/agent-on`（及 Codex `~/.agents/skills`） |
 
-Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#16430）。项目 lock / loop-notes 在项目仓里，跟项目走。
+Claude / Codex guard 都随 plugin 挂并共用一份 hook；Codex 非 managed hook 首次在 `/hooks` 检查并信任。项目 lock / loop-notes 在项目仓里，跟项目走。
 
 **Q：Codex 也能用吗？**
 能，且项目侧零适配——AGENTS.md 本来就是两家共同标准，lock / 模板 / 口令全是文件。机器侧接入见 [codex/README.md](codex/README.md)（symlink 或 plugin 二选一/并存）。`$agent-on` 与 Claude 的 `/agent-on` 吃**同一份内核**。Claude Code 独有的子代理编排在 Codex 下按 playbook/workflow-orchestration.md §四退化为手工纪律，闭环全部照跑。模型也可换——「保费」旋钮按模型能力调档（playbook/model-playbook.md）。Grok 更简单：全局规则原生认 AGENT.md 文件名，共用真相一条 symlink 即注入（中文口令直接可用）。
@@ -255,7 +262,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.9 ✅**：**`v0.9.1`** 交付前 worktree 对表 + 交付链先于环境 + 闸拒命令字面（Dartify 真机）。
 - **v0.10 ✅**：**`v0.10.1`** 多会话 worktree 控制面（轨道合同 + 文件边界/依赖/合流/保守回收 + 口令/adopt）。
 - **v0.11 ✅**：**`v0.11.0`** 第二十二次消化：闸的三张面 + 运行面验收 + 口令/斜杠调用面。
-- **v0.12 ✅**：**`v0.12.0`** worktree 生命周期只读回收审计（三判据 + PR/squash + locked/quiet/du + 动态候选）。
+- **v0.12 ✅**：**`v0.12.1`** worktree 生命周期与执行强制层（只读 GC + shared Git hooks + Claude/Codex PreToolUse）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
