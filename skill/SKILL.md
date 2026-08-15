@@ -38,7 +38,7 @@ agent-on setup                     # → 默认目录 + config
 | `init` | `$READ_ROOT/BOOTSTRAP.md` | 新项目从零初始化 | 仅需 `$READ_ROOT` |
 | `adopt` | `$READ_ROOT/boot/adopt.md` | 接管已开工项目 | 仅需 `$READ_ROOT` |
 | `handshake` | `$READ_ROOT/boot/session-handshake.md` | 换会话续跑三步握手 | 仅需 `$READ_ROOT` |
-| `worktree` | `$READ_ROOT/kit/worktree-control-plane.md` | 多会话轨道登记 / 边界审计 / 合流与保守回收；空后缀先跑 `agent-on worktree status`，回收盘点走 report-only `gc --dry-run` | 需 `$READ_ROOT` + 项目已是 git 仓；只有显式 lane 变更命令写本机 git common dir，不写 B |
+| `worktree` | `$READ_ROOT/kit/worktree-control-plane.md` | 多会话轨道登记 / 边界审计 / shared Git hooks / 合流与保守回收；空后缀先跑 `agent-on worktree status`，回收盘点走 report-only `gc --dry-run` | 需 `$READ_ROOT` + 项目已是 git 仓；lane 与 hooks 状态只写本机 git common dir，可选调度只写用户本机配置/日志，不写 B |
 | `settle` | `$READ_ROOT/boot/settlement.md`（上半场） | 教训回流 intake | **必须 `$WRITE_ROOT`**；intake 只写 B，禁止写 plugin cache |
 | `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 会话**；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
@@ -52,7 +52,7 @@ agent-on setup                     # → 默认目录 + config
 
 - **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。
 - **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
-- **worktree 参数**：`/agent-on worktree` 空后缀 = 读模式并跑只读 `agent-on worktree status`；有 `claim|set-status|status|check|gc|forget` 后缀时，先按模式核边界，再把后缀原样交给同名 CLI。`gc` 必须显式带 `--dry-run`，不存在 apply/delete 模式；不得把任何 status/check/gc 偷换成删除。
+- **worktree 参数**：`/agent-on worktree` 空后缀 = 读模式并跑只读 `agent-on worktree status`；有 `claim|set-status|status|check|hooks|gc|forget` 后缀时，先按模式核边界，再把后缀原样交给同名 CLI。并行模式首次用 `hooks install`，可选每日报告才加 `--daily-gc`；`gc` 必须显式带 `--dry-run`，不存在 apply/delete 模式。不得把任何 status/check/hooks/gc 偷换成删除或静默改写用户 Claude/Codex 配置。
 - **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `agent-on setup`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
 - **对表/升级诚实播报**：若 B 的 HEAD 领先最新 tag，报「未发布变化 N commit」——未发布 ≠ 可升级版本。

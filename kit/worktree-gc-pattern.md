@@ -51,18 +51,24 @@ agent-on worktree gc --dry-run [--json] [--repo PATH] [--base REF] [--quiet-hour
 ## 定时与握手频率
 
 - 会话握手：`agent-on worktree status`，确认自己 cwd / branch / lane；
-- 每天一次：`gc --dry-run --json` + `df -h`，JSON 仅落本机；
+- 每天一次：`gc --dry-run --json` + `df -h`，JSON 仅落本机；需要自动触发才显式安装可选调度；
 - 每次 merge/read-back 后：标记 lane `landed`，立刻重跑一次 GC 报告；
 - 磁盘告急时可加跑，但不能因为空间压力放宽判据。
 
-macOS 要做 launchd 时：
+产品入口只有一组，不要求用户手写 plist/unit：
 
-- `StartCalendarInterval`(非纯 `StartInterval`)— 睡眠错过可补跑  
-- `PATH` / `HOME` 显式  
-- 原子锁(无依赖 `flock` 也可 `mkdir`)  
-- 日志: `~/Library/Logs/<job>.log`  
-- `gh` 在用户会话 keyring 下免交互需实测  
-- 定时命令固定为 `gc --dry-run`；禁止在 wrapper 里接 `git worktree remove` 把 report-only 偷换成自动删除。
+```bash
+agent-on worktree hooks install --daily-gc
+agent-on worktree hooks status
+agent-on worktree hooks uninstall
+```
+
+- 不加 `--daily-gc` 就不安装调度；固定每日 03:30；macOS 用 LaunchAgent，Linux 用 systemd user timer，无 daemon；
+- 从任意 linked worktree 调用都会归一到 primary，`WorkingDirectory` 与 `--repo` 不随短命功能树消失；
+- 调度命令精确固定为 `agent-on worktree gc --dry-run --json --repo <primary>`；没有 apply/delete 参数；
+- stdout/stderr 只写 XDG state 或 `~/.local/state/agent-on/worktree-gc/<repo-key>/`，卸载保留历史报告；
+- `status` 报 optional absent / active / inactive / drift；foreign 或 drifted 配置不覆盖、不删除；
+- `gh` 或远端不可用时沿用 GC 的 fail-closed 分类，只产 unknown/review，不把查询失败翻译成候选。
 
 ## 权限红线
 

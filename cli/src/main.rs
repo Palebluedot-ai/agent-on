@@ -8,6 +8,8 @@ mod routing;
 mod setup;
 mod tag_release;
 mod worktree;
+mod worktree_hooks;
+mod worktree_schedule;
 
 use clap::{Parser, Subcommand};
 use std::env;
@@ -125,6 +127,11 @@ enum WorktreeCmd {
         #[arg(long)]
         repo: Option<PathBuf>,
     },
+    /// Install, inspect, or remove shared Git commit/push guards
+    Hooks {
+        #[command(subcommand)]
+        action: WorktreeHooksCmd,
+    },
     /// Read-only, fail-closed reclaim audit; never removes worktrees or branches
     Gc {
         /// Required safety acknowledgement; this command has no apply mode
@@ -143,6 +150,36 @@ enum WorktreeCmd {
     Forget {
         #[arg(long)]
         id: String,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum WorktreeHooksCmd {
+    /// Install repository-local shared pre-commit and pre-push guards
+    Install {
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        /// Also install the optional daily report-only GC audit
+        #[arg(long)]
+        daily_gc: bool,
+    },
+    /// Show whether both shared guards are installed and healthy
+    Status {
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+    /// Remove only the guards installed by Agent-On
+    Uninstall {
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+    /// Internal entrypoint invoked by the managed Git hook scripts
+    #[command(hide = true)]
+    Run {
+        #[arg(long)]
+        hook: String,
         #[arg(long)]
         repo: Option<PathBuf>,
     },
@@ -317,6 +354,32 @@ fn main() {
                     env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
                 });
                 let (c, out) = worktree::run_audit(&repo, json, true);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Hooks { action } => {
+                let default_repo = || env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                let (c, out) = match action {
+                    WorktreeHooksCmd::Install { repo, daily_gc } => {
+                        worktree_hooks::install_with_options(
+                            &repo.unwrap_or_else(default_repo),
+                            daily_gc,
+                        )
+                    }
+                    WorktreeHooksCmd::Status { repo } => {
+                        worktree_hooks::status_with_schedule(&repo.unwrap_or_else(default_repo))
+                    }
+                    WorktreeHooksCmd::Uninstall { repo } => {
+                        worktree_hooks::uninstall_with_schedule(&repo.unwrap_or_else(default_repo))
+                    }
+                    WorktreeHooksCmd::Run { hook, repo } => {
+                        worktree_hooks::run_hook(&repo.unwrap_or_else(default_repo), &hook)
+                    }
+                };
                 if c == 0 {
                     print!("{out}");
                 } else {

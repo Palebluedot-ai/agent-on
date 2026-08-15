@@ -79,6 +79,33 @@ agent-on worktree claim \
 
 **边界按路径段匹配**：`app` 包含 `app/pages/a.ts`，但不包含 `apple/a.ts`。能拆到文件就别只写大目录；两个目标必须改同一共享文件时，不并行，排队给同一 owner。
 
+## 机械执行层：并行模式一次安装
+
+轨道合同建立后，在仓内任一 worktree 跑一次：
+
+```bash
+agent-on worktree hooks install
+agent-on worktree hooks status
+```
+
+安装器把 `pre-commit` / `pre-push` 放在 common git dir 的 Agent-On 专属目录，并设置仓库级 shared `core.hooksPath`，所以 primary 与所有 linked worktree 同时生效：
+
+- 两个 hook 都跑严格 `worktree check`；未登记、边界重叠、实际 diff 越出 `owns` 或审计 unknown 都 fail-closed；
+- `pre-commit` 额外阻断“仍有 `active|blocked|ready` 执行轨时，primary 主树的普通提交”；当 Git 实际调用 `pre-commit` 时，merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
+- 成功时静默；失败时打印原因与下一条修复命令；
+- 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；
+- `status` 会验配置与内容漂移；`uninstall` 只移除仍与安装指纹一致的 Agent-On 资产，漂移时整组不动。
+
+Git 自带的人工 `--no-verify` 仍可绕过 Git hook，产品不伪称不可绕过。Claude/Codex plugin 的共用 PreToolUse guard 会在 Agent 发出 `commit/push` 前再跑同一 lane/owns 审计；非 git 与 git 读命令立即放行。Codex 非 managed hook 首次需在 `/hooks` 检查并信任，Agent-On 不改用户 home。
+
+**Git hook 的边界也要诚实**：clean `git merge --no-ff` 走 `pre-merge-commit`，不会调用本版安装的 `pre-commit/pre-push`；所以 clean merge 本身仍须走控制轨合流清单，随后 push 会再过严格闸。若人工用 `--no-verify` 把越界提交写进执行轨，且 lane 的 `base` 错填成会随 merge 移动的本地 `main`，后续审计可能失去稳定对照。`base_sha_at_claim` 是留证，v0.12.1 的边界 diff 仍跟随 `base` ref；合同必须使用 fresh、稳定的 `origin/<default>`，不把逃生口当工作流。
+
+无法安装 shared hook 时，`agent-on worktree check` 仍是手工 fallback；必须保留在提交/合流清单里。回滚：
+
+```bash
+agent-on worktree hooks uninstall
+```
+
 ## 盘点节奏：握手、每日、合流三次都要看
 
 ```bash
@@ -89,7 +116,7 @@ agent-on worktree status --json
 它同时报告：未登记 worktree、活跃边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类。
 
 - **会话握手 / 转写前**：跑 `status`，确认 cwd、branch、lane 与写者数量；第二个写者出现就触发上面的并发门。
-- **每天一次**：跑 `agent-on worktree gc --dry-run`；需要机器消费时加 `--json`。这是动态盘点，不是删除任务。
+- **每天一次**：手工跑 `agent-on worktree gc --dry-run`；需要低摩擦定时报告时显式执行 `agent-on worktree hooks install --daily-gc`。这是动态盘点，不是删除任务。
 - **每次合流后**：远端 read-back，标记 `landed`，再跑一次 `status` + `gc --dry-run`，马上暴露可回收与待抢救项。
 
 写代码前、提交前、合流前跑严格闸：
@@ -105,7 +132,7 @@ agent-on worktree check
 - 某轨实际变更落在 `owns` 外；
 - 活跃记录指向的 worktree 已消失或审计无法完成。
 
-`check` 是本地机械闸，可接入项目已有 pre-commit / pre-push，但模板不擅自覆盖用户 hook。没有接 hook 时，AGENTS 与派工词必须把它列为提交前命令。
+`check` 是 Git hook 与 PreToolUse 共用的底层审计，也可独立运行做诊断。安装器不擅自覆盖用户 hook；冲突未组合前，AGENTS 与派工词必须把手工 `check` 列为提交前命令。
 
 ## 衍生需求：分流，不膨胀
 
@@ -177,6 +204,16 @@ agent-on worktree gc --dry-run --json
 
 `gc` 是 **report-only**：`--dry-run` 是显式安全门，命令不删除目录或分支。它把每棵树判为 `primary|keep|review|rescue|candidate`；只有 `candidate` 进入 JSON `candidates`。这份当次结果就是“known reclaim list”，会随 git / PR / registry 事实重算，**不得再手填一份常青名单**。需要留档时只写本机 git common dir 或本机日志，不把机器路径和过期判断提交进仓。
 
+可选的每日调度由同一个安装面管理：
+
+```bash
+agent-on worktree hooks install --daily-gc
+agent-on worktree hooks status
+agent-on worktree hooks uninstall
+```
+
+macOS 使用用户 LaunchAgent，Linux 使用 systemd user timer，固定每日 03:30；无常驻 daemon。即使从 linked worktree 安装，key、working directory 与 `--repo` 也归一到稳定的 primary worktree，避免功能树回收后定时任务悬空。命令固定为 `worktree gc --dry-run --json`；日志只进用户 state 目录。`uninstall` 保留历史报告，并与 Git hooks 一起先做漂移预检，任一面拿不准则整组不动。
+
 人工拆掉 worktree 后，若不想保留本机合同历史，可清理精确 metadata：
 
 ```bash
@@ -187,7 +224,7 @@ agent-on worktree forget --id auth-api
 
 ## 自动化与权限边界
 
-- 自动化只许：读取 git / registry / PR 状态、运行检查、写本机 JSON/日志报告；lane 状态变更仍由显式命令触发，不能由 GC 猜。
+- 自动化只许：在 commit/push/PreToolUse 跑边界检查，读取 git / registry / PR 状态，写本机 JSON/日志报告；lane 状态变更仍由显式命令触发，不能由 hook 或 GC 猜。
 - 必须人工或获得目标明确的用户授权：删除 worktree 目录、删除本地/远端分支、`--force`、进入别的 worktree add/commit、代另一轨处理 dirty 内容。
 - 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
 - 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。

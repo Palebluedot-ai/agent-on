@@ -4,7 +4,33 @@
 
 ## [未发布]
 
-（自 v0.12.0 起攒）
+（自 v0.12.1 起攒）
+
+## v0.12.1（2026-08-16）——Worktree 执行强制层
+
+> **patch**：存量项目不安装 hooks 时行为不变；启用多写会话的项目可用一次安装把 v0.12.0 的人工检查接到真实 commit/push/PreToolUse。lane、回收判据与“永不自动删除”语义不变。
+
+### 用户可见主线
+
+- **一次安装，所有 worktree 生效**：新增 `agent-on worktree hooks install|status|uninstall [--repo PATH]`；仓库 common git dir 中的 shared `pre-commit/pre-push` 自动运行严格 `worktree check`，成功静默、失败给出修复命令
+- **主树控制轨真闸**：仍有 `active|blocked|ready` 执行轨时，primary 的普通 commit 被拦；当 Git 实际触发 `pre-commit` 时，merge、squash-merge、cherry-pick、revert、rebase 等控制态 marker 自动放行（clean merge 见下方诚实边界）
+- **不吞用户 hooks**：已有真实 hook 或 `core.hooksPath` 时 install fail-closed；status 校验内容/可执行文件/配置漂移；uninstall 只删指纹匹配的 Agent-On 资产，hook 与 scheduler 任一漂移时整组不动
+- **Claude/Codex PreToolUse 接线**：两家 plugin 共用 canonical `hooks/hooks.json`；只有 `git commit/push` 才支付完整 lane/owns audit 成本，非 git 与 git 读命令立即放行。Codex manifest 正式接线，删除旧 `hooks-codex.json` 双头
+- **旧 Codex 注册止血**：`agent-on-git-guard.sh` 成为 Bash/Python polyglot 兼容入口，旧 `python3 …guard.sh` 不再 SyntaxError；status 只读提示 legacy 个人 hook，不静默改用户 home
+- **可选每日报告**：`agent-on worktree hooks install --daily-gc` 在 macOS 安装用户 LaunchAgent、Linux 安装 systemd user timer；每日 03:30 固定运行 `gc --dry-run --json --repo <primary>`，从 linked tree 安装也归一到稳定 primary。无 daemon、无 delete，卸载保留历史报告
+
+### 诚实边界
+
+- Git 原生 `--no-verify` 仍是人工逃生口；Agent 发起同一命令时，PreToolUse 在 Git 之前再拦一次
+- clean `git merge --no-ff` 不触发本版两类 hook（Git 使用 `pre-merge-commit`）；控制轨仍须走合流清单，随后 push 再过严格闸。lane 的 `base` 必须用稳定 `origin/<default>`，不能用会随本地 merge 移动的 `main`
+- Codex 非 managed hook 首次信任仍由宿主 `/hooks` 管理；Agent-On 不替用户点击或改写 home
+- daily GC 默认不安装；即使安装也只产动态候选报告，不执行 `git worktree remove` 或删分支
+
+### 证据
+
+- Rust：73 unit + 9 真实 Git integration 全过；integration 覆盖 primary/未登记/越界 commit 阻断、linked lane 修复后 commit+push、squash 合流放行、bare remote 未前进、per-worktree hook override、安装/状态/卸载幂等、既有 hook 保护与双向 drift 全不动
+- 调度：19 项定向测试，含 linked→primary identity、persisted exact state、PATH/可执行路径变化、仓库 move/delete、foreign/drift 安全边界与 macOS 原生 `plutil -lint`；真机 LaunchAgent kickstart 产出 dry-run JSON 后完整卸载
+- 设计与完整验收矩阵：`snapshot/2026-08-16-worktree-enforcement.md`
 
 ## v0.12.0（2026-08-16）——Worktree 生命周期只读回收审计
 
