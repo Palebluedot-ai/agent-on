@@ -38,6 +38,7 @@
 | [32](32-worktree-stale-ship-and-classifier.md) | 陈旧 worktree 装机 | 交付前对表 default branch;没生效先查交付链;闸拒字面≠禁目标 |
 | [33](33-config-green-is-not-runtime.md) | 配置面绿≠运行面 | 定时看 runs+exit+产物;Webhook 看入站 POST;一应用一 URL |
 | [34](34-gate-three-faces.md) | 闸的三张面 | 触发面覆盖保护分支;读历史的闸 commit 后跑;直推会脏自己的 PR |
+| [35](35-discriminating-probe.md) | 判别式探针 | 证明约束生效靠暗号值,不靠压力测试恰好合规 |
 
 ## 使用时机
 
