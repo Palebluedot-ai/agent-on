@@ -90,6 +90,16 @@
 
 自动回收发现「无 PR 但含唯一副本」:①先 **push 远端消单点** ②再 worktree 回收 ③择期 rebase 落地。跨大跨度 rebase 时契约/棘轮锁测试红 = 设计在履职——**显式更新锁列表**,不是放宽锁。
 
+### 三½.5 闸的三张面(触发 / 读取 / 并发)
+
+> 源流:Dartify 2026-08-15——PR-only 闸红着合入、后续 PR 代付;闸读 `git log` 不读工作区导致提交前假绿;直推 main 把自己的 PR 撞成 DIRTY 且 CI 零 job。digest gate-three-faces。
+
+闸不只「过不过」,还有三张会独立失效的面:
+
+1. **触发面 = 它要保护的分支**。只在 `pull_request` 上跑的检查,红着合入后 default branch 永久静默,每一条后续 PR 都替它买单,且症状伪装成「我的改动弄坏了 CI」。红着合 = 把红转嫁给后来者,禁止。任何「本地绿 / CI 红」先查**被 .gitignore 的文件是否被当成必需输入**(开发机文件系统恒富于干净 checkout);凡把路径写进清单/存证,当场 `git ls-tree <default> --name-only` 验它在不在。
+2. **读取面:工作区 vs 提交历史**。断言里出现 `git log` / `git blame` / `merge-base` / `git show <ref>:<path>` 任一,本地验证必须在 `git commit` 之后跑。提交前的绿只证明「工作区没坏」,不证明跨文件/跨提交关系成立。写这类闸时应在工作区对目标文件有未提交改动时打 warning。
+3. **并发面:直推 default branch 会脏自己的 PR**。机制允许直落 main(记账 / hotfix / release chore)豁免的是评审,不是并发影响。推之前 `gh pr list --state open` 并对改动文件集;撞上后 `mergeStateStatus=DIRTY` 时,不要去查 CI 配置——GitHub 不为 DIRTY PR 起 checkout,仓内 job 一个都不会跑。与 worktree-gc「squash 换 hash → 新枝从旧 HEAD 长 → 同样 DIRTY + 零 job」是同一副面孔的另一种成因。
+
 ## 四、诚实的约束(不粉饰)
 
 - **私有免费仓无分支保护**:GitHub 不给 API(实测 403)。当前靠 约定 + CODEOWNERS 软 review + CI 硬门 三层替代,够 2-3 人;≥3 人或出事 → 升 GitHub Team。**软护栏不是真护栏,写清楚比假装安全好。**

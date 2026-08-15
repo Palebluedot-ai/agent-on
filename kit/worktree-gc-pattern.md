@@ -54,3 +54,12 @@ worktree 是**创建那一刻** default branch 的快照,之后 main 前进**不
 4. **禁止**从本地 HEAD 随口说「最新」——交付物(已装 App)往往不自带版本号,用户只能靠「感觉没变」发现,反馈链极长
 
 与「squash 换 hash 误判」同族:都是 worktree 与 main 的**时间差**在不同环节咬人。
+
+## PR DIRTY + CI 零 job(两种成因,同一张脸)
+
+`gh pr view --json mergeStateStatus` 出 `DIRTY` / `CONFLICTING`,且 `gh pr checks` 只剩外部检查、仓内 job 一个没有——不要先查 workflow 配置。GitHub 不为 DIRTY PR 起 checkout。两种常见成因:
+
+1. **分支起点错**(本篇既有):squash 换 hash 后新枝从旧 HEAD 长
+2. **base 刚被直推进**(Dartify 2026-08-15):自己往 main 推了一笔记账/chore,与开着的 PR 改同一批文件
+
+判据一行:DIRTY → 先看 base 是否刚动、分支是否从过期点长出。模式见 playbook/multi-contributor §三½.5。

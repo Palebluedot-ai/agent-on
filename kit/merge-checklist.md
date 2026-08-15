@@ -8,6 +8,7 @@
 - [ ] **1b. 撞上改名浪潮时**(对方 PR 做了大规模机械 rename):①从已合并侧反推映射表 ②对冲突文件算 `diff(base套映射, 现状)` 残差行数分档——≈0=纯改名机械解,残差大=真双改手工并 ③**新增文件不触发冲突**,收尾独立 grep 旧标识符(Euan 2026-07-30:100 文件去命名 + 18 冲突残差分档)
 - [ ] **2. 全量双端回归**:不是只跑新增——[后端全量命令] + [前端全量命令] + 类型检查;任何红=先修再继续。
 - [ ] **2b. 红灯先分来源**:check 在不在本仓 `.github/workflows/`?仓内硬门必须绿;外部集成(Preview/Bot)取证 summary 原文再判——与本 PR 无关的噪音写进悬点栏,别当缺陷堵合流(Euan PR #28 Supabase Preview 缺密钥红 vs ci.yml 四 job 全绿)
+- [ ] **2c. 禁止红着合**:闸的触发面必须覆盖它要保护的分支。PR-only 检查红着合入 = 把红转嫁给后来者(后续每条 PR 代付,main 上零症状)。「本地绿 / CI 红」先查被 gitignore 的文件是否被当成必需输入(`git ls-tree <default> --name-only`)。
 - [ ] **3. 悬点逐条裁决**:两轨报告的「契约悬点」并集,逐条定谁改(契约跟正/实现跟正/记账后置),写进 progress notes。
 - [ ] **4. 翻转 Fake→真**:provider/开关切真实现;**grep 所有「进壳/进页」测试确认钉了全量 Fake overrides**(Run #3 教训:只钉 auth 会裸奔)。翻转后再跑一遍全量。
 - [ ] **5. 部署 + 生产 canary + 并行轨各跑 LIVE**(有部署面/双轨时):部署后跑边缘出口的 LIVE 探针——平台会剥头/整形/缓存,本地绿不算数(Run #7:Vercel 剥 Server-Timing/304 剥光)。**双轨并行时,合流前让每轨各自跑一发 LIVE 当发现器**(不只验证已知):并行 LIVE 会撞出串行/单测永远遇不到的真分支——权限边界、精度窗、回放态(Euan Run #4 GoTrue global-logout 401 真分支 / #6 微秒窗 / #8 清号回放,项目内 3 次独立复现)。**推送/部署前验证作用域**:多 worktree 时确认 CLI 读的是目标树(cwd 常压过 flag),diff 方向正确再不可逆。**静态资产**:带 cache-buster 请求 + 留传播窗口后二次确认再判部署成败(sop 集成清单第 8 条)。**生产 load**:机器 preflight 全绿(skip 仍红);门禁接在唯一执行入口;若用 runtime checkout 须 clean/持久/专用(非开发 dirty 树)。
@@ -17,7 +18,9 @@
 - [ ] **7a. lane 落地与回收**(启用控制面时):远端权威确认该轨已进入 base → `agent-on worktree set-status landed --id <lane>` → `agent-on worktree status`;只拆 `reclaim=safe`,review 查 PR/squash, rescue 先 push/commit 消孤本。CLI 不自动删,分支默认保留。
 - [ ] **7b. 状态面与代码同批收口**:核对 exact HEAD + 测试输出 + progress/phase/dashboard(及计划 TODO 当前态)一致;禁止代码已前进而状态面仍写已关闭 P0 或未来时态。易变计数(ahead/behind)不写入长期真相——push 前 fresh fetch。**合并多个 PR 后**扫一遍 TODO 触发是否已命中未回表(禁靠「顺手」)。**记账棘轮**:merge 与 progress/dashboard 出现本 PR 号是同动作两半——有 CI 闸更好(kit/ledger-ratchet-pattern.md);无闸=自觉必断档。
 - [ ] **7c. 最终门禁绑 exact SHA**:最后一次代码/文档改动之后重跑;会话内旧「已通过」不能覆盖后续提交。门禁运行中新发现 P1/边界反例 → **取消旧门禁**,修完复审清零后只对最终 HEAD 跑一次有效门禁。**提 PR 前与 rebase 后各跑一次全量测试**(不能只按「我的 diff」裁剪验证面——main 在分支存活期会长出新代码)。
-- [ ] **7d. 远端状态权威 API**:PR/CI/部署下一步前 `gh pr view` / `gh run view`(或等价) fresh read-back;页面感觉只做线索。
+- [ ] **7d. 远端状态权威 API**:PR/CI/部署下一步前 `gh pr view` / `gh run view`(或等价) fresh read-back;页面感觉只做线索。`mergeStateStatus=DIRTY` 时先查 base 是否刚动过 / 分支是否从旧 HEAD 长出,不要先查 CI 配置(GitHub 不为 DIRTY PR 起 checkout)。
+- [ ] **7g. 直推 default branch 前置**:记账/hotfix 等豁免评审的直推,推之前 `gh pr list --state open` 并对改动文件集——豁免的是评审,不是并发影响。
+- [ ] **7h. 读历史的闸在 commit 之后跑**:闸里有 `git log` / `blame` / `merge-base` / `show <ref>:` 时,提交前跑出的绿只证明工作区没坏。
 - [ ] **7e. 同名分派点**(switch case / 路由 path / 事件 type / DI token):两分支都改过同一分派结构时,合并后显式检查是否「同键两份」第二份死代码——**两边测试都绿对合并态零保证**。
 - [ ] **7f. docs/状态-only 与生产解耦**:仅 progress/dashboard/docs 的变更**不得**触发生产 load/deploy(paths-filter 或 workflow 条件);生产 CI 红/Cloud 挂起应查**是否误把文档提交绑进 deploy job**,勿用「再 update 一遍脚手架」当修复。
 
