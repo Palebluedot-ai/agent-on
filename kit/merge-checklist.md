@@ -9,7 +9,7 @@
 - [ ] **2. 全量双端回归**:不是只跑新增——[后端全量命令] + [前端全量命令] + 类型检查;任何红=先修再继续。
 - [ ] **2b. 红灯先分来源**:check 在不在本仓 `.github/workflows/`?仓内硬门必须绿;外部集成(Preview/Bot)取证 summary 原文再判——与本 PR 无关的噪音写进悬点栏,别当缺陷堵合流(Euan PR #28 Supabase Preview 缺密钥红 vs ci.yml 四 job 全绿)
 - [ ] **2c. 禁止红着合**:闸的触发面必须覆盖它要保护的分支。PR-only 检查红着合入 = 把红转嫁给后来者(后续每条 PR 代付,main 上零症状)。「本地绿 / CI 红」先查被 gitignore 的文件是否被当成必需输入(`git ls-tree <default> --name-only`)。
-- [ ] **3. 悬点逐条裁决**:两轨报告的「契约悬点」并集,逐条定谁改(契约跟正/实现跟正/记账后置),写进 progress notes。
+- [ ] **2d. 删功能先划标识边界**:移除某产品面时先冻「功能标识」vs「共享领域词」;共享词上的 pipeline/dashboard/override 默认保留,除非证据证明只服务被删面。禁止把口令里的业务词当成整域可删。
 - [ ] **4. 翻转 Fake→真**:provider/开关切真实现;**grep 所有「进壳/进页」测试确认钉了全量 Fake overrides**(Run #3 教训:只钉 auth 会裸奔)。翻转后再跑一遍全量。
 - [ ] **5. 部署 + 生产 canary + 并行轨各跑 LIVE**(有部署面/双轨时):部署后跑边缘出口的 LIVE 探针——平台会剥头/整形/缓存,本地绿不算数(Run #7:Vercel 剥 Server-Timing/304 剥光)。**双轨并行时,合流前让每轨各自跑一发 LIVE 当发现器**(不只验证已知):并行 LIVE 会撞出串行/单测永远遇不到的真分支——权限边界、精度窗、回放态(Euan Run #4 GoTrue global-logout 401 真分支 / #6 微秒窗 / #8 清号回放,项目内 3 次独立复现)。**推送/部署前验证作用域**:多 worktree 时确认 CLI 读的是目标树(cwd 常压过 flag),diff 方向正确再不可逆。**静态资产**:带 cache-buster 请求 + 留传播窗口后二次确认再判部署成败(sop 集成清单第 8 条)。**生产 load**:机器 preflight 全绿(skip 仍红);门禁接在唯一执行入口;若用 runtime checkout 须 clean/持久/专用(非开发 dirty 树)。
 - [ ] **5b. 外部运行面**(定时 / Webhook / 开放平台):配置勾选与日历开火都不算完成。定时看 runs+exit+产物;Webhook 看 `tail`/access log 是否有平台入站 POST,不是看权限页。一应用一事件 URL,共用会静默吞回调(anti-hallucination C 附3;sop 集成清单 12–13)。
