@@ -44,11 +44,13 @@
 ## §10 编排并行协议(orchestrated-parallel)
 
 1. **契约先冻结**:`contracts/fixtures/*.json` 只许主会话改;冻结时把**语义**(排序/空值/上限/口径)一起写死。
-2. **轨道=目录+git worktree**:每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/。
+2. **轨道=目录+git worktree+合同**:每个写会话独占一个 worktree;开工前用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前 `agent-on worktree check` 非零即停。
 3. **互相 Fake**:每轨用 fixture 种子造对方的假实现,自身闭环可测。
 4. **契约测试当裁判**:双端各自直接 import 同一份 fixture 断言。
 5. **报告即数据**:轨道最终回复=逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **契约悬点**(把假设显式交出来)+ commit hash;不 push。
 6. **合流顺序**:先契约后实现;悬点集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
+
+**衍生功能不扩轨**:执行中长出可独立目标 → 新 phase + 新 worktree/lane,用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
 
 ## §QA 三桶(跑通阶段只记账不停下)
 

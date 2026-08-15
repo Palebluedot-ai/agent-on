@@ -3,6 +3,8 @@
 > 职责边界:给「定期清 worktree / 扫日历死线」配 **launchd/cron 执行体**,不是只写 TODO 日期。判据模板可移植;脚本本体由项目自持。
 > 源流:Dartify 2026-08-06(日历死线过期零后果;首跑回收 11 worktree / 5.2G;2 孤本抢救后合 #84/#85)。
 
+多会话项目先启用 [worktree-control-plane.md](worktree-control-plane.md):`agent-on worktree status` 把合同状态与本地 git 事实汇成 `safe|review|rescue`;本篇负责更长期的定时执行体与远端 PR 判据。两者都坚持**拿不准只报告、不自动删**。
+
 ## 日历死线
 
 - **禁**:只在 TODOS 写 `截止日期:YYYY-MM-DD` 而无任何进程读取
@@ -39,6 +41,8 @@
 ## dry-run 必做
 
 首跑 `--dry-run`:抓变量名编码 bug、误把 `.DS_Store` 当活动文件等——再启用真删。
+
+Agent-On CLI 自身不提供 delete 子命令:先让 `worktree status` 分类,再由项目自持脚本按本篇完整判据处理;否则一条通用命令无法可靠识别 squash merge / 无 PR 孤本。
 
 ## 交付前对表(硬门 · Dartify 2026-08-08)
 

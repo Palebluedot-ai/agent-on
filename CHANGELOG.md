@@ -4,7 +4,28 @@
 
 ## [未发布]
 
-（自 v0.9.1 起攒）
+（自 v0.10.0 起攒）
+
+## v0.10.0（2026-08-16）——多会话 Worktree 控制面
+
+> **minor**：不动手不坏。存量项目继续沿用旧并行协议；需要多 Claude/Codex worktree 控制面时升级 CLI 并按新模式 claim。
+
+### 用户可见主线
+- **轨道合同**：一个写会话 = 一个 worktree = 一个单目标合同（goal / owns / depends_on / base / status）；衍生功能分流为新 lane，不再让长寿 worktree 无限扩 scope
+- **机械边界闸**：Rust CLI 新增 `agent-on worktree claim|set-status|status|check|forget`；claim 拒绝活跃文件域重叠，check 拦未登记/实际越界/失联记录，ready 要求 clean + 依赖 landed
+- **保守回收**：全场输出 `primary|safe|review|rescue|metadata`；主 worktree 永不回收，squash/无 PR/孤本拿不准只报告，CLI 不自动删目录或分支
+- **会话/合流闭环**：handshake 复述 lane 合同；派工前 claim、提交前 check、远端确认后 landed，再按分类人工回收
+- **交付入口对齐**：CLI/package/setup 默认 pin、Claude plugin/marketplace manifest、README/Codex 安装文案统一到 `v0.10.0`；新增测试锁住 CLI 版本与 setup 默认 pin
+
+### L3 双落点
+- **playbook**：`playbook/multi-contributor-protocol.md` 固化轨道合同、即时控制面与保守回收原则
+- **kit**：新增 `kit/worktree-control-plane.md`，并对表 AGENTS 骨架 / track prompt / merge checklist / worktree GC pattern；BOOTSTRAP 第二写轨启用
+
+### 证据
+- 用户实证：长期多 Claude 对话、多 worktree 即使“一上下文一功能”仍发生 scope 衍生、合流顺序失忆与回收困难
+- 本仓 dogfood：首次 `worktree status` 立即检出 2 个 clean 但含孤本的未登记 Claude worktree（behind/unique = 68/2、119/1，均 `rescue`）；未擅自改动或回收
+- CLI：全量 `cargo test`（27 tests）+ help/status JSON 实跑；严格闸绿路、边界段匹配、越界、重叠、ready clean、primary 不回收均有单测；跨模块环境变量测试共用锁，消除旧 flaky
+- 决策快照：`snapshot/2026-08-16-worktree-control-plane.md`
 
 ## v0.9.1（2026-08-08）——README 路线图纠偏
 

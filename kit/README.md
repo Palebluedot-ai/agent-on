@@ -14,6 +14,7 @@
 | [merge-checklist.md](merge-checklist.md) | 合流七步 checklist | sop.md Phase 5 + Run #3 教训 |
 | [ledger-ratchet-pattern.md](ledger-ratchet-pattern.md) | merge 记账 CI 棘轮模式 | 依从率断档时(Dartify) |
 | [worktree-gc-pattern.md](worktree-gc-pattern.md) | worktree 回收执行体 + 孤本保护 | 多 worktree / 日历死线 |
+| [worktree-control-plane.md](worktree-control-plane.md) | 多会话轨道合同 + 文件边界/依赖/合流/回收控制面 | 多 Claude/Codex worktree 长期并发 |
 | [progress-template.yaml](progress-template.yaml) | 单写者状态文件骨架 | docs/state/progress.yaml |
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
@@ -28,7 +29,7 @@ S 轻装档不走这里——三件套捷径见 BOOTSTRAP §2,一分钟播完。
 3. 需求三分法(sop Phase 0):硬约束进 AGENTS §1;**暂停项写成禁令**,不是删掉
 4. 品味前置(../playbook/freedom-vs-discipline.md §三):参照物锚点 + Explore 画廊投票,**在第一行业务代码之前**
 5. 若用新模型:先跑 capability-probe,定本期脚手架档位
-6. 每片循环:phase 卡 → 冻契约(**连语义:排序/空值/上限**)→ track-prompt 派工 → merge-checklist 合流 → review-prompt 收口 → run-ledger 记一行
+6. 每片循环:phase 卡 → 冻契约(**连语义:排序/空值/上限**)→ 多写轨时先 claim 轨道合同 → track-prompt 派工 → merge-checklist 合流 → review-prompt 收口 → run-ledger 记一行
 
 ## 四条不许省的纪律(kit 之魂)
 

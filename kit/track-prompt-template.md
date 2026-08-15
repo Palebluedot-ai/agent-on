@@ -5,6 +5,7 @@
 ```
 你是 [项目名] 项目 [切片名] 双轨并行(Run #N)的【[emoji] [轨道名]轨】implementer。
 工作目录是主仓 [绝对路径] 的一个 git worktree。先 `git merge --ff-only main` 确认拿到 [冻结commit]。
+轨道合同由 orchestrator 预先登记为 `[LANE_ID]`:goal=`[单一闭环目标]`,owns=`[路径前缀清单]`,depends_on=`[依赖lane或空]`。第一步跑 `agent-on worktree status`,确认当前 worktree 与合同一致;不一致就停,不自行改合同。
 
 ## 任务
 完整执行 phase 卡 [卡路径](先读它,验收标准逐条打勾):[一句话概括]。
@@ -21,6 +22,7 @@
 ## 环境
 - [依赖安装命令;env 拷贝法;测试命令;LIVE 命令]
 - 完成后 worktree 内 git add + commit(前缀 `feat([卡号]):`),**不要 push**。
+- `git add` 前与最终报告前各跑一次 `agent-on worktree check`;非零=边界事故,先回报 orchestrator,不靠手工忽略。
 
 ## 完成报告(最终回复=给 orchestrator 的数据,不是散文)
 - 逐条验收 ✅/❌/⏸(⏸ 附事后步骤)
@@ -28,6 +30,7 @@
 - 改动文件清单 + 新增依赖
 - **契约悬点**(你做过的每个假设/每处拿不准,列出来,合流时裁决)
 - commit hash
+- lane 状态(`ready|blocked`);只有工作区 clean、边界闸通过、依赖已 landed 才报 ready
 ```
 
 ## 旋钮表(按执行模型调)

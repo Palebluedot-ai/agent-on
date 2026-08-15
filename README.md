@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.9.1`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.10.0`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.9.1`** |
+| **推荐 pin** | **`v0.10.0`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.9.1
+git checkout v0.10.0
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -104,6 +104,19 @@ agent-on intake-lint
 
 见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。**卡住了**：找推荐人，或开 GitHub Issue。
 
+同时开了多个写代码会话 / worktree 时，先让每条执行轨登记互斥文件域，再看全场：
+
+```bash
+# 在各 feature worktree 内登记一次
+agent-on worktree claim --id auth-api --goal "登录 API" --base origin/main --owns api/auth --owns tests/auth
+
+# 任意 worktree 查看全场；提交/合流前用严格闸
+agent-on worktree status
+agent-on worktree check
+```
+
+它会抓未登记 worktree、轨道边界重叠、实际 diff 越界、依赖未落地与孤本风险；只做 `safe|review|rescue` 分类，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
+
 ## 指令速查 · Command Reference（中英）
 
 **三条触发路径等价 / Three equivalent trigger routes**：中文口令（三家工具通用 · Chinese voice commands, all tools）· `/agent-on <cmd>`（Claude Code）· `$agent-on <cmd>`（Codex，经 `~/.agents/skills`）——背后是**同一份内核** [skill/SKILL.md](skill/SKILL.md)（one shared kernel）。
@@ -157,7 +170,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 | 目录 | 块 | 内容 |
 |---|---|---|
 | [BOOTSTRAP.md](BOOTSTRAP.md) + `boot/` | **Boot** | 新项目冷启动（含定档三问）· 存量项目接入书 adopt · 会话续接握手 · 结账/升级执行书 · 深挖版问卷 |
-| `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、合流 checklist（含 DoD 门禁）、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
+| `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、合流 checklist（含 DoD 门禁）、**多 worktree 控制面**、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
 | `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）+ 机制七篇（mechanisms/） |
 | `bench/` | **Bench** | 翻车案例集 32 卡（[bench/cases/](bench/cases/README.md)）+ 能力探针 + 能力真相表 + 修正闭环 |
 | `ledger/` | **Ledger** | **主路径 = 散文台账**（Euan 九次 run 实测）。jsonl 四卡 + audit-lint = **L 档旁路机件，零真实项目跑通——开箱勿启用**；S/M 结账走 loop-notes → Promotion Card，不产 jsonl |
@@ -236,6 +249,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.7 ✅**：可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
 - **v0.8 ✅**：记账棘轮 / worktree 回收模式（`v0.8.0`–`v0.8.3`）。
 - **v0.9 ✅**：**`v0.9.1`** 交付前 worktree 对表 + 交付链先于环境 + 闸拒命令字面（Dartify 真机）。
+- **v0.10 ✅**：**`v0.10.0`** 多会话 worktree 轨道合同 + 文件边界/依赖/合流/保守回收控制面。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
@@ -243,6 +257,6 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 
 - **pin**：项目锁定的 agent-on 版本（tag+commit），像合同注明用哪版图纸——升级永远显式，绝不被动变
 - **fixture**：接口两侧共用的冻结样例数据（含排序/空值等语义），并行开发时当裁判用
-- **worktree**：git 的「同一个仓开多个工作目录」，多个 AI 并行时各改各的目录，物理上撞不了车
+- **worktree**：git 的「同一个仓开多个工作目录」；它只隔离环境，不自动阻止撞题/越界。多写会话还要一轨一合同（goal + owns + depends_on + status）
 - **L1–L4（候选层）**：教训的沉淀深度——L1 单次复盘 / L2 可复用知识 / L3 流程规则 / L4 用户稳定偏好（全文 playbook/memory-layering.md）
 - **结账 / 消化**：结账 = 项目把带证据的教训回流进本仓 intake/；消化 = 本仓会话把它落成正文修改并发版
