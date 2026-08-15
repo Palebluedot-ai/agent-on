@@ -119,7 +119,7 @@ agent-on worktree check
 
 ## 指令速查 · Command Reference（中英）
 
-**三条触发路径等价 / Three equivalent trigger routes**：中文口令（三家工具通用 · Chinese voice commands, all tools）· `/agent-on <cmd>`（Claude Code）· `$agent-on <cmd>`（Codex，经 `~/.agents/skills`）——背后是**同一份内核** [skill/SKILL.md](skill/SKILL.md)（one shared kernel）。
+**三条触发路径结果等价、调用面不同**：中文口令（三家工具通用，读目标文件照做，不走 Skill 工具）· `/agent-on <cmd>`（Claude Code 斜杠，走 Skill）· `$agent-on <cmd>`（Codex）——背后是**同一份内核** [skill/SKILL.md](skill/SKILL.md)。skill 挂了 `disable-model-invocation`：禁止用 Skill 工具代调口令；工具回「Do not replicate」只禁 Skill 绕行，不禁口令路径。
 
 | 场景 Scenario | 中文口令 Say (CN) | 命令 Command | What it does (EN) |
 |---|---|---|---|
@@ -190,7 +190,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 不会。项目 pin 具体版本（tag + commit），升级是显式口令；只有 major（不动手会坏）需要动你项目里的文件，而且以 diff 提案呈报、你逐条批准。
 
 **Q：口令是显性的吗？每次都要念吗？**
-只显性三次：每台机器 clone 一次仓、每个项目接入时说一句口令（要问你定档和需求，显性是设计）、之后只剩四个日常口令（结账 / 升级 / 整理想法 / 更新仪表盘）。日常开发零操作——接入时种下的 AGENTS.md 会被 Claude Code / Codex / Grok 自动读取，规则自动生效。触发路径见顶部「指令速查」：中文口令与 `/agent-on`、`$agent-on` 三路等价，同一份内核。个别界面不识别斜杠命令（显示在列表里但敲了没反应，或须从补全菜单选中）——直接说中文口令即可。
+只显性三次：每台机器 clone 一次仓、每个项目接入时说一句口令（要问你定档和需求，显性是设计）、之后只剩四个日常口令（结账 / 升级 / 整理想法 / 更新仪表盘）。日常开发零操作——接入时种下的 AGENTS.md 会被 Claude Code / Codex / Grok 自动读取，规则自动生效。触发路径见顶部「指令速查」：中文口令与 `/agent-on`、`$agent-on` **结果等价、调用面不同**（口令=读执行书照做；斜杠才走 Skill）。个别界面不识别斜杠命令——直接说中文口令即可，AI 不得把 Skill 拒调读成「口令也不能执行」。
 
 **Q：换电脑 / 别人路径不同 / Windows 怎么办？**
 **不要求**固定文件夹名（`Projects`、`Agent-On` 都不是产品默认）。分两面：

@@ -59,4 +59,4 @@ agent-on setup                     # → 默认目录 + config
 - **消化收尾硬门**：canonical 有改动则必须封版打 tag 并 push（`agent-on tag-release`）；禁止「消化完成、tag 留到以后」。
 - **认不出的子命令**：列表让用户重选。
 - 读到目标文件后**照它执行**，不在这里复述改写步骤。
-- 中文口令「agent-on 结账 / 升级」与本 skill 等价。
+- **口令 ≠ Skill 调用**：中文口令「agent-on 结账 / 升级 / 消化」= 读本表目标文件照做，**不走 Skill 工具**。本 skill 挂了 `disable-model-invocation`，禁止 `Skill(agent-on)` 代调。工具若回「Do not replicate this skill's workflow」只禁 Skill 绕行，**不禁口令路径**。斜杠 / `$agent-on` 与口令**结果等价、调用面不等价**（斜杠管确定性，口令管自然语言）。
