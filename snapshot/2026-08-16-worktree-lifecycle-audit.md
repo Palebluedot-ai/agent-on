@@ -40,10 +40,14 @@ Agent-On 需要的不是“自动删 worktree”，而是一张**每次重算、
 
 其中 `:126–130` 的 lifecycle 原文是：
 
-> 1. **一个主题 = 一条分支 = 一个 worktree**；禁止长命分支跨主题复用（github-status-sync 分支被三个不相干主题复用的教训）。  
-> 2. **开工先声明主题**（不是申请锁，见 §11.2）：动工前查 dashboard.html 分工行 + `git worktree list`；发现同主题已有活跃轨 = 先协调再动工。同目录不同主题照开，各自 worktree。  
-> 3. **合并即回收**：PR 合并后 24h 内删远端分支、`git worktree remove` 对应 worktree；关闭的 PR（如 #15）连分支一起废，**禁止把关闭 PR 的 diff 从直推后门塞回 main**。  
-> 4. **本地独有工作必须 48h 内上远端**（开 draft PR 也行）——2b1f923 那种「main 真实缺陷的现成修复只活在本地 worktree」= 机器一坏就丢。  
+> 1. **一个主题 = 一条分支 = 一个 worktree**；禁止长命分支跨主题复用（github-status-sync 分支被三个不相干主题复用的教训）。
+>
+> 2. **开工先声明主题**（不是申请锁，见 §11.2）：动工前查 dashboard.html 分工行 + `git worktree list`；发现同主题已有活跃轨 = 先协调再动工。同目录不同主题照开，各自 worktree。
+>
+> 3. **合并即回收**：PR 合并后 24h 内删远端分支、`git worktree remove` 对应 worktree；关闭的 PR（如 #15）连分支一起废，**禁止把关闭 PR 的 diff 从直推后门塞回 main**。
+>
+> 4. **本地独有工作必须 48h 内上远端**（开 draft PR 也行）——2b1f923 那种「main 真实缺陷的现成修复只活在本地 worktree」= 机器一坏就丢。
+>
 > 5. **每周一次 worktree 巡检**（maintainer）：`git worktree list` + `git branch --merged main`，已合并的清掉，错配的（目录名≠分支名）改掉或注明。
 
 ### 1.2 babysit 真文
@@ -114,7 +118,7 @@ df -h /System/Volumes/Data
 
 三次真实 CLI read-back 都是 fail-closed：沙箱内四棵树运行时 `github_pr_query.status=unknown`，决策为 `primary / rescue / rescue / rescue`；第一次只读联网时 `gh: ok`，三棵现存树为 `primary / rescue / rescue`；最终只读联网时 `gh: ok`，两棵现存树为 `primary / rescue`。每次末行都是 `CANDIDATES (0)` 与 `READ-ONLY: no worktree, branch, lane, or report file was changed.`。动态列表随并发事实变化，但安全结论没有摇摆。
 
-最终当前表（01:43）：
+01:43 当时表（保留时序证据；不是常青名单）：
 
 | worktree / branch | lane / dirty | base / 保存证据 | 大小 | 决策 |
 |---|---|---|---:|---|
@@ -122,6 +126,19 @@ df -h /System/Volumes/Data
 | `.claude/worktrees/agent-orchestration-loop-e4fe70` · 同名 branch | `orchestrator-loop=active`；`?? orchestrator-state.md` | HEAD 是 base 祖先、unique=0；无 upstream/PR | `1.3MiB` | `rescue`（dirty + active + recent） |
 
 运行面也在本轮闭环：开场 PATH 上 `agent-on --version` 是 `0.7.0`、`agent-on worktree status` 报 unknown subcommand；安装后 `/Users/chao/.cargo/bin/agent-on --version` 为 `0.12.0`，`worktree gc --help` 显示 dry-run-only 接口，PATH 实跑得到 `gh: ok / CANDIDATES (0) / READ-ONLY`。
+
+### 2.1 发布前最终 read-back（01:49 CST）
+
+本轮提交与本地 tag 封好后重新从权威状态读取，不沿用 01:43 表里的“尚未提交”描述：
+
+| worktree / branch | clean / lock | 三判据证据 | 大小 | 当前裁决 |
+|---|---|---|---:|---|
+| `/Users/chao/Projects/Agent-On` · `main` | clean / 未标锁 | 相对 `origin/main` 为 `0 / 3`（behind / unique），upstream 尚有 3 个未推提交；主树不进入回收判断 | `993M` | `primary`，永不回收 |
+| `.claude/worktrees/agent-orchestration-loop-e4fe70` · 同名 branch | `?? orchestrator-state.md` / 未标锁 | ① HEAD 是 `origin/main` 祖先；② unique=0，但无 upstream/PR；③ dirty 明确失败；另有 `lane=active` | `1.3M` | `rescue`，绝不回收 |
+
+`df -h /System/Volumes/Data` 仍为总量 `1.8Ti`、已用 `478Gi`、可用 `1.3Ti`、使用率 `27%`。联网运行 `agent-on worktree gc --dry-run --repo /Users/chao/Projects/Agent-On --base origin/main --quiet-hours 24` 得到 `gh: ok`、`primary / rescue`、`CANDIDATES (0)` 与只读回执。`gh pr list --state all` 此时出现 PR #1（`claude/truth-page-dev-timeline-7ed180 → main`，OPEN）；它保存的是已拆 worktree 的 rescue 分支，不会把现存 dirty 执行轨变成候选。
+
+远端发布状态也单独 read-back：`git ls-remote` 显示 `origin/main @ 82a57b1`，`v0.10.0` 与 `v0.10.1` 已存在，`v0.12.0` 尚未出现。因此这里证明的是**本地实现已封版、远端仍待明确授权发布**，不把本地 tag 冒充远端可升级版本。
 
 两棵旧树在初审时虽疑似已被 main 上更强版本替代，机械证据仍不能叫 `safe`：
 
@@ -156,3 +173,87 @@ df -h /System/Volumes/Data
 9. **盘点三触发**：会话握手、每天一次、每次合流 read-back 后；quiet 同时看 worktree 文件与 per-worktree git admin 活动，但不把“24h 无 mtime”冒充“会话一定已关闭”。磁盘告急只增加频率，不降低标准。
 
 长期规则落在 `kit/worktree-control-plane.md`、`kit/worktree-gc-pattern.md` 与 `kit/AGENTS-skeleton.md`；本仓自己的自举硬句落在根 `AGENTS.md`。不新增根 `CLAUDE.md`，避免双工具真相分叉。
+
+## 附录 A：Dartify `CLAUDE.md:27–103` 完整逐行原文
+
+下列文本来自 `/Users/chao/Projects/Dartify/CLAUDE.md`，命令为 `nl -ba /Users/chao/Projects/Dartify/CLAUDE.md | sed -n '27,103p'`。行号是原文件行号；除加左侧行号外，不作摘要或改写。
+
+```text
+ 27  - **多会话并行是默认姿势**：要开几条会话就开几条，不需要跟谁报备。隔离靠机制不靠人记——**每条会话开工第一件事：给自己开一个 worktree**（见下节）。
+ 28
+ 29  ## 多会话并行（worktree）
+ 30
+ 31  **几条会话都行，代价是磁盘不是纪律。** 一条会话一个 worktree，git 层面天然互不干扰；同一个目录（`app/`）也能多条会话同时改，冲突留给 rebase 解，不靠排队。分支命名与 PR 硬门（§三）、轨道与独占区（§一）、progress.yaml 记账（§五）以 [CONTRIBUTING.md](CONTRIBUTING.md) 为准，本节只讲「怎么隔离」。
+ 32
+ 33  - **能开几条看余量**：每个 worktree 各自编译，一份 `app/.dart_tool` + `app/build` ≈ 2.6G，不与主目录共享。按 `余量 ÷ 3G` 估能开几条，`< 5G` 就先去主目录 `flutter clean` 腾地方：
+ 34
+ 35    ```bash
+ 36    df -h /System/Volumes/Data
+ 37    ```
+ 38
+ 39  - **怎么开**：有原生 worktree 工具（`EnterWorktree` / `/worktree`）就用它——落在 `.claude/worktrees/`（已 gitignore），默认从 `origin/main` 切，会话退出时提示回收。创建后把分支名改成仓内规范 `feat|fix|docs/<issue#>-<slug>`。没有原生工具再手敲（**在主目录 `~/Projects/Dartify` 跑**）：
+ 40
+ 41    ```bash
+ 42    git worktree add -b feat/<issue#>-<slug> .claude/worktrees/<slug> origin/main
+ 43    ```
+ 44
+ 45  - **接着干下一件事时，新分支必须从 `origin/main` 长，不能从当前 HEAD 长**。同一个 worktree 里连着做两件事很自然——上一条 PR 刚合，随手 `git switch -c 下一条` 就接着写。**只要上一条是 squash 合的，这一步就埋雷**：squash 在 main 上生成的是**新 hash**，你脚下这条分支的原始提交并不是 main 的祖先，于是新分支把「已经进了 main 的改动」又背了一遍。症状很唬人——PR 一开就是 `DIRTY`（与 base 冲突），**而且仓内 CI 一个 job 都不触发**（只有不依赖 checkout 的 GitGuardian 会跑），看上去像 CI 坏了，其实是 PR 压根没进到能 checkout 的状态：
+ 46
+ 47    ```bash
+ 48    git fetch origin && git switch -c <新分支> origin/main   # 对
+ 49    git switch -c <新分支>                                    # 错:从刚合并的分支头上长
+ 50    ```
+ 51
+ 52    已经长歪了也不用重来，把那条已合并的摘掉即可（`<已合并提交>` = 上一条 PR 在本地的原始提交）：
+ 53
+ 54    ```bash
+ 55    git rebase --onto origin/main <已合并提交> <新分支>
+ 56    ```
+ 57
+ 58    （2026-08-03 实测：PR #71 squash 合并后接着开 #72，正是这样卡住的。这与下面「怎么收」里判据①的误判是同一个病根——squash 换 hash——只是换了副面孔：那边表现为「该收的 worktree 判成不该收」，这边表现为「PR DIRTY + CI 不跑」。）
+ 59
+ 60  - **新 worktree 起步**：`app/config.json` 与 `app/ios/Flutter/Local.xcconfig`（签名团队）都是 gitignored 的，不会跟着 checkout 过来，**漏了这步真机/build 直接起不来**：
+ 61
+ 62    ```bash
+ 63    cp ~/Projects/Dartify/app/config.json app/config.json && cp ~/Projects/Dartify/app/ios/Flutter/Local.xcconfig app/ios/Flutter/Local.xcconfig && cd app && flutter pub get && dart run tool/gen_tokens.dart && dart run build_runner build --delete-conflicting-outputs
+ 64    ```
+ 65
+ 66    签名换团队只改 `Local.xcconfig`，别在 Xcode 界面里选 team——界面选择会把 ID 写回 `project.pbxproj` 带进仓（2026-07-29 就是这么混进过一个别的机器的 ID）。
+ 67
+ 68  - **同目录并行**：两条会话都改 `app/` 完全允许，不必拆子目录、不必排队。代价是后合的那个 PR 要 `git rebase origin/main` 自己解干净（CONTRIBUTING §四 已定：冲突不带进 main）。降低代价的办法是 PR 小、活短（≤2 天）、合得快，不是少开会话。
+ 69  - **撞车识别**：在自己的 worktree 里干活基本不会再撞。**万一编译/analyze 报错在自己完全没碰过的文件上，那说明有会话在主目录裸跑**——查时间戳确认（几十秒内=对方正在写半成品），自己这份照旧继续，让那条会话去开自己的 worktree：
+ 70
+ 71    ```bash
+ 72    git status --short && ls -lT <可疑文件>
+ 73    ```
+ 74
+ 75  - **提交纪律**：一律 `git add <明确文件列表>`，禁止 `-a` / `.`（会把别人的半成品裹进自己的提交）；**绝不 `git stash` / `git checkout --` 整个仓库**，那会扫掉另一条线正在编辑的东西，且不可恢复。
+ 76  - **纯文档改动**也走 worktree：不要把文档提交混进正在开 PR 的功能分支。
+ 77  - **怎么收**：本节此前只教了开、没教收，于是攒成灾——**2026-08-01 实测：29 个 worktree 占 9.3G。按下面的判据核了一遍，20 个可回收、9 个有活在跑——收完 1.9G，释放 7.4G**。CONTRIBUTING §三 的「生命周期 ≤2 天」不会自己实现，得有人按判据收。**三条判据全中才删，缺一条就留着**：
+ 78
+ 79    ```bash
+ 80    git merge-base --is-ancestor <分支> origin/main   # ① 已并入 main（无输出=是）
+ 81    git rev-list --count origin/<分支>..<分支>         # ② 无未推送提交（=0；分支已合并、远端已删则跳过此条）
+ 82    git -C <worktree路径> status --porcelain          # ③ 未提交改动无价值（见下「假脏」）
+ 83    ```
+ 84
+ 85    ⚠️ **判据①遇上 squash 合并会误判**。CONTRIBUTING §四 允许单主题 PR squash，而 squash 把整条分支压成一个**新 hash**，`--is-ancestor` 于是判「否」，内容其实早已在 main 里。症状是「PR 明明显示 MERGED，判据①却说没并入，`origin/main..分支` 里原样躺着全部提交」——**这时以 PR 状态为准，别信 ①**：
+ 86
+ 87    ```bash
+ 88    gh pr list --repo Palebluedot-ai/Dartify --head <分支> --state merged
+ 89    ```
+ 90
+ 91    （2026-08-01 实测：PR #44 squash 合并后，拿它的分支去 rebase 会在自己改过的行上跟「自己」冲突——因为在重放已经进了 main 的改动。碰到这种冲突先查 PR 状态，八成是分支已经完成使命了。）
+ 92
+ 93  - **判据③的「假脏」三种**：看着有改动，其实全是垃圾，别为它们留着 2.6G——
+ 94    - `M app/ios/Runner.xcodeproj/project.pbxproj` 里只有 `DEVELOPMENT_TEAM` 变化 → Xcode 界面选 team 写回的。PR #40 之后团队 ID 归 gitignored 的 `Local.xcconfig`，这改动留着只会再污染一次（2026-08-01 一次抓到**四个** worktree 都躺着它，占 3.5G）
+ 95    - `?? api/node_modules`、`?? app/build` → 未追踪的产物
+ 96    - 改动里引用旧包名 `package:euan/...` → D24 已全改 `package:app/`，这种代码现在根本编译不过，是死的
+ 97  - **回收命令**（只删工作目录与编译产物，**分支保留**——要用时一条 `worktree add` 就能重建）：
+ 98
+ 99    ```bash
+100    git worktree remove --force .claude/worktrees/<name>
+101    ```
+102
+103    ⚠️ **别删还开着 PR 的 worktree**：review 要改就得重建，重跑 `pub get` + `build_runner` 好几分钟，省下的那点空间不值。
+```

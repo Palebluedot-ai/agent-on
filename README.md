@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.11.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.12.0`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.11.0`** |
+| **推荐 pin** | **`v0.12.0`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.11.0
+git checkout v0.12.0
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -113,9 +113,12 @@ agent-on worktree claim --id auth-api --goal "登录 API" --base origin/main --o
 # 任意 worktree 查看全场；提交/合流前用严格闸
 agent-on worktree status
 agent-on worktree check
+
+# 每日与每次合流后做一次只读回收盘点
+agent-on worktree gc --dry-run
 ```
 
-它会抓未登记 worktree、轨道边界重叠、实际 diff 越界、依赖未落地与孤本风险；只做 `safe|review|rescue` 分类，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
+它会抓未登记 worktree、轨道边界重叠、实际 diff 越界、依赖未落地与孤本风险；GC 再聚合 PR/squash、未推提交、dirty、locked、静默窗口与大小，输出动态 `candidates`。命令只有 dry-run，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
 
 ## 指令速查 · Command Reference（中英）
 
@@ -252,6 +255,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.9 ✅**：**`v0.9.1`** 交付前 worktree 对表 + 交付链先于环境 + 闸拒命令字面（Dartify 真机）。
 - **v0.10 ✅**：**`v0.10.1`** 多会话 worktree 控制面（轨道合同 + 文件边界/依赖/合流/保守回收 + 口令/adopt）。
 - **v0.11 ✅**：**`v0.11.0`** 第二十二次消化：闸的三张面 + 运行面验收 + 口令/斜杠调用面。
+- **v0.12 ✅**：**`v0.12.0`** worktree 生命周期只读回收审计（三判据 + PR/squash + locked/quiet/du + 动态候选）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

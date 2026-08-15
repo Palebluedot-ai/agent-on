@@ -26,7 +26,7 @@ codex plugin install agent-on@agent-on
 
 仅内网/离线时：先 `git clone https://github.com/Palebluedot-ai/agent-on.git <路径>`，再  
 `codex plugin marketplace add <路径>` → `codex plugin install agent-on@agent-on`。  
-钉版本：clone 后 `git checkout v0.11.0`（plugin 远程装以 marketplace/manifest version 为准）。
+钉版本：clone 后 `git checkout v0.12.0`（plugin 远程装以 marketplace/manifest version 为准）。
 
 - skill 内核经 plugin 装入；**guard 暂不随 plugin 挂**（`.codex-plugin/plugin.json` 写 `hooks:{}`，备件 `hooks/hooks-codex.json` 待 #16430 实测）。
 - 结账需可写工作仓 **B**（任意路径）：`AGENT_ON_ROOT` 或 `~/.config/agent-on/config.json` 的 `work_root` 或 lock「本地路径」。见 `skill/SKILL.md` 与 `agent-on doctor`。

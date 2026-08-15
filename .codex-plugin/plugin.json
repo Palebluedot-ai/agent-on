@@ -1,6 +1,6 @@
 {
   "name": "agent-on",
-  "version": "0.5.1",
+  "version": "0.12.0",
   "description": "AI 协作项目脚手架：给 Claude Code 与 Codex CLI 提供项目启动 / 状态持久化 / 沉淀闭环的方法论内核。中文口令 · /agent-on · $agent-on 同一份内核。",
   "author": {
     "name": "YANG CHAO",
@@ -24,7 +24,7 @@
   "interface": {
     "displayName": "Agent-On",
     "shortDescription": "项目启动 / 状态持久化 / 沉淀闭环的 AI 协作方法论内核",
-    "longDescription": "Agent-On 用文件系统持久化对抗 prompt 挥发：新项目冷启动搭骨架、换会话三步握手接续、每次里程碑结账把教训回流沉淀。六个子命令 init / adopt / handshake / settle / digest / upgrade 经 $agent-on 触发，与 Claude Code 的 /agent-on 及中文口令同一份内核。",
+    "longDescription": "Agent-On 用文件系统持久化对抗 prompt 挥发：新项目冷启动搭骨架、换会话握手接续、多 worktree 控制与只读回收盘点、里程碑结账回流。init / adopt / handshake / worktree / settle / digest / upgrade / doctor 经 $agent-on 触发，与 Claude Code 的 /agent-on 及中文口令同一份内核。",
     "developerName": "YANG CHAO",
     "category": "Coding",
     "capabilities": [

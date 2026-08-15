@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 pub const MARKERS: &[&str] = &["CHARTER.md", "BOOTSTRAP.md"];
 pub const LOCK_NAME: &str = "agent-on.lock.md";
 pub const OFFICIAL_HTTPS: &str = "https://github.com/Palebluedot-ai/agent-on.git";
-pub const DEFAULT_PIN: &str = "v0.11.0";
+pub const DEFAULT_PIN: &str = "v0.12.0";
 
 pub fn expand(p: &str) -> PathBuf {
     let t = p.trim().trim_matches(|c| c == '"' || c == '\'');
@@ -235,6 +235,27 @@ mod tests {
     #[test]
     fn default_pin_matches_cli_package_version() {
         assert_eq!(DEFAULT_PIN, concat!("v", env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn plugin_manifests_match_cli_package_version() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("cli lives under repo root");
+        for relative in [
+            ".claude-plugin/plugin.json",
+            ".claude-plugin/marketplace.json",
+            ".codex-plugin/plugin.json",
+        ] {
+            let raw = fs::read_to_string(repo.join(relative)).unwrap();
+            let json: serde_json::Value = serde_json::from_str(&raw).unwrap();
+            let version = if relative.ends_with("marketplace.json") {
+                json["plugins"][0]["version"].as_str()
+            } else {
+                json["version"].as_str()
+            };
+            assert_eq!(version, Some(env!("CARGO_PKG_VERSION")), "{relative}");
+        }
     }
     use std::fs;
     use tempfile::tempdir;

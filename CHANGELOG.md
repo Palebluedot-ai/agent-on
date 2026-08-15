@@ -4,7 +4,31 @@
 
 ## [未发布]
 
-（自 v0.11.0 起攒）
+（自 v0.12.0 起攒）
+
+## v0.12.0（2026-08-16）——Worktree 生命周期只读回收审计
+
+> **minor**：不动手不坏。存量项目可继续用 `worktree status/check`；需要动态回收候选与每日盘点时升级 CLI。
+
+### 用户可见主线
+
+- **report-only GC**：新增 `agent-on worktree gc --dry-run [--json] [--repo PATH] [--base REF] [--quiet-hours N]`；缺 `--dry-run` 在读取 repo/PR 前拒绝，CLI 没有 apply/delete 模式
+- **三判据同屏**：逐树输出目标 base landed 证据、upstream/unpushed/unique 保存证据、raw dirty；再叠加 primary/locked/prunable、lane、open PR、24h 文件+git-admin 静默与磁盘大小
+- **squash-safe 且 base-safe**：MERGED PR 只有在 `baseRefName` 等于目标 base、`headRefOid` 覆盖当前 HEAD 时才能修正祖先假阴性；合后新增本地提交仍是 rescue，合进父 feature/develop 的 PR 不能冒充已进 main
+- **动态 known reclaim**：JSON `candidates` 每次从 git/PR/lane 事实重算；握手、每日一次、每次合流 read-back 后盘点，禁止手填常青清单
+- **边界收紧**：通用层不自动认“假脏”；locked/dirty/unknown/open PR/无 PR 孤本不进入候选。旧 `worktree status` 也补上 registered locked/prunable 保护
+
+### L3 双落点
+
+- **playbook**：`playbook/multi-contributor-protocol.md` 固化第二写者并发门、fresh base、三判据派生名单与 report-only 权限
+- **kit**：`kit/worktree-control-plane.md` + `kit/worktree-gc-pattern.md` + AGENTS 骨架/merge checklist 落成创建、盘点、回收和权限执行面
+
+### 证据
+
+- Dartify 原文：`CLAUDE.md:27–103` 三判据/squash/假脏 + `AGENTS.md:124–130` lifecycle；babysit JSONL 解码内行 5–6/23/26/33–34/38–39/43；完整来源与逐字锚见 `snapshot/2026-08-16-worktree-lifecycle-audit.md`
+- Agent-On dogfood：审计窗口从 3 棵变 4 棵、再回到 3 棵；一棵新树从 clean 变 dirty，另一棵 2-commit 孤本被并发会话先 push 再拆。动态候选始终 0，证明静态名单会在同一会话内过期
+- 机器：`cargo test --no-fail-fast` 38/38；`cargo clippy --all-targets -- -D warnings` 通过；真实联网 dry-run `gh: ok`、`CANDIDATES (0)`、read-only 回执；新增三份 plugin manifest 与 CLI 版本一致性测试
+- 独立 gstack review 抓出并已修：PR 合错 base 假阳性、`git status` optional-lock 写 index、quiet 漏看 linked git-dir 活动
 
 ## v0.11.0（2026-08-16）——第二十二次消化：闸的失效面 + 运行面验收
 
