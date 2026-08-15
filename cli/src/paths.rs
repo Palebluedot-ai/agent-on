@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 pub const MARKERS: &[&str] = &["CHARTER.md", "BOOTSTRAP.md"];
 pub const LOCK_NAME: &str = "agent-on.lock.md";
 pub const OFFICIAL_HTTPS: &str = "https://github.com/Palebluedot-ai/agent-on.git";
-pub const DEFAULT_PIN: &str = "v0.10.1";
+pub const DEFAULT_PIN: &str = "v0.11.0";
 
 pub fn expand(p: &str) -> PathBuf {
     let t = p.trim().trim_matches(|c| c == '"' || c == '\'');

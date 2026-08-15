@@ -4,7 +4,35 @@
 
 ## [未发布]
 
-（自 v0.10.1 起攒）
+（自 v0.11.0 起攒）
+
+## v0.11.0（2026-08-16）——第二十二次消化：闸的失效面 + 运行面验收
+
+> **minor**：不动手不坏。存量项目继续沿用旧协议；新闸/验收/口令契约见本版 playbook/kit。
+
+### 第二十二次消化（14 卡：13 landed / 1 rejected）
+来源：`intake/2026-08-15-{dartify,inbox-radar,SalesDashboard,onboard-bot-lark}.md`
+
+### L3 双落点
+- **command-phrase**（纠偏）：`skill/SKILL.md` 末行 + README 三路 + `codex/AGENTS-global-snippet.md`——口令=读执行书照做，与斜杠结果等价、调用面不等价；禁止把 Skill 拒调读成口令失灵
+- **config-surface-green-is-not-runtime**（三卡并）：anti-hallucination C 附3 + sop 集成清单 12–13 + merge 5b / phase-card「运行面」+ bench 33
+- **gate-three-faces**（三卡并）：multi-contributor §三½.5 + merge 2c/7d/7g/7h + worktree-gc DIRTY 双成因 + bench 34
+- **ledger-self-coverage**：§三½.1 + kit/ledger-ratchet-pattern「元动作自涵盖」+ merge 7b + bench 30 续
+- **discriminating-probe**：anti-hallucination 第六型 18 + review/phase-card + bench 35
+
+### 其余 landed
+- **llm-fallback-empty**：C 附4 + phase-card「输出校验」
+- **no-invented-directory**：C 附5 + AGENTS-skeleton「不发明花名册」
+- **feature-delete-shared-terms**：sop「删功能先划标识边界」+ merge 2d
+- **browser-entry-no-node-fs**：AGENTS-skeleton + review + bench 36（不升 playbook 长节）
+
+### rejected
+- **map-required-fields-before-header-reject**：项目域 ingest 口径
+
+### 附记
+- 收件 ec6fff3 / d46f03b / a20cc41 / 0d2a17f；bench 32→36
+- 开场补推卡在本机的 `v0.10.0`/`v0.10.1`（tag 已打未 push）；两棵已知 rescue worktree 未动
+- C 附4/5 正文曾与判别式探针同文件落入 66c88a7，kit 双落点仍按卡拆 commit
 
 ## v0.10.1（2026-08-16）——Worktree 入口与存量接管补齐
 
