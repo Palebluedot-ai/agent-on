@@ -42,6 +42,8 @@ pub fn check_agent_on(root: &Path) -> Result<String, String> {
     let schemas = root.join("kit/schemas/README.md");
     let phase_gates = root.join("playbook/phase-gates.md");
     let audit = root.join("snapshot/2026-08-03-research-residual-audit.md");
+    let skill = root.join("skill/SKILL.md");
+    let worktree = root.join("kit/worktree-control-plane.md");
 
     let lite_t = read(&lite)?;
     let skel_t = read(&skel)?;
@@ -53,6 +55,8 @@ pub fn check_agent_on(root: &Path) -> Result<String, String> {
     let schemas_t = read(&schemas)?;
     let phase_t = read(&phase_gates)?;
     let audit_t = read(&audit)?;
+    let skill_t = read(&skill)?;
+    let worktree_t = read(&worktree)?;
 
     must_contain(
         &lite,
@@ -116,6 +120,32 @@ pub fn check_agent_on(root: &Path) -> Result<String, String> {
             r"不重播",
             r"local_deviations",
             r"显式批准",
+            r"agent-on worktree status",
+            r"rescue",
+            r"逐棵补 claim",
+        ],
+    )?;
+    must_contain(
+        &skill,
+        &skill_t,
+        &[
+            r"argument-hint:.*worktree",
+            r"`worktree`.*worktree-control-plane",
+            r"agent-on worktree status",
+            r"无 worktree 删除命令",
+        ],
+    )?;
+    must_contain(
+        &worktree,
+        &worktree_t,
+        &[
+            r"common git dir|git common dir",
+            r"worktree claim",
+            r"worktree check",
+            r"set-status",
+            r"primary",
+            r"rescue",
+            r"不提供自动删除命令",
         ],
     )?;
     must_contain(
@@ -156,7 +186,7 @@ pub fn check_agent_on(root: &Path) -> Result<String, String> {
     )?;
 
     Ok(format!(
-        "OK agent-on: {} {} {} {} {} {} {} {} {} {}",
+        "OK agent-on: {} {} {} {} {} {} {} {} {} {} {} {}",
         lite.file_name().unwrap().to_string_lossy(),
         skel.file_name().unwrap().to_string_lossy(),
         bootstrap.file_name().unwrap().to_string_lossy(),
@@ -167,6 +197,8 @@ pub fn check_agent_on(root: &Path) -> Result<String, String> {
         schemas.file_name().unwrap().to_string_lossy(),
         phase_gates.file_name().unwrap().to_string_lossy(),
         audit.file_name().unwrap().to_string_lossy(),
+        skill.file_name().unwrap().to_string_lossy(),
+        worktree.file_name().unwrap().to_string_lossy(),
     ))
 }
 

@@ -1,8 +1,8 @@
 ---
 name: agent-on
-description: agent-on 方法论脚手架的显式调用入口。/agent-on <子命令>——init 新项目初始化 · adopt 接管已开工项目 · handshake 会话续接 · settle 结账回流 · digest 消化 · upgrade 升级 pin · doctor 路径自检。按子命令读取 agent-on 对应文件并逐步执行。
+description: agent-on 方法论脚手架的显式调用入口。/agent-on <子命令>——init 新项目初始化 · adopt 接管已开工项目 · handshake 会话续接 · worktree 多会话控制面 · settle 结账回流 · digest 消化 · upgrade 升级 pin · doctor 路径自检。按子命令读取 agent-on 对应文件并逐步执行。
 disable-model-invocation: true
-argument-hint: [init|adopt|handshake|settle|digest|upgrade|doctor]
+argument-hint: [init|adopt|handshake|worktree|settle|digest|upgrade|doctor]
 ---
 
 # agent-on 调用入口
@@ -38,6 +38,7 @@ agent-on setup                     # → 默认目录 + config
 | `init` | `$READ_ROOT/BOOTSTRAP.md` | 新项目从零初始化 | 仅需 `$READ_ROOT` |
 | `adopt` | `$READ_ROOT/boot/adopt.md` | 接管已开工项目 | 仅需 `$READ_ROOT` |
 | `handshake` | `$READ_ROOT/boot/session-handshake.md` | 换会话续跑三步握手 | 仅需 `$READ_ROOT` |
+| `worktree` | `$READ_ROOT/kit/worktree-control-plane.md` | 多会话轨道登记 / 边界审计 / 合流与保守回收；空后缀先跑 `agent-on worktree status` | 需 `$READ_ROOT` + 项目已是 git 仓；CLI 写本机 git common dir，不写 B |
 | `settle` | `$READ_ROOT/boot/settlement.md`（上半场） | 教训回流 intake | **必须 `$WRITE_ROOT`**；intake 只写 B，禁止写 plugin cache |
 | `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 会话**；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
@@ -51,6 +52,7 @@ agent-on setup                     # → 默认目录 + config
 
 - **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。
 - **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
+- **worktree 参数**：`/agent-on worktree` 空后缀 = 读模式并跑只读 `agent-on worktree status`；有 `claim|set-status|status|check|forget` 后缀时，先按模式核边界，再把后缀原样交给同名 CLI。不得把 `status/check` 偷换成删除；CLI 本身无 worktree 删除命令。
 - **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `agent-on setup`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
 - **对表/升级诚实播报**：若 B 的 HEAD 领先最新 tag，报「未发布变化 N commit」——未发布 ≠ 可升级版本。

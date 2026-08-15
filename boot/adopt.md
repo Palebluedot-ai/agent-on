@@ -8,6 +8,7 @@
 ### 第 1 步:考古(读,不改)
 
 - 读项目现有的 README / 规则文件(AGENTS.md、CLAUDE.md 或等价物)/ 最近 10 条 commit / 目录结构
+- 读 `git worktree list`；若不止主 worktree，运行 `agent-on worktree status` 摊开每棵树的 branch / dirty / behind / unique / reclaim。**先审计、不先删**：未登记且 `unique>0` 或 dirty 的一律按孤本 `rescue`，进入下面的并行接管，不得因“很旧”直接回收
 - 产出两样交给用户:**一句话现状**(这个项目是什么、走到哪了)+ **一张能力真相表**(bench/truth-table-template.md:已自动化 / 手动 / 未实现 / 依赖环境,每项带证据)——接手他人或过去的自己的代码,先摊开「到底有没有」,别信记忆
 
 ### 第 2 步:定档(和 BOOTSTRAP 同一把尺)
@@ -32,11 +33,14 @@
 
 **L 全装**:M 之外补——`contracts/fixtures/`(下次接口两侧并行前冻结)+ run 台账(`ledger/run-card-logging.md` 规范,从下次编排 run 起记)。
 
+**已有多 worktree 的增量接管（不分档，出现即处理）**：按 `kit/worktree-control-plane.md` 做恢复六步。仍要继续的写轨逐棵补 claim（单一 goal + 互斥 owns + depends_on + base）；边界撞车时只留一条 active，其余 blocked/parked；只读会话不 claim。先 push/commit 消除孤本，再按依赖合流；只有 `reclaim=safe` 才建议人工拆树。接管只登记**当前活跃工作**，不为已结束历史伪造 lane。
+
 ### 收尾验收(对用户交付)
 
 - [ ] 一句话现状 + 能力真相表讲给用户听过
 - [ ] 档位报给用户并说明为什么
 - [ ] lock + loop-notes + thoughts-and-ideas 就位(M/L 另有 dashboard 初绘);规则文件按「已有则合并,没有才新建」处理完
+- [ ] 多 worktree 若存在：全场 status 已展示；每条仍写代码的执行轨已 claim 或明确 blocked/parked；所有 rescue 都有“先保存再回收”的下一步
 - [ ] 用户知道四个口令:「agent-on 结账」「agent-on 升级」「整理想法」「更新仪表盘」(S 档无仪表盘)
 
 ## 二、升档(项目长大了)

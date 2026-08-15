@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.10.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.10.1`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.10.0`** |
+| **推荐 pin** | **`v0.10.1`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
 cd /tmp/agent-on-src
-git checkout v0.10.0
+git checkout v0.10.1
 cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
@@ -128,6 +128,7 @@ agent-on worktree check
 | **贡献上游**(可选) | 「贡献上游」 | intake-only PR / Issue | Ship Promotion Cards to maintainers — **not** direct playbook edits |
 | **接管半路项目** | 「接管本项目」 | `/agent-on adopt` | Adopt an in-flight project: archaeology → tier → incremental fit; never rebuild, never backfill history |
 | **换会话续跑** | 「握手后继续」 | `/agent-on handshake` | Resume in a fresh session: 3-step re-alignment (goal → current phase → your pick) before any work |
+| **多会话控制面** | 「检查 worktree」 | `/agent-on worktree` | Inventory lanes, file boundaries, dependency order, drift, and conservative reclaim class |
 | **沉淀回流** | 「**agent-on 结账**」 | `/agent-on settle` | Settle: flow evidence-backed lessons from this project into agent-on's `intake/` |
 | **消化落地** | 「消化」（须在本仓会话） | `/agent-on digest` | Digest: triage intake cards, land them as concrete file changes, tag（agent-on repo session only） |
 | **升级 pin** | 「**agent-on 升级**」 | `/agent-on upgrade` | Upgrade: explicitly bump the project's pinned methodology version — never silent |
@@ -249,7 +250,7 @@ Claude guard 随 plugin 挂；**Codex guard 暂仍可能靠个人 scope**（#164
 - **v0.7 ✅**：可执行面 Rust 化（`agent-on` CLI；主树无 Python 交付脚本）。
 - **v0.8 ✅**：记账棘轮 / worktree 回收模式（`v0.8.0`–`v0.8.3`）。
 - **v0.9 ✅**：**`v0.9.1`** 交付前 worktree 对表 + 交付链先于环境 + 闸拒命令字面（Dartify 真机）。
-- **v0.10 ✅**：**`v0.10.0`** 多会话 worktree 轨道合同 + 文件边界/依赖/合流/保守回收控制面。
+- **v0.10 ✅**：**`v0.10.1`** 多会话 worktree 控制面（轨道合同 + 文件边界/依赖/合流/保守回收 + 口令/adopt）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

@@ -4,7 +4,15 @@
 
 ## [未发布]
 
-（自 v0.10.0 起攒）
+（自 v0.10.1 起攒）
+
+## v0.10.1（2026-08-16）——Worktree 入口与存量接管补齐
+
+> **patch**：不用知道也能用；补齐 v0.10.0 控制面的发现与 adopt 路径。
+
+- `/agent-on worktree` / `$agent-on worktree` 进入同一控制面内核；空参数先跑只读 status，有后缀才映射 CLI，禁止偷换成删除
+- `boot/adopt.md` 考古阶段强制摊开既有多 worktree；dirty/unique 先标 rescue，仍写代码的旧轨增量 claim，不回填历史、不先删
+- README 指令速查增加多会话控制面；推荐 pin、CLI/setup 与 plugin manifest 对齐 `v0.10.1`
 
 ## v0.10.0（2026-08-16）——多会话 Worktree 控制面
 
