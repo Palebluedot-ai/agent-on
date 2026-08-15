@@ -11,7 +11,7 @@
 2. 允许集扩面:maintainer 对**同一分支**重开 PR。
 
 ## 可复用规则
-merge 后更新状态面 = 须机械闸;作者闸须预写协作者出口。
+merge 后更新状态面 = 须机械闸;作者闸须预写协作者出口。记账动作自身必须入账,否则欠账自我繁殖;补账补内容不补号码。
 
 ## 已固化到哪
-playbook/multi-contributor §三½.1/.3;kit/ledger-ratchet-pattern.md。
+playbook/multi-contributor §三½.1/.3;kit/ledger-ratchet-pattern.md(含元动作自涵盖);merge-checklist 7b。
