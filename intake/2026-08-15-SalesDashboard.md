@@ -30,4 +30,4 @@
 - suggested_landing:playbook anti-hallucination / 数据导入验收；kit ingest 或 review 一行；bench 短案例
 - rollback:revert 974d843 的 ingest 映射（日更会再次整表拒收）
 - trace:loop-notes.md L10；commit 974d843
-- 状态:pending
+- 状态:rejected(项目域 ingest 口径,用户拍板不出仓)
