@@ -36,10 +36,11 @@
 | [30](30-ledger-ratchet-and-author-deadlock.md) | 记账棘轮+作者闸死锁 | merge 记账须 CI 闸;守卫允许集扩面 maintainer 同分支重开 |
 | [31](31-worktree-gc-orphan-rescue.md) | 回收执行体+孤本 | 日历死线须进程;无 PR worktree 只报告不删,先 push 再收 |
 | [32](32-worktree-stale-ship-and-classifier.md) | 陈旧 worktree 装机 | 交付前对表 default branch;没生效先查交付链;闸拒字面≠禁目标 |
+| [33](33-config-green-is-not-runtime.md) | 配置面绿≠运行面 | 定时看 runs+exit+产物;Webhook 看入站 POST;一应用一 URL |
 
 ## 使用时机
 
-- **接外部服务 / 首次部署前**:案 01/04/07-14 + sop.md「外部服务集成清单」(该清单由本批案例审查倒逼产出)
+- **接外部服务 / 首次部署前**:案 01/04/07-14/33 + sop.md「外部服务集成清单」(该清单由本批案例审查倒逼产出)
 - **上多 agent 并行前**:案 03/05/06/27(互踩 vs 撞题分型)
 - **给用户交付产出前**:案 02/15
 - **想造框架/写大文档时**:案 16/17

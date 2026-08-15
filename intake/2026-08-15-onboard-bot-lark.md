@@ -10,7 +10,7 @@
 - suggested_landing:playbook 外部依赖/联调验收一节；bench 案例；kit 交付或联调 checklist 一行「tail 见入站事件」
 - rollback:revert 落地 commit
 - trace:loop-notes 接入后首批联调；会话多轮「权限设完仍无反应」；commits 8b5e6c4 / 5aa6d845 deploy 链
-- 状态:pending
+- 状态:landed@同批（C 附3 + sop 13 + merge 5b + bench 33）
 
 ### one-bot-one-webhook-url（多用途 bot 共用事件 URL 会静默吞回调：专用 bot 或专用 URL）
 - source:onboard-bot-lark @ d484e9d | pin v0.9.1
@@ -20,4 +20,4 @@
 - suggested_landing:playbook 外部依赖 / 多消费者路由；bench 短案例；与上卡并列「接入检查单」
 - rollback:revert 落地 commit
 - trace:会话用户原话「这个 bot 连了 hermes」；plan Risks；commits d484e9d→8b5e6c4 换 bot 序列
-- 状态:pending
+- 状态:landed@同批（C 附3 + sop 13 + merge 5b + bench 33）

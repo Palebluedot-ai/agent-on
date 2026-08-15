@@ -10,7 +10,7 @@
 - suggested_landing:playbook 外部依赖/运行时验收；bench 短案例；kit 交付 checklist 一行「定时：runs+exit+产物」
 - rollback:revert 落地 commit
 - trace:loop-notes.md L9；phase-s1.2-launchd-graph-network.md；install commit 7691c2a
-- 状态:pending
+- 状态:landed@同批（C 附3 + sop 12 + merge 5b + bench 33）
 
 ### browser-entry-must-not-reexport-node-fs（浏览器入口禁止再导出 Node 写盘）
 - source:SalesDashboard @ 974d843 | pin v0.9.1

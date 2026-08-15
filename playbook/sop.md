@@ -137,6 +137,8 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 9. **人点控制台清单须文档背书**:`external-setup` / 控制台步骤每条标 `[doc]` 或 `[待查证]`,见 anti-hallucination 第六型第 6 条——禁止凭经验编 OAuth/域名勾选项
 10. **宿主迁移 = runbook 对表**:安全/成本作战手册写死某云控制台步骤时,Vercel→CF 等迁移须**同批**改文档,否则 L0 人工清单会指挥人去错误控制台空放
 11. **目标写「攻击」而策略禁 exploit**:默认路径=静态审查 + 防御回归测试 + 理论攻击场景表;plan 写清矛盾消解,勿半套 PoC
+12. **定时/日历验收看运行面**:`launchd`/`cron` 的 runs+exit + 任务日志 + 下游产物三件齐;禁止用「已 load / 到点了」推断成功(案 33;SalesDashboard)
+13. **Webhook / 开放平台看入站流量**:权限勾选 ≠ 事件已订阅;验收=`tail`/access log 见平台 POST。一应用一事件 URL,共用会静默吞回调(案 33;onboard-bot)
 
 ## 下个项目的启动清单(照抄即用)
 

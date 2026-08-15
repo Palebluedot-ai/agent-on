@@ -28,6 +28,7 @@ disturbance: "[禁区,与 setpoint 同权重:不许碰哪些目录/不许发明�
 - [ ] [回归条目:全量测试命令 + 零删测声明]
 - [ ] [接线锚·若本卡新建共享组件/主题/常量]:pump 真实消费方断言生效 + 变异一次(拆接线必须红)——形状测试全绿 ≠ 已接线(anti-hallucination C 附)
 - [ ] [护栏实体·若本卡改 CODEOWNERS/审批人/告警/webhook]:实体存在性验证证据(API 或真实触发)+ 文档写清生效边界
+- [ ] [运行面·若本卡接定时/Webhook/开放平台]:配置勾选 / agent 已 load / 日历开火都不算完成;须 runs+exit+产物,或 tail 见入站事件。一应用一事件 URL(anti-hallucination C 附3)
 - [ ] [配置锚·若本卡改 TOML/YAML/JSON 等结构化配置]:语义层断言(真解析器或位置/结构判别)+ **反向验证**(改坏必须红)——纯文本「字符串在文件里」假绿(anti-hallucination C 附2)
 - [ ] [收口·计划状态]:本卡相关 TODO/阶段表当前态已随验收证据更新,指向 progress 权威源——禁止幽灵 P0
 - [ ] [生产 preflight·若碰 load/deploy]:只读机器可判 pass/block 列表;skip/unsupported 保持整体红;门禁接在唯一执行入口(非仅 runbook)
