@@ -99,9 +99,9 @@
 
 **单 agent 能干完就别上多 agent**（上下文边界优先）。确要并行时走六步协议：冻契约 → 轨道 = 目录 + git worktree 物理隔离 → 各轨 Fake 对方 → 契约测试当裁判 → 单一状态写者 → 先契约后实现合流。
 
-**第二个写代码的会话出现时，启用轨道控制面**（只读会话不算）：主树先 clean 并退为控制/合流面；每条写轨从 fresh `origin/<default>` 建独立 worktree，开工前跑 `agent-on worktree claim --id ... --goal ... --base ... --owns ...`。仓内首次启用时跑一次 `agent-on worktree hooks install`，shared `pre-commit/pre-push` 会覆盖全部 linked worktree；有 Claude/Codex plugin 时，PreToolUse 也会在 Agent 发出 commit/push 前跑同一 lane/owns 闸。衍生功能不得静默膨胀当前轨：可独立则新建 lane，并用 `--depends-on` 排顺序；暂不做则进想法箱/暂停项。全场与安装态分别看 `agent-on worktree status` / `agent-on worktree hooks status`；需要每日 03:30 的 report-only 盘点才显式用 `hooks install --daily-gc`。动态 `candidates` 只供人工裁决，永不自动删除。完整模式：`kit/worktree-control-plane.md`。
+**第二个写代码的会话出现时，启用轨道控制面**（只读会话不算）：主树先 clean 并退为控制/合流面；每条写轨从 fresh `origin/<default>` 建独立 worktree，开工前跑 `agent-on worktree claim --id ... --goal ... --base ... --owns ...`。仓内首次启用时跑一次 `agent-on worktree hooks install`，shared `pre-commit/pre-push` 会覆盖全部 linked worktree；有 Claude/Codex plugin 时，PreToolUse 也会在 Agent 发出 commit/push 前跑同一 lane/owns 闸。衍生功能不得静默膨胀当前轨：可独立则新建 lane，并用 `--depends-on` 排顺序；暂不做则进想法箱/暂停项。全场与安装态分别看 `agent-on worktree status` / `agent-on worktree hooks status`；需要每日 03:30 的 report-only 盘点才显式用 `hooks install --daily-gc`。动态 `candidates` 只供人工裁决，永不自动删除。完整模式：`kit/worktree-control-plane.md`。多会话 PR 排队成常态或分支保护开 up-to-date 硬门时，按 `kit/babysit/SETUP.md` 三步开值守合并调度（合并权中央化，功能会话开 PR 即交付）。
 
-模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）、`kit/worktree-control-plane.md`（多会话边界/依赖/回收）。换新模型先跑 `bench/capability-probe.md` 定档。
+模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）、`kit/worktree-control-plane.md`（多会话边界/依赖/回收）、`kit/babysit/`（值守合并调度：PR 排队时合并权中央化）。换新模型先跑 `bench/capability-probe.md` 定档。
 
 ## 6. 沉淀纪律（迭代闭环的采集站，机制见 playbook/iteration-loop.md）
 

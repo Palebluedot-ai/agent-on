@@ -231,6 +231,16 @@ agent-on worktree forget --id auth-api
 - 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
 - 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。
 
+## 值守与 lane 的分工
+
+lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管**远端公共态**（main、PR 队列、CI、账本的在班执行）——互补不重叠：
+
+- 值守平时是只读会话，不 claim；要写文件（值守文档、账本）时按最小 owns claim 自己的轨。
+- 跨 lane 追平一律走托管平台服务端 API（`gh api -X PUT …/update-branch`），不本地 checkout / push 别人的分支——本地推别人分支会被 guard 正确拦下（2026-08-16 实测），服务端 API 与 lane 边界零冲突。
+- 值守不进任何执行轨的 worktree、不代解冲突、不代修缺陷；真缺陷带证据打回作者会话。
+
+接入与模板见 [babysit/](babysit/README.md)。
+
 ## 失控时的恢复顺序
 
 已经堆了很多未登记 worktree 时，不要先删：

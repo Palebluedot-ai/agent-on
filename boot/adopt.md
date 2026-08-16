@@ -33,7 +33,7 @@
 
 **L 全装**:M 之外补——`contracts/fixtures/`(下次接口两侧并行前冻结)+ run 台账(`ledger/run-card-logging.md` 规范,从下次编排 run 起记)。
 
-**已有多 worktree 的增量接管（不分档，出现即处理）**：按 `kit/worktree-control-plane.md` 做恢复六步。仍要继续的写轨逐棵补 claim（单一 goal + 互斥 owns + depends_on + base）；边界撞车时只留一条 active，其余 blocked/parked；只读会话不 claim。先 push/commit 消除孤本，再按依赖合流；只有 `reclaim=safe` 才建议人工拆树。接管只登记**当前活跃工作**，不为已结束历史伪造 lane。
+**已有多 worktree 的增量接管（不分档，出现即处理）**：按 `kit/worktree-control-plane.md` 做恢复六步。仍要继续的写轨逐棵补 claim（单一 goal + 互斥 owns + depends_on + base）；边界撞车时只留一条 active，其余 blocked/parked；只读会话不 claim。先 push/commit 消除孤本，再按依赖合流；只有 `reclaim=safe` 才建议人工拆树。接管只登记**当前活跃工作**，不为已结束历史伪造 lane。多会话 PR 排队成常态或分支保护开 up-to-date 硬门时，按 `kit/babysit/SETUP.md` 三步开值守合并调度（合并权中央化，功能会话开 PR 即交付）。
 
 ### 收尾验收(对用户交付)
 

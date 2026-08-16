@@ -5,6 +5,7 @@
 > 途中处置 org 级 Actions billing 瘫痪（~6.5h）、worktree 控制面首拦、check_ledger API 抖动。
 > 用户拍板（08-16）：值守合并调度成规矩（Dartify PR #163 入 CONTRIBUTING §四），并要求把这套东西做成 agent-on 产品。
 > 本文件 = intake 素材，消化 canonical 请在 agent-on 仓会话做。
+> **去向：landed@v0.14.0** —— kit/babysit/ 四件落位 + landing/worktree 控制面补节 + BOOTSTRAP/adopt 接线；建议归宿 §三 1–3 全落位，§三 4（CLI `worktree edit` / `claim --force-redivide`）仍 pending（CLI 侧待办）。
 
 ## 一、产品定位
 

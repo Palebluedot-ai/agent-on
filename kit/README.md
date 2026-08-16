@@ -15,6 +15,7 @@
 | [ledger-ratchet-pattern.md](ledger-ratchet-pattern.md) | merge 记账 CI 棘轮模式 | 依从率断档时(Dartify) |
 | [worktree-gc-pattern.md](worktree-gc-pattern.md) | worktree 回收执行体 + 孤本保护 | 多 worktree / 日历死线 |
 | [worktree-control-plane.md](worktree-control-plane.md) | 多会话轨道合同 + 文件边界/依赖/合流/回收控制面 | 多 Claude/Codex worktree 长期并发 |
+| [babysit/](babysit/README.md) | 值守合并调度:合并权中央化的值班手册(模板 §0–§7 + 三步接入 + 治理条款范本) | Dartify 值守夜班 9 连合 + 三单实战 |
 | [progress-template.yaml](progress-template.yaml) | 单写者状态文件骨架 | docs/state/progress.yaml |
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
