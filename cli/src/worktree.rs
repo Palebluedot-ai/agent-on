@@ -273,10 +273,100 @@ fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
+/// Decode git's quoted-path form (core.quotepath=true) into the real filename:
+/// strip one outer double-quote pair, decode `\nnn` octal bytes and the
+/// standard git escapes (\\ \" \t \n \r \a \b \f \v), then validate as UTF-8.
+/// Unquoted input passes through unchanged — git only escapes inside quotes.
+fn unescape_git_path(raw: &str) -> Result<String, String> {
+    let Some(inner) = raw.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
+        return Ok(raw.to_string());
+    };
+    let src = inner.as_bytes();
+    let mut bytes = Vec::with_capacity(src.len());
+    let mut i = 0;
+    while i < src.len() {
+        if src[i] != b'\\' {
+            bytes.push(src[i]);
+            i += 1;
+            continue;
+        }
+        i += 1;
+        match src.get(i) {
+            None => {
+                return Err(format!(
+                    "invalid git path escape in {raw}: trailing backslash"
+                ))
+            }
+            Some(&esc @ (b'\\' | b'"')) => {
+                bytes.push(esc);
+                i += 1;
+            }
+            Some(b't') => {
+                bytes.push(b'\t');
+                i += 1;
+            }
+            Some(b'n') => {
+                bytes.push(b'\n');
+                i += 1;
+            }
+            Some(b'r') => {
+                bytes.push(b'\r');
+                i += 1;
+            }
+            Some(b'a') => {
+                bytes.push(0x07);
+                i += 1;
+            }
+            Some(b'b') => {
+                bytes.push(0x08);
+                i += 1;
+            }
+            Some(b'f') => {
+                bytes.push(0x0c);
+                i += 1;
+            }
+            Some(b'v') => {
+                bytes.push(0x0b);
+                i += 1;
+            }
+            Some(b'0'..=b'7') => {
+                // git emits at most 3 octal digits per escaped byte
+                let mut value: u32 = 0;
+                let mut digits = 0;
+                while digits < 3 {
+                    let Some(&d @ b'0'..=b'7') = src.get(i) else {
+                        break;
+                    };
+                    value = value * 8 + u32::from(d - b'0');
+                    i += 1;
+                    digits += 1;
+                }
+                if value > 0xff {
+                    return Err(format!(
+                        "invalid git path escape in {raw}: octal value exceeds one byte"
+                    ));
+                }
+                bytes.push(value as u8);
+            }
+            Some(&other) => {
+                return Err(format!(
+                    "invalid git path escape \\{} in {raw}",
+                    other as char
+                ))
+            }
+        }
+    }
+    String::from_utf8(bytes).map_err(|_| format!("git path {raw} decodes to invalid UTF-8"))
+}
+
 fn normalize_owns(values: &[String]) -> Result<Vec<String>, String> {
     let mut out = BTreeSet::new();
     for raw in values {
-        let value = raw.trim().trim_start_matches("./").trim_end_matches('/');
+        let decoded = unescape_git_path(raw.trim())?;
+        let value = decoded
+            .trim()
+            .trim_start_matches("./")
+            .trim_end_matches('/');
         if value.is_empty()
             || value == "."
             || value.starts_with('/')
@@ -1891,6 +1981,40 @@ mod tests {
         assert!(!boundary_contains("app", "apple/page.rs"));
         assert!(boundaries_overlap("app", "app/pages"));
         assert!(!boundaries_overlap("api", "app"));
+    }
+
+    #[test]
+    fn normalize_owns_decodes_git_octal_quoted_path() {
+        // git status with core.quotepath=true prints 客迹-inventory.md as
+        // "\345\256\242\350\277\271-inventory.md" — pasting that into --owns
+        // must store the real UTF-8 filename, not the escaped bytes.
+        let owns = normalize_owns(&[r#""\345\256\242\350\277\271-inventory.md""#.to_string()])
+            .expect("quoted octal path should normalize");
+        assert_eq!(owns, vec!["客迹-inventory.md".to_string()]);
+    }
+
+    #[test]
+    fn normalize_owns_keeps_plain_ascii_path_unchanged() {
+        let owns = normalize_owns(&["app/page.rs".to_string()]).unwrap();
+        assert_eq!(owns, vec!["app/page.rs".to_string()]);
+    }
+
+    #[test]
+    fn normalize_owns_decodes_standard_git_escapes() {
+        let owns = normalize_owns(&[r#""a\tb \"c\" \\d""#.to_string()]).unwrap();
+        assert_eq!(owns, vec!["a\tb \"c\" \\d".to_string()]);
+    }
+
+    #[test]
+    fn normalize_owns_rejects_invalid_escape_sequence() {
+        let err = normalize_owns(&[r#""\q-file.md""#.to_string()]).unwrap_err();
+        assert!(err.contains("escape"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn normalize_owns_rejects_octal_bytes_that_are_not_utf8() {
+        let err = normalize_owns(&[r#""\345-file.md""#.to_string()]).unwrap_err();
+        assert!(err.contains("UTF-8"), "unexpected error: {err}");
     }
 
     #[test]
