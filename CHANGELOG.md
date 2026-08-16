@@ -4,13 +4,13 @@
 
 ## [未发布]
 
-（自 v0.12.1 起攒）
+（自 v0.13.0 起攒）
 
-### Landing 控制面 v1 —— 合流协调 + 生命周期分类（拟 minor）
+## v0.13.0（2026-08-16）——Landing 控制面 v1：合流协调 + 生命周期分类
 
 > **minor**：不动手不坏。存量项目 lane/hook/gc 行为不变；要多 PR 排队与五类生命周期汇总时升级 CLI。新增 `worktree claim --parked` 与活跃轨上限（默认 3）只影响新 claim / 激活动作，存量 lane 记录不迁移。
 
-#### 用户可见主线
+### 用户可见主线
 
 - **三条只读命令**：`agent-on landing refresh|status|plan [--json] [--repo] [--quiet-hours]`；`refresh` 是唯一联网命令（`gh` 批量探针 + `git ls-remote`），`status`/`plan` 离线读快照
 - **SHA 绑定证据缓存**：每条轨绑定 `(PR head SHA, base SHA)`，两者未变直接 SKIP 复用，绝不重复取证；base 移动时只重查有依赖边或文件重叠的 PR，无重叠的轨证据仍有效（键的 base 半边直接推进）
@@ -19,14 +19,14 @@
 - **活跃轨上限**：`agent-on/config.json` 的 `active_cap`（默认 3）；`claim` 超限拒绝、`--parked` 排队不占额、`set-status active` 激活同样过闸
 - **波次规划**：`plan` 按依赖拓扑排 WAVE 1/2/…，并行准备轨与前置修复（FIX/STALE）分列；波次只是建议，实际合流仍走控制轨合流清单 + 远端 read-back
 
-#### 诚实边界
+### 诚实边界
 
 - v1 严格只读 + 按需运行：不驻后台、不自动 merge、不自动删 worktree、不代写 lane 状态（PR 合流后只提示 `set-status landed`）
 - 快照是本机缓存（common git dir `agent-on/landing/snapshot.json`），不是第二套 canonical 真相；PR 权威在托管平台，丢了重新 refresh 即可
 - 「无文件重叠 ⇒ 证据仍有效」是文件粒度近似；gh 每 PR 100 个文件、compare 300 个文件的截断都如实标注并保守处理（截断 → 视为重叠）
 - 离线时 base SHA 降级本地 `origin/<default>`（标注 `local`，可能过期）；gh 探针失败则 refresh 整体报错，不出半份快照
 
-#### 证据
+### 证据
 
 - Rust：134 测试全过（`cargo test`：125 unit/integration + 9 hooks integration），`cargo clippy --all-targets` 0 警告；含 8 个 FakeGh + 真实 git fixture 的端到端用例（SKIP 复用、base 移动重叠→STALE 不重查、无重叠→reused-valid、PR 合流→REAPABLE、离线 status、依赖波次）
 - 真机 dogfood（本仓）：首次 refresh 取证 1 条、第二次 `取证 0 条 | SKIP 复用 1 条`；同屏抓出 5 条 RESCUE（primary 未推送、两条 landed 轨未推送、合流残留、未登记脏树）
