@@ -74,13 +74,11 @@ pub fn lint_card(block: &str) -> Vec<String> {
     }
     if let Some(conf) = field(block, "confidence") {
         if !conf.is_empty() {
-            let head = conf
-                .split(['（', '('])
-                .next()
-                .unwrap_or("")
-                .trim();
+            let head = conf.split(['（', '(']).next().unwrap_or("").trim();
             if !confidence_ok().contains(&head) {
-                errs.push(format!("confidence 取值非法:'{head}'(应为 high|medium|low)"));
+                errs.push(format!(
+                    "confidence 取值非法:'{head}'(应为 high|medium|low)"
+                ));
             }
         }
     }

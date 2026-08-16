@@ -123,9 +123,16 @@ agent-on worktree hooks install --daily-gc
 
 # 手工加跑只读回收盘点
 agent-on worktree gc --dry-run
+
+# 合流协调面：refresh 一次批量取证（唯一联网命令），之后离线看队列与波次
+agent-on landing refresh
+agent-on landing status
+agent-on landing plan
 ```
 
 一次 `hooks install` 会把严格检查接到 shared `pre-commit/pre-push`：未登记、边界重叠、实际 diff 越界会在写入点直接失败；有活跃执行轨时，主 worktree 的普通业务 commit 也会被挡。Git 实际触发 `pre-commit` 的 squash/冲突收口等控制态会自动放行；clean merge 本身不触发这两个 Git hooks，仍由合流清单与后续 `pre-push` 兜底。Claude/Codex plugin 再把同一检查前移到 Agent 的 PreToolUse。可选调度只执行 `gc --dry-run --json`，输出动态 `candidates`，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
+
+多 PR 并行时，`landing` 三条命令是合流协调面：所有检查结果绑定 `(PR head SHA, base SHA)`，两者未变直接 SKIP 复用；main 每合入一条只重查有依赖边或文件重叠的 PR。`status` 首页只给五个数（现在做 / 下一批 / 等待中 / 需抢救 / 可回收），全部 worktree 自动落进 ACTIVE/WAITING/PARKED/RESCUE/REAPABLE 五类之一；活跃轨有上限（默认 3，`--parked` 排队不占额）。v1 严格只读：不驻后台、不自动 merge、不自动删树。完整数据模型与分类规则见 [kit/landing-control-plane.md](kit/landing-control-plane.md)。
 
 ## 指令速查 · Command Reference（中英）
 

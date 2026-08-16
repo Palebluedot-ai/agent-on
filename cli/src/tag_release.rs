@@ -73,7 +73,11 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
         Ok(t) => t,
         Err(e) => return (1, format!("{e}\n")),
     };
-    let ahead = match run_git(repo, &["rev-list", "--count", &format!("{tag}..HEAD")], true) {
+    let ahead = match run_git(
+        repo,
+        &["rev-list", "--count", &format!("{tag}..HEAD")],
+        true,
+    ) {
         Ok(a) => a,
         Err(e) => return (1, e),
     };
@@ -93,9 +97,8 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
 
     let mut msg_extra = String::new();
     if opts.level == "major" {
-        msg_extra.push_str(
-            "WARNING: major 必须在 CHANGELOG 写清迁移注记;无注记禁止打 tag(人工自检)\n",
-        );
+        msg_extra
+            .push_str("WARNING: major 必须在 CHANGELOG 写清迁移注记;无注记禁止打 tag(人工自检)\n");
     }
 
     let msg = format!(
@@ -120,7 +123,9 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
         out.push_str(&format!("pushed origin HEAD and {new_tag}\n"));
     } else {
         out.push_str("下一步(须执行,否则下游仍升不了):\n");
-        out.push_str(&format!("  git push origin HEAD && git push origin {new_tag}\n"));
+        out.push_str(&format!(
+            "  git push origin HEAD && git push origin {new_tag}\n"
+        ));
         out.push_str(&format!("并确认 README/AGENTS 推荐 pin 已改为 {new_tag}\n"));
     }
     (0, out)

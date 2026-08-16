@@ -38,10 +38,7 @@ pub fn lint_text(text: &str) -> (usize, Vec<(usize, String)>) {
         }
         match serde_json::from_str::<Value>(line) {
             Ok(v) => events.push((line_no, v)),
-            Err(e) => events.push((
-                line_no,
-                serde_json::json!({"_parse_error": e.to_string()}),
-            )),
+            Err(e) => events.push((line_no, serde_json::json!({"_parse_error": e.to_string()}))),
         }
     }
 
@@ -61,7 +58,11 @@ pub fn lint_text(text: &str) -> (usize, Vec<(usize, String)>) {
             .as_object()
             .map(|o| o.keys().map(|k| k.as_str()).collect())
             .unwrap_or_default();
-        let miss: Vec<_> = REQUIRED.iter().filter(|k| !keys.contains(*k)).copied().collect();
+        let miss: Vec<_> = REQUIRED
+            .iter()
+            .filter(|k| !keys.contains(*k))
+            .copied()
+            .collect();
         if !miss.is_empty() {
             errors.push((*line_no, format!("缺必填字段:{}", miss.join(", "))));
             continue;
@@ -75,10 +76,7 @@ pub fn lint_text(text: &str) -> (usize, Vec<(usize, String)>) {
                 && DateTime::parse_from_str(&ts_norm, "%Y-%m-%dT%H:%M:%S%z").is_err()
             {
                 // from_isoformat style: 2026-07-07T12:00:00Z already tried
-                errors.push((
-                    *line_no,
-                    format!("时间戳格式非法(需 ISO-8601):{ts}"),
-                ));
+                errors.push((*line_no, format!("时间戳格式非法(需 ISO-8601):{ts}")));
             }
         }
 
@@ -108,7 +106,10 @@ pub fn lint_text(text: &str) -> (usize, Vec<(usize, String)>) {
             ));
         }
 
-        let allowed_next = allowed.get(state_from.as_str()).cloned().unwrap_or_default();
+        let allowed_next = allowed
+            .get(state_from.as_str())
+            .cloned()
+            .unwrap_or_default();
         if !allowed_next.contains(state_to.as_str()) {
             let legal = if allowed_next.is_empty() {
                 "(终态,不可再迁移)".into()
@@ -148,10 +149,7 @@ pub fn lint_file(path: &Path) -> (i32, String) {
     };
     let (n, errors) = lint_text(&text);
     if errors.is_empty() {
-        (
-            0,
-            format!("审计通过:{n} 个事件,状态机全合法。\n"),
-        )
+        (0, format!("审计通过:{n} 个事件,状态机全合法。\n"))
     } else {
         let mut out = format!("审计不通过:{n} 个事件,发现 {} 处问题:\n", errors.len());
         for (line_no, msg) in errors {

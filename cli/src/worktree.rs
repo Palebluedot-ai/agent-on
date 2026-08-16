@@ -16,6 +16,9 @@ pub struct ClaimOpts {
     pub base: Option<String>,
     pub owns: Vec<String>,
     pub depends_on: Vec<String>,
+    /// Queue the lane as `parked` instead of `active` (does not count toward
+    /// the active-lane cap).
+    pub parked: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -159,29 +162,29 @@ struct DecisionFacts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LaneRecord {
+pub(crate) struct LaneRecord {
     version: u8,
-    id: String,
-    goal: String,
-    worktree: String,
-    branch: String,
-    base: String,
-    base_sha_at_claim: String,
-    owns: Vec<String>,
-    depends_on: Vec<String>,
-    status: String,
+    pub(crate) id: String,
+    pub(crate) goal: String,
+    pub(crate) worktree: String,
+    pub(crate) branch: String,
+    pub(crate) base: String,
+    pub(crate) base_sha_at_claim: String,
+    pub(crate) owns: Vec<String>,
+    pub(crate) depends_on: Vec<String>,
+    pub(crate) status: String,
     created_at: String,
     updated_at: String,
 }
 
 #[derive(Debug, Clone)]
-struct WorktreeInfo {
-    path: PathBuf,
-    head: String,
-    branch: Option<String>,
-    detached: bool,
-    locked: bool,
-    prunable: bool,
+pub(crate) struct WorktreeInfo {
+    pub(crate) path: PathBuf,
+    pub(crate) head: String,
+    pub(crate) branch: Option<String>,
+    pub(crate) detached: bool,
+    pub(crate) locked: bool,
+    pub(crate) prunable: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -215,7 +218,7 @@ struct AuditReport {
     errors: Vec<String>,
 }
 
-fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(cwd)
@@ -235,11 +238,11 @@ fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
     }
 }
 
-fn repo_root(cwd: &Path) -> Result<PathBuf, String> {
+pub(crate) fn repo_root(cwd: &Path) -> Result<PathBuf, String> {
     git(cwd, &["rev-parse", "--show-toplevel"]).map(PathBuf::from)
 }
 
-fn common_git_dir(cwd: &Path) -> Result<PathBuf, String> {
+pub(crate) fn common_git_dir(cwd: &Path) -> Result<PathBuf, String> {
     if let Ok(raw) = git(
         cwd,
         &["rev-parse", "--path-format=absolute", "--git-common-dir"],
@@ -301,11 +304,29 @@ fn owns_path(boundaries: &[String], path: &str) -> bool {
     boundaries.iter().any(|b| boundary_contains(b, path))
 }
 
-fn ownership_live(status: &str) -> bool {
+pub(crate) fn ownership_live(status: &str) -> bool {
     matches!(status, "active" | "blocked" | "ready")
 }
 
-fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
+pub(crate) const DEFAULT_ACTIVE_CAP: u64 = 3;
+
+/// Configurable ACTIVE-lane cap, read from `<common git dir>/agent-on/config.json`
+/// (`{"active_cap": N}`). Missing or malformed config falls back to the default.
+pub(crate) fn active_cap(cwd: &Path) -> u64 {
+    let Ok(common) = common_git_dir(cwd) else {
+        return DEFAULT_ACTIVE_CAP;
+    };
+    let path = common.join("agent-on").join("config.json");
+    let Ok(raw) = fs::read_to_string(&path) else {
+        return DEFAULT_ACTIVE_CAP;
+    };
+    serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()
+        .and_then(|v| v.get("active_cap").and_then(|c| c.as_u64()))
+        .unwrap_or(DEFAULT_ACTIVE_CAP)
+}
+
+pub(crate) fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
     let dir = registry_dir(cwd)?;
     if !dir.exists() {
         return Ok(Vec::new());
@@ -351,7 +372,7 @@ fn write_record(cwd: &Path, record: &LaneRecord) -> Result<(), String> {
     fs::write(&path, format!("{raw}\n")).map_err(|e| format!("write {}: {e}", path.display()))
 }
 
-fn default_base(cwd: &Path) -> Result<String, String> {
+pub(crate) fn default_base(cwd: &Path) -> Result<String, String> {
     if let Ok(v) = git(
         cwd,
         &["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
@@ -437,6 +458,15 @@ fn claim_lane_inner(cwd: &Path, opts: &ClaimOpts) -> Result<LaneRecord, String> 
             return Err(format!("dependency lane is not registered: {dep}"));
         }
     }
+    if !opts.parked {
+        let cap = active_cap(cwd);
+        let active = records.iter().filter(|r| r.status == "active").count() as u64;
+        if active >= cap {
+            return Err(format!(
+                "活跃轨上限已满（{active}/{cap}）；先 park 一条，或用 --parked 排队（上限配置：common git dir 的 agent-on/config.json {{\"active_cap\":N}}）"
+            ));
+        }
+    }
     let now = Utc::now().to_rfc3339();
     let record = LaneRecord {
         version: RECORD_VERSION,
@@ -448,7 +478,7 @@ fn claim_lane_inner(cwd: &Path, opts: &ClaimOpts) -> Result<LaneRecord, String> 
         base_sha_at_claim: base_sha,
         owns,
         depends_on: opts.depends_on.clone(),
-        status: "active".to_string(),
+        status: if opts.parked { "parked" } else { "active" }.to_string(),
         created_at: now.clone(),
         updated_at: now,
     };
@@ -481,6 +511,19 @@ pub fn set_lane_status(cwd: &Path, id: Option<&str>, status: &str) -> (i32, Stri
         let current = records[target_index].status.as_str();
         if !transition_allowed(current, status) {
             return Err(format!("invalid lane transition: {current} -> {status}"));
+        }
+        if status == "active" && current != "active" {
+            let cap = active_cap(cwd);
+            let active = records
+                .iter()
+                .enumerate()
+                .filter(|(i, r)| *i != target_index && r.status == "active")
+                .count() as u64;
+            if active >= cap {
+                return Err(format!(
+                    "活跃轨上限已满（{active}/{cap}）；先 park / land 一条再激活"
+                ));
+            }
         }
         if status == "ready" {
             let target = &records[target_index];
@@ -575,7 +618,7 @@ pub fn forget_lane(cwd: &Path, id: &str) -> (i32, String) {
     }
 }
 
-fn parse_worktrees(raw: &str) -> Vec<WorktreeInfo> {
+pub(crate) fn parse_worktrees(raw: &str) -> Vec<WorktreeInfo> {
     let mut out = Vec::new();
     let mut current: Option<WorktreeInfo> = None;
     for line in raw.lines().chain(std::iter::once("")) {
@@ -647,7 +690,7 @@ fn changed_files(path: &Path, base: &str) -> Result<Vec<String>, String> {
     Ok(files.into_iter().collect())
 }
 
-fn count_revs(path: &Path, range: &str) -> Option<u64> {
+pub(crate) fn count_revs(path: &Path, range: &str) -> Option<u64> {
     git(path, &["rev-list", "--count", range])
         .ok()
         .and_then(|v| v.parse().ok())
@@ -1000,7 +1043,11 @@ fn count_revs_result(path: &Path, range: &str) -> Result<u64, String> {
         .map_err(|e| format!("invalid rev-list count for {range}: {e}"))
 }
 
-fn ancestor_result(path: &Path, ancestor: &str, descendant: &str) -> Result<bool, String> {
+pub(crate) fn ancestor_result(
+    path: &Path,
+    ancestor: &str,
+    descendant: &str,
+) -> Result<bool, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(path)
@@ -1087,7 +1134,10 @@ fn worktree_git_dir(path: &Path) -> Result<PathBuf, String> {
     Ok(fs::canonicalize(&resolved).unwrap_or(resolved))
 }
 
-fn scan_worktree(path: &Path, include_git_activity: bool) -> Result<(u64, SystemTime), String> {
+pub(crate) fn scan_worktree(
+    path: &Path,
+    include_git_activity: bool,
+) -> Result<(u64, SystemTime), String> {
     let (bytes, mut latest) = scan_tree(path)?;
     if include_git_activity {
         let git_dir = worktree_git_dir(path)?;
@@ -1448,7 +1498,7 @@ fn decide_gc(facts: DecisionFacts) -> (String, Vec<String>) {
     ("review".to_string(), reasons)
 }
 
-fn hosted_base_name(root: &Path, base: &str) -> Option<String> {
+pub(crate) fn hosted_base_name(root: &Path, base: &str) -> Option<String> {
     let full = git(root, &["rev-parse", "--symbolic-full-name", base]).ok()?;
     if let Some(name) = full.strip_prefix("refs/heads/") {
         return Some(name.to_string());
@@ -1860,6 +1910,7 @@ mod tests {
         let (code, out) = claim_lane(
             &wt,
             &ClaimOpts {
+                parked: false,
                 id: "lane-a".to_string(),
                 goal: "change app".to_string(),
                 base: Some("main".to_string()),
@@ -1878,6 +1929,7 @@ mod tests {
     fn claimed_clean_worktree_passes_strict_check() {
         let (_tmp, root, wt) = fixture();
         let opts = ClaimOpts {
+            parked: false,
             id: "lane-a".to_string(),
             goal: "change app".to_string(),
             base: Some("main".to_string()),
@@ -1894,6 +1946,7 @@ mod tests {
     fn second_claim_cannot_overlap_live_lane() {
         let (tmp, root, wt) = fixture();
         let first = ClaimOpts {
+            parked: false,
             id: "lane-a".to_string(),
             goal: "change app".to_string(),
             base: Some("main".to_string()),
@@ -1915,6 +1968,7 @@ mod tests {
             ],
         );
         let second = ClaimOpts {
+            parked: false,
             id: "lane-b".to_string(),
             goal: "also change app".to_string(),
             base: Some("main".to_string()),
@@ -1926,10 +1980,124 @@ mod tests {
         assert!(out.contains("overlaps live lane lane-a"), "{out}");
     }
 
+    fn write_cap(root: &Path, cap: u64) {
+        let common = common_git_dir(root).unwrap();
+        let dir = common.join("agent-on");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("config.json"), format!("{{\"active_cap\":{cap}}}")).unwrap();
+    }
+
+    fn add_worktree(root: &Path, tmp: &Path, name: &str, branch: &str) -> PathBuf {
+        let path = tmp.join(name);
+        run(
+            root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                path.to_str().unwrap(),
+                "main",
+            ],
+        );
+        path
+    }
+
+    #[test]
+    fn claim_refuses_new_active_lane_beyond_cap() {
+        let (tmp, root, wt) = fixture();
+        write_cap(&root, 1);
+        let first = ClaimOpts {
+            id: "lane-a".to_string(),
+            goal: "change app".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["app".to_string()],
+            depends_on: Vec::new(),
+            parked: false,
+        };
+        assert_eq!(claim_lane(&wt, &first).0, 0);
+        let wt_b = add_worktree(&root, tmp.path(), "lane-b", "lane/b");
+        let second = ClaimOpts {
+            id: "lane-b".to_string(),
+            goal: "change readme".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["README.md".to_string()],
+            depends_on: Vec::new(),
+            parked: false,
+        };
+        let (code, out) = claim_lane(&wt_b, &second);
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("活跃轨上限"), "{out}");
+        assert!(out.contains("--parked"), "{out}");
+    }
+
+    #[test]
+    fn parked_claim_queues_without_counting_toward_cap() {
+        let (tmp, root, wt) = fixture();
+        write_cap(&root, 1);
+        let first = ClaimOpts {
+            id: "lane-a".to_string(),
+            goal: "change app".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["app".to_string()],
+            depends_on: Vec::new(),
+            parked: false,
+        };
+        assert_eq!(claim_lane(&wt, &first).0, 0);
+        let wt_b = add_worktree(&root, tmp.path(), "lane-b", "lane/b");
+        let second = ClaimOpts {
+            id: "lane-b".to_string(),
+            goal: "change readme".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["README.md".to_string()],
+            depends_on: Vec::new(),
+            parked: true,
+        };
+        let (code, out) = claim_lane(&wt_b, &second);
+        assert_eq!(code, 0, "{out}");
+        let records = load_records(&root).unwrap();
+        let lane_b = records.iter().find(|r| r.id == "lane-b").unwrap();
+        assert_eq!(lane_b.status, "parked");
+    }
+
+    #[test]
+    fn set_status_active_enforces_cap() {
+        let (tmp, root, wt) = fixture();
+        write_cap(&root, 1);
+        let first = ClaimOpts {
+            id: "lane-a".to_string(),
+            goal: "change app".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["app".to_string()],
+            depends_on: Vec::new(),
+            parked: false,
+        };
+        assert_eq!(claim_lane(&wt, &first).0, 0);
+        let wt_b = add_worktree(&root, tmp.path(), "lane-b", "lane/b");
+        let second = ClaimOpts {
+            id: "lane-b".to_string(),
+            goal: "change readme".to_string(),
+            base: Some("main".to_string()),
+            owns: vec!["README.md".to_string()],
+            depends_on: Vec::new(),
+            parked: true,
+        };
+        assert_eq!(claim_lane(&wt_b, &second).0, 0);
+        let (code, out) = set_lane_status(&wt_b, None, "active");
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("活跃轨上限"), "{out}");
+        // Park the first lane, then activation fits inside the cap.
+        assert_eq!(set_lane_status(&wt, None, "parked").0, 0);
+        let (code, out) = set_lane_status(&wt_b, None, "active");
+        assert_eq!(code, 0, "{out}");
+    }
+
     #[test]
     fn ready_requires_clean_in_boundary_worktree() {
         let (_tmp, _root, wt) = fixture();
         let opts = ClaimOpts {
+            parked: false,
             id: "lane-a".to_string(),
             goal: "change app".to_string(),
             base: Some("main".to_string()),
@@ -1947,6 +2115,7 @@ mod tests {
     fn primary_worktree_is_never_reclaimable() {
         let (_tmp, root, _wt) = fixture();
         let opts = ClaimOpts {
+            parked: false,
             id: "control".to_string(),
             goal: "coordinate".to_string(),
             base: Some("main".to_string()),
@@ -1969,6 +2138,7 @@ mod tests {
     fn locked_registered_worktree_is_never_safe() {
         let (_tmp, root, wt) = fixture();
         let opts = ClaimOpts {
+            parked: false,
             id: "lane-a".to_string(),
             goal: "change app".to_string(),
             base: Some("main".to_string()),
