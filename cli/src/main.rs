@@ -3,6 +3,7 @@
 mod audit_lint;
 mod guard;
 mod intake_lint;
+mod landing;
 mod paths;
 mod routing;
 mod setup;
@@ -37,14 +38,10 @@ enum Commands {
     Guard,
     /// Lint intake Promotion Cards
     #[command(name = "intake-lint")]
-    IntakeLint {
-        files: Vec<PathBuf>,
-    },
+    IntakeLint { files: Vec<PathBuf> },
     /// Lint audit_event jsonl state machine
     #[command(name = "audit-lint")]
-    AuditLint {
-        file: PathBuf,
-    },
+    AuditLint { file: PathBuf },
     /// Open-box skill routing / demotion checks
     Check {
         #[command(subcommand)]
@@ -85,6 +82,46 @@ enum Commands {
         #[command(subcommand)]
         action: WorktreeCmd,
     },
+    /// Landing coordinator + lifecycle manager (read-only control plane)
+    Landing {
+        #[command(subcommand)]
+        action: LandingCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum LandingCmd {
+    /// Batched evidence refresh bound to (PR head SHA, base SHA); the only
+    /// network command, writes the local snapshot cache
+    Refresh {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long)]
+        base: Option<String>,
+        /// Hours of inactivity required before a merged worktree is REAPABLE
+        #[arg(long, default_value_t = 24)]
+        quiet_hours: u64,
+    },
+    /// Homepage summary + six-category merge table from the cached snapshot
+    Status {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value_t = 24)]
+        quiet_hours: u64,
+    },
+    /// Serial merge waves + parallel prep from the cached snapshot
+    Plan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value_t = 24)]
+        quiet_hours: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -101,6 +138,9 @@ enum WorktreeCmd {
         owns: Vec<String>,
         #[arg(long = "depends-on")]
         depends_on: Vec<String>,
+        /// Queue the lane as parked (does not count toward the active-lane cap)
+        #[arg(long)]
+        parked: bool,
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
@@ -307,11 +347,11 @@ fn main() {
                 base,
                 owns,
                 depends_on,
+                parked,
                 cwd,
             } => {
-                let cwd = cwd.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let cwd = cwd
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::claim_lane(
                     &cwd,
                     &worktree::ClaimOpts {
@@ -320,6 +360,7 @@ fn main() {
                         base,
                         owns,
                         depends_on,
+                        parked,
                     },
                 );
                 if c == 0 {
@@ -330,9 +371,8 @@ fn main() {
                 c
             }
             WorktreeCmd::SetStatus { status, id, cwd } => {
-                let cwd = cwd.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let cwd = cwd
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::set_lane_status(&cwd, id.as_deref(), &status);
                 if c == 0 {
                     print!("{out}");
@@ -342,17 +382,15 @@ fn main() {
                 c
             }
             WorktreeCmd::Status { json, repo } => {
-                let repo = repo.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let repo = repo
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::run_audit(&repo, json, false);
                 print!("{out}");
                 c
             }
             WorktreeCmd::Check { json, repo } => {
-                let repo = repo.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let repo = repo
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::run_audit(&repo, json, true);
                 if c == 0 {
                     print!("{out}");
@@ -394,9 +432,8 @@ fn main() {
                 base,
                 quiet_hours,
             } => {
-                let repo = repo.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let repo = repo
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::run_gc(
                     &repo,
                     &worktree::GcOpts {
@@ -414,9 +451,8 @@ fn main() {
                 c
             }
             WorktreeCmd::Forget { id, repo } => {
-                let repo = repo.unwrap_or_else(|| {
-                    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-                });
+                let repo = repo
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::forget_lane(&repo, &id);
                 if c == 0 {
                     print!("{out}");
@@ -426,6 +462,55 @@ fn main() {
                 c
             }
         },
+        Commands::Landing { action } => {
+            let default_repo = || env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let (c, out) = match action {
+                LandingCmd::Refresh {
+                    json,
+                    repo,
+                    base,
+                    quiet_hours,
+                } => landing::run_refresh(
+                    &repo.unwrap_or_else(default_repo),
+                    &landing::RealGh,
+                    &landing::LandingOpts {
+                        json,
+                        base,
+                        quiet_hours,
+                    },
+                ),
+                LandingCmd::Status {
+                    json,
+                    repo,
+                    quiet_hours,
+                } => landing::run_status(
+                    &repo.unwrap_or_else(default_repo),
+                    &landing::LandingOpts {
+                        json,
+                        base: None,
+                        quiet_hours,
+                    },
+                ),
+                LandingCmd::Plan {
+                    json,
+                    repo,
+                    quiet_hours,
+                } => landing::run_plan(
+                    &repo.unwrap_or_else(default_repo),
+                    &landing::LandingOpts {
+                        json,
+                        base: None,
+                        quiet_hours,
+                    },
+                ),
+            };
+            if c == 0 {
+                print!("{out}");
+            } else {
+                eprint!("{out}");
+            }
+            c
+        }
     };
     process::exit(code);
 }

@@ -479,6 +479,7 @@ mod tests {
         let (code, out) = crate::worktree::claim_lane(
             &wt,
             &crate::worktree::ClaimOpts {
+                parked: false,
                 id: "lane-a".to_string(),
                 goal: "change app".to_string(),
                 base: Some("main".to_string()),

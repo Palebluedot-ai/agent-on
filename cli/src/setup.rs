@@ -60,10 +60,7 @@ pub fn run_setup(opts: &SetupOpts) -> i32 {
         return 2;
     }
 
-    let work_root = opts
-        .work_root
-        .clone()
-        .unwrap_or_else(default_work_root);
+    let work_root = opts.work_root.clone().unwrap_or_else(default_work_root);
     let work_root = fs::canonicalize(&work_root).unwrap_or(work_root);
 
     println!("platform     = {}", env::consts::OS);
@@ -152,7 +149,11 @@ fn clone_or_update(work_root: &Path, pin: &str, remote: &str) -> Result<(), Stri
                 work_root.display()
             ));
         }
-        run_cmd(&["git", "clone", remote, &work_root.display().to_string()], None, true)?;
+        run_cmd(
+            &["git", "clone", remote, &work_root.display().to_string()],
+            None,
+            true,
+        )?;
     } else {
         let _ = run_cmd(
             &["git", "fetch", "--tags", "--force", "origin"],

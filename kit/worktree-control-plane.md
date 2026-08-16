@@ -113,6 +113,8 @@ agent-on worktree status
 agent-on worktree status --json
 ```
 
+多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；本页的 lane 合同与边界闸是它的地基。
+
 它同时报告：未登记 worktree、活跃边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类。
 
 - **会话握手 / 转写前**：跑 `status`，确认 cwd、branch、lane 与写者数量；第二个写者出现就触发上面的并发门。
