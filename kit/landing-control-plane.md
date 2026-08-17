@@ -175,3 +175,7 @@ WAVE 2  #184（等 #182）
 - 快照里的 `category == NOW` + `evidence != invalidated` 是唯一合法的自动合流入口条件；
 - 合流后必须触发一次 `refresh`，让 base 移动走增量失效，而不是清空全表；
 - 自动化仍须遵守 [worktree 控制面](worktree-control-plane.md) 的权限边界：删树、删分支、`--force` 永远人工。
+
+## 执行半场：值守（babysit）
+
+v1 的三条命令是规划半场（只读侦察）；在班执行由[值守合并调度](babysit/README.md)承担——landing 出 NOW / 波次当排序输入，值守做「追平 → CI → 拍板 → merge → 记账 → 回执」的串行执行，合完触发一次 `refresh` 走增量失效。上面 auto-merge 挂点描述的入口条件（`NOW` + 证据有效），值守就是它的**有人拍板**实现；无人自动合并仍然不做。

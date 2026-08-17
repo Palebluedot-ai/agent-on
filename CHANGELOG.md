@@ -4,7 +4,33 @@
 
 ## [未发布]
 
-（自 v0.13.0 起攒）
+（自 v0.14.0 起攒）
+
+## v0.14.0（2026-08-17）——值守合并调度（babysit merge dispatcher）
+
+> **minor**：不动手不坏。纯新增 kit 组件与文档接线，存量项目不接入则行为不变；CLI 零改动。
+
+### 用户可见主线
+
+- **kit/babysit/ 四件**：`BABYSIT-TEMPLATE.md`（值守文档模板 §0–§7：GOAL / 首轮启动 / 每轮检查单 / 权限三档 / 分诊手册 / 已知遗留 / 汇报纪律 / 交接下班）+ `SETUP.md`（三步接入：权限用户手跑 → 治理条款 → 复制模板启动，含角色分工与换班 SOP）+ `CONTRIBUTING-CLAUSE.md`（治理条款范本，含交单模板）+ `README.md`（定位、排队经济学、五条设计不变量）
+- **定位**：多会话并行下远端公共态（main / PR 队列 / CI / 账本）的值班经理。排队经济学：up-to-date 硬门下 N 会话各自追平自合 = O(N²) 次 rebase，值守串行调度 = O(N)——合并权中央化不是偏好，是硬门下的最优解
+- **landing 的执行半场**：landing v1 只读出 NOW / 波次当排序输入，值守做「追平 → CI → 拍板 → merge → 记账 → 回执」串行执行；auto-merge 挂点的有人拍板实现，无人自动合并仍然不做
+- **五条设计不变量**：会话是班次、文档是资产 / 队列真相源 = open PR 列表（SendMessage 交单只是门铃）/ 追平只走服务端 update-branch / 串行 + 连锁追平 / 批准只认本会话用户输入（同行转述 ≠ 批准）
+- **接线**：`landing-control-plane.md` 补「执行半场」节、`worktree-control-plane.md` 补「值守与 lane 的分工」节、BOOTSTRAP §5 与 `boot/adopt.md` 增量接管段各加一句接入指引；README 补 v0.13 路线行欠账
+
+### 诚实边界
+
+- 不做无人自动合并：需拍板类永远等用户；单值守互斥靠治理条款与接班仪式，不靠锁（在班心跳 / 队列标签化 = v2 挂点，零真实需求前不建）
+- 值守零代修：真缺陷打回作者四件套（证据指针 + 缺陷定位 + 修复选项 + SendMessage），billing 类事故推通知等管理员
+- 权限最小集只两条 allow（merge + 服务端 update-branch），被拦哪条补哪条，不放 `gh:*`；agent 改不了自己的权限配置（三模态实测全拦），SETUP 把它做成用户手跑步
+- 本批只消化 babysit 落点：08-16 六卡 / 08-17 四卡的 playbook、bench、anti-hallucination 落点仍 pending（各卡已原地标注）
+
+### 证据
+
+- Dartify 值守夜班（08-16）：单 /loop 会话 9 连合（#150–#153 / #155 / #158 / #160–#162），每条走追平→CI→合；#150 两轮追平（76ec1df→75a0ca8）实证连锁追平；途中处置 org 级 Actions billing 瘫痪 ~6.5h（job annotation 取证 + 推通知 + 每轮探针）；治理条款入 Dartify CONTRIBUTING §四（PR #163）
+- Dartify 三单实战（08-17，#164 / #165 / #169）：run id 按 workflowName 过滤修正抓错（31956970664→31956970653）；#169 真红打回作者四件套后 15 分钟修绿（3e41feb），值守零代修；转述指令仍向本人复核后执行，作者回执「你另行向用户核拍板是对的——该省的从来不是这步」
+- 跨 lane 追平边界实测：本地推别人分支被 worktree guard 正确拦下，`gh api -X PUT …/update-branch` 输出 "Updating pull request branch." 干净通过
+- 消化来源：intake `2026-08-16-babysit-merge-dispatcher.md` 与 `2026-08-16-babysit-kit-template-draft.md`（两专题件全部落位）+ `2026-08-16-dartify.md` 六卡 / `2026-08-17-dartify.md` 四卡的 babysit 落点
 
 ## v0.13.0（2026-08-16）——Landing 控制面 v1：合流协调 + 生命周期分类
 
