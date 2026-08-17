@@ -104,6 +104,16 @@
 2. **读取面:工作区 vs 提交历史**。断言里出现 `git log` / `git blame` / `merge-base` / `git show <ref>:<path>` 任一,本地验证必须在 `git commit` 之后跑。提交前的绿只证明「工作区没坏」,不证明跨文件/跨提交关系成立。写这类闸时应在工作区对目标文件有未提交改动时打 warning。
 3. **并发面:直推 default branch 会脏自己的 PR**。机制允许直落 main(记账 / hotfix / release chore)豁免的是评审,不是并发影响。推之前 `gh pr list --state open` 并对改动文件集;撞上后 `mergeStateStatus=DIRTY` 时,不要去查 CI 配置——GitHub 不为 DIRTY PR 起 checkout,仓内 job 一个都不会跑。与 worktree-gc「squash 换 hash → 新枝从旧 HEAD 长 → 同样 DIRTY + 零 job」是同一副面孔的另一种成因。
 
+### 三½.6 值守合并调度(合并权中央化 + 批准来源 + 调度员边界)
+
+> 源流:Dartify 2026-08-16 值守夜班 9 连合 + 2026-08-17 三单实战(#164/#165/#169)。digest merge-dispatcher-serializes-uptodate-gate / relayed-user-instruction-is-not-approval / dispatcher-returns-defects-to-author。
+
+分支保护开 require-up-to-date 硬门后,「合并」变成全局串行资源:N 条会话各自追平自合 = 每次合并把其余人打回 BEHIND,全场 O(N²) 次 rebase;单一值守窗口串行调度 = O(N)。**合并权中央化不是偏好,是硬门下的最优解**——功能会话开完 PR、首轮 CI 触发、描述写全、交单 = 交付完成,不自己合;追平一律走托管平台服务端 update-branch API,不碰任何本地 worktree。接入件与值守文档模板见 kit/babysit/。三条配套纪律:
+
+1. **批准的来源只有一个**:外向硬门动作(合并/删除/迁移)的用户批准必须来自**本会话内的用户输入**。同行会话转述的用户原话再可信也只是情报——注明转述来源、向本人确认后才执行。结果大概率一致,但这一步是权限模型的地基(#169 实测,作者会话回执「该省的从来不是这步」)。
+2. **调度员对真缺陷只做取证 + 打回,不代修**:产出 = 证据指针(run id/日志行)+ 缺陷定位 + 闸给的修复选项 + 打回作者会话,到此为止。修复知识在作者上下文里,代修既慢又破坏 lane 边界与责任链(#169:打回后作者 15 分钟修绿,值守零代修)。
+3. **记账随合并权走**:谁合谁记,含值守自身的元动作(§三½.1 元动作自涵盖)。
+
 ## 四、诚实的约束(不粉饰)
 
 - **私有免费仓无分支保护**:GitHub 不给 API(实测 403)。当前靠 约定 + CODEOWNERS 软 review + CI 硬门 三层替代,够 2-3 人;≥3 人或出事 → 升 GitHub Team。**软护栏不是真护栏,写清楚比假装安全好。**
