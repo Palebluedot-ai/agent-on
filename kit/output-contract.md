@@ -175,7 +175,24 @@ git worktree remove <绝对路径>
 | [babysit/MERGE-POLICY.md](babysit/MERGE-POLICY.md) | 值守每轮回执格式 |
 | [landing-control-plane.md](landing-control-plane.md) | 机器类别 → 中文人话对照 |
 
-## §10 自查（提交这轮输出前 20 秒）
+## §10 搬到别的项目（自包含，不依赖本仓其它文件）
+
+本页**照抄即用**，不需要先读 kit 里任何别的东西。项目接入三步：
+
+1. **拷贝**：把本页拷到项目仓 `docs/output-contract.md`（或直接在项目 AGENTS 里引用 agent-on 的这份，二选一，别两份都有）。
+2. **在项目宪法里点名**：项目 `AGENTS.md`（或等价物）加一句，**位置越靠前越好**：
+
+   > **报告即数据**：所有会话与子代理的每轮输出统一走 `docs/output-contract.md`——状态面板在前 → 拍板收成一节带默认值 → 结论三格 → 撤销两栏 → 球在谁那 → 之后才是过程。类别一律中文人话，机器类别名只准放括号里。
+
+3. **在派工词末尾挂一句**（给子代理的 prompt 都加）：
+
+   > 完成报告格式照 `docs/output-contract.md`；你没验证过的假设写成「我按这个假设做了，你不否就当成立」，每条注明否掉要重做什么。
+
+装了值守的项目再加一步：授权分级与时延目标照 [babysit/MERGE-POLICY.md](babysit/MERGE-POLICY.md) 抄一次，X 要算成具体数字写死。
+
+**没装 agent-on CLI 的项目照样能用**——本页只约束「话怎么说」，不依赖任何命令。面板里的事实从 `git worktree list` / `gh pr list` / `gh pr checks` 就能拿全，机器类别对照表（§2）用不上的行直接删。
+
+## §11 自查（提交这轮输出前 20 秒）
 
 - [ ] 第一屏是面板，不是过程叙述
 - [ ] 每行都有「我要不要动」和具名的「归谁」
