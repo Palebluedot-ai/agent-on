@@ -243,13 +243,13 @@ lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管*
 
 ## 重划与死锁三解(lane 记录是文件态 canonical)
 
-CLI 尚无 `worktree edit` / 重划命令(backlog 已立),`claim` 会拒绝已存在 lane 与撞活跃轨的重划。**重划机制 = 直接编辑 common git dir 的 `agent-on/lanes/<id>.json`**(goal / owns / branch / base_sha 写真值),改完 `agent-on worktree check` 验证——这是文档化的运维姿势,不是绕闸(lane 记录本身写着「复活时重划」)。三种死锁的实测解法:
+**重划入口 = `agent-on worktree edit`**(`--id` 定位,缺省当前 worktree 的 lane;可改 goal / owns / branch / base,`--base` 会重钉 base_sha;改 owns 走与 claim 相同的活跃轨重叠闸,parked 轨重叠容忍),`claim` 仍拒绝已存在 lane 与撞活跃轨的重划。无 CLI(装机版 ≤0.12.1)或被重叠闸拦住时,fallback = 直接编辑 common git dir 的 `agent-on/lanes/<id>.json`(goal / owns / branch / base_sha 写真值),改完 `agent-on worktree check` 验证——这是文档化的运维姿势,不是绕闸(lane 记录本身写着「复活时重划」)。三种死锁的实测解法:
 
-1. **claim 拒绝重划已存在 lane** → 直改该 lane JSON,再 check 验证。
-2. **OUT-OF-BOUNDS 死锁**(改动文件既出界、又因撞活跃轨不许重新 claim)→ 把 OUT-OF-BOUNDS 清单回填进 owns(JSON 直改)。check 容忍 parked 轨与活跃轨重叠,只有 claim 在入口拦——这是不动点解成立的机制原因。
+1. **claim 拒绝重划已存在 lane** → `worktree edit` 改真值,再 check 验证(无 CLI 时直改该 lane JSON)。
+2. **OUT-OF-BOUNDS 死锁**(改动文件既出界、又因撞活跃轨不许重新 claim)→ 把 OUT-OF-BOUNDS 清单回填进 owns。此条只能 JSON 直改:`edit` 与 claim 同闸,同样拒绝撞活跃轨的回填。check 容忍 parked 轨与活跃轨重叠,只有 claim / edit 在入口拦——这是不动点解成立的机制原因。
 3. **未登记 worktree 连坐全场 FAIL** → 这是设计而非缺陷(连坐保证全场账实一致;2026-08-17 拍板维持)。**逃生门 = 占位登记**:替未登记树 `claim --cwd <path>` + `set-status parked`,goal 写明「占位 park,复活时其会话按真实目标重划」;有脏文件 / 独有提交的按其**实际改动**写真 owns,空白探索轨给中性 owns。占位不改其文件、不代 commit;复活会话按第 1 条重划即可。注意 PreToolUse guard 在命令执行**前**评估——占位 claim 与 `git commit` 必须拆成两条命令,合在一条里 claim 永远跑不到。
 
-**已知雷**:`claim --owns "a,b,c"` 逗号串会被整串存成单个 glob,所有改动文件全判 OUT-OF-BOUNDS(0.12.x 实测)——多路径必须**重复 `--owns` 传参**;写错一次没有 CLI 层改错路径,按第 1 条 JSON 直改。生命周期转移有向:`parked→landed` 与 `active→landed` 均非法,合法链 `active→ready→landed` / `parked→ready→landed`。
+**已知雷**:0.12.x 装机版的 `claim --owns "a,b,c"` 逗号串会被整串存成单个 glob,所有改动文件全判 OUT-OF-BOUNDS——旧版多路径必须**重复 `--owns` 传参**。现已修复为逗号自动分列(claim 侧 PR #6,edit 侧同款;字面逗号路径用 git 引号八进制 `"a\054b.md"`);owns 写错用 `worktree edit --owns` 改,不再只有 JSON 直改一条路。生命周期转移有向:`parked→landed` 与 `active→landed` 均非法,合法链 `active→ready→landed` / `parked→ready→landed`。
 
 ## 失控时的恢复顺序
 
