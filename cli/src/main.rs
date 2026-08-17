@@ -134,9 +134,12 @@ enum WorktreeCmd {
         goal: String,
         #[arg(long)]
         base: Option<String>,
-        #[arg(long = "owns", required = true)]
+        /// Owned path prefix; repeat the flag or pass a comma-separated list.
+        /// A path containing a literal comma needs git quoted form, e.g. --owns '"a\054b.md"'
+        #[arg(long = "owns", required = true, value_delimiter = ',')]
         owns: Vec<String>,
-        #[arg(long = "depends-on")]
+        /// Lane id this lane waits on; repeat the flag or pass a comma-separated list
+        #[arg(long = "depends-on", value_delimiter = ',')]
         depends_on: Vec<String>,
         /// Queue the lane as parked (does not count toward the active-lane cap)
         #[arg(long)]

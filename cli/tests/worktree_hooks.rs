@@ -761,3 +761,111 @@ fn unreachable_old_path_cleans_scheduler_but_reports_git_facet_unknown() {
     );
     assert!(cleanup.status.success(), "{}", combined(&cleanup));
 }
+
+#[test]
+fn claim_splits_comma_separated_owns_into_separate_boundaries() {
+    let fixture = Fixture::new();
+    let lane = fixture._tmp.path().join("lane-comma");
+    must_run(
+        &fixture.root,
+        "git",
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "lane/comma",
+            lane.to_str().unwrap(),
+            "main",
+        ],
+    );
+    let claimed = fixture.must_agent_on(
+        &lane,
+        &[
+            "worktree",
+            "claim",
+            "--id",
+            "lane-comma",
+            "--goal",
+            "comma-separated owns",
+            "--base",
+            "main",
+            "--owns",
+            "a.md,b.md,c.md,d.md",
+            "--owns",
+            r#""x\054y.md""#,
+        ],
+    );
+    assert!(
+        combined(&claimed).contains("owns: a.md, b.md, c.md, d.md, x,y.md"),
+        "{}",
+        combined(&claimed)
+    );
+    let record =
+        fs::read_to_string(fixture.root.join(".git/agent-on/lanes/lane-comma.json")).unwrap();
+    for boundary in ["\"a.md\"", "\"b.md\"", "\"c.md\"", "\"d.md\"", "\"x,y.md\""] {
+        assert!(record.contains(boundary), "{record}");
+    }
+    assert!(!record.contains("a.md,b.md"), "{record}");
+
+    fs::write(lane.join("a.md"), "in-bounds change\n").unwrap();
+    let check = fixture.must_agent_on(&lane, &["worktree", "check"]);
+    let check_text = combined(&check);
+    assert!(!check_text.contains("OUT-OF-BOUNDS"), "{check_text}");
+    assert!(check_text.contains("RESULT: PASS"), "{check_text}");
+}
+
+#[test]
+fn claim_splits_comma_separated_depends_on_into_lane_ids() {
+    let fixture = Fixture::new();
+    let mut lanes = Vec::new();
+    for id in ["dep-a", "dep-b", "lane-after"] {
+        let path = fixture._tmp.path().join(id);
+        must_run(
+            &fixture.root,
+            "git",
+            &[
+                "worktree",
+                "add",
+                "-b",
+                &format!("lane/{id}"),
+                path.to_str().unwrap(),
+                "main",
+            ],
+        );
+        lanes.push(path);
+    }
+    for (path, id, owns) in [
+        (&lanes[0], "dep-a", "docs/a"),
+        (&lanes[1], "dep-b", "docs/b"),
+    ] {
+        fixture.must_agent_on(
+            path,
+            &[
+                "worktree", "claim", "--id", id, "--goal", "dep lane", "--base", "main", "--owns",
+                owns,
+            ],
+        );
+    }
+    fixture.must_agent_on(
+        &lanes[2],
+        &[
+            "worktree",
+            "claim",
+            "--id",
+            "lane-after",
+            "--goal",
+            "waits on both deps",
+            "--base",
+            "main",
+            "--owns",
+            "docs/after",
+            "--depends-on",
+            "dep-a,dep-b",
+        ],
+    );
+    let record =
+        fs::read_to_string(fixture.root.join(".git/agent-on/lanes/lane-after.json")).unwrap();
+    assert!(record.contains("\"dep-a\""), "{record}");
+    assert!(record.contains("\"dep-b\""), "{record}");
+    assert!(!record.contains("dep-a,dep-b"), "{record}");
+}
