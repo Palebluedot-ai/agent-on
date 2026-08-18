@@ -272,7 +272,7 @@ Claude / Codex guard 都随 plugin 挂并共用一份 hook；Codex 非 managed h
 - **v0.12 ✅**：**`v0.12.1`** worktree 生命周期与执行强制层（只读 GC + shared Git hooks + Claude/Codex PreToolUse）。
 - **v0.13 ✅**：**`v0.13.0`** Landing 控制面 v1（合流协调三命令 + SHA 绑定证据缓存 + 六类合流表 + 五类生命周期 + 活跃轨上限）。
 - **v0.14 ✅**：**`v0.14.0`** 值守合并调度 babysit（kit/babysit 四件：模板 §0–§7 / 三步接入 / 治理条款范本；landing 的执行半场）。
-- **v0.15 ✅**：**`v0.15.0`** 值守两批消化收口（协作篇 §三½.6 值守段 + 记账字面匹配盲区 + 闸四张面 + worktree 重划死锁三解 + bench 37/38 + anti-hallucination #17/#19）+ Deep Research 派工模板 + babysit 交单三型协议。
+- **v0.15 ✅**：**`v0.15.0`** 值守两批消化收口（协作篇 §三½.6 值守段 + 记账字面匹配盲区 + 闸四张面 + worktree 重划死锁三解 + bench 37/38 + anti-hallucination #17/#19）+ Deep Research 派工模板 + babysit 交单三型协议 + 本仓值守自举（docs/babysit.md + AGENTS 第 8 条）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
