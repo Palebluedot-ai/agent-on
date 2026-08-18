@@ -11,6 +11,7 @@
 | [phase-card-template.md](phase-card-template.md) | 自包含 phase 卡模板(setpoint/disturbance/机械验收) | 14 张实战卡 |
 | [track-prompt-template.md](track-prompt-template.md) | 轨道 agent 派工 prompt(含 Opus 七脚手架旋钮) | Run #2-#7 派工词 |
 | [review-prompt-template.md](review-prompt-template.md) | 独立对抗审查 prompt(failed→respond→passed) | S2 审查(抓到 Critical 的那次) |
+| [deep-research-prompt-template.md](deep-research-prompt-template.md) | 深度调研派工 prompt(v1 骨架 + v2 四纪律:仓内审计先行/授权推翻前提/数字纪律/对抗自核验) | Dartify PR #180(158 断言对抗核验) |
 | [merge-checklist.md](merge-checklist.md) | 合流七步 checklist | sop.md Phase 5 + Run #3 教训 |
 | [ledger-ratchet-pattern.md](ledger-ratchet-pattern.md) | merge 记账 CI 棘轮模式 | 依从率断档时(Dartify) |
 | [worktree-gc-pattern.md](worktree-gc-pattern.md) | worktree 回收执行体 + 孤本保护 | 多 worktree / 日历死线 |

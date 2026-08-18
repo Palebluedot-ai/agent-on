@@ -2,6 +2,7 @@
 
 > 来源:Dartify AG1 会话(项目端);按跨仓规矩只落 intake 素材,不动 canonical。
 > 现场:AG1 五 PR 全部合并交付后,收官 chore(state) commit 被 guard 拦下,当场取证。
+> **去向(v0.15.0 消化批)**:发现 1 —— 逗号雷 + workaround 入 worktree-control-plane「重划与死锁三解」节,CLI 修复(分割或拒收 + `worktree edit`)立后台任务卡;发现 2 —— 用户拍板(2026-08-17)= **维持连坐** + 占位 park 正式化为文档逃生门(同节第 3 条,本消化会话当日四次实测);发现 3 —— 纯提醒,无落点。
 
 ## 发现 1(bug):`worktree claim --owns` 不按逗号分列表
 

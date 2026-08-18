@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.12.1`**（worktree 执行强制层：共享 Git hooks + 双工具 PreToolUse + 可选只读 GC 调度）。
+**最新推荐 pin：`v0.15.0`**（值守合并调度 babysit + landing 控制面 + worktree 执行强制层）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
@@ -24,6 +24,7 @@
 5. **反思回流**：dogfood 中发现的方法论缺陷，修 playbook 本身并在 commit 里说明
 6. **本仓对话 commit 必打 tag（2026-08-03 硬门，用户拍板）**：在 **agent-on 本仓直接对话**里，凡落地 `git commit` 并交付/push 的改动，**收尾必须** annotated tag + push tag（先封 CHANGELOG `[未发布]`、更新 README/AGENTS 推荐 pin，再 `agent-on tag-release --level … --title "…" --push`）。**禁止**只 commit/push、HEAD 仍领先最新 tag。同一交付轮次可分层多个 commit，但 **push 结束时 tag 必须钉在当前 HEAD**（一批一 tag 即可，覆盖这批全部 commit）。goal/plan 写「不要求 tag」**无效**，以本条为准。major 仍须迁移注记。可执行物为 **Rust CLI**（`cli/`，`cargo install --path cli`）。
 7. **多会话与 worktree 自举**：单写会话可在主树；一旦同时有 ≥2 条独立写会话，主树先 clean 并退为控制轨，每条写会话独占 worktree + lane，从 fresh `origin/main` 开枝。并行模式首次跑 `agent-on worktree hooks install`，让 shared `pre-commit/pre-push` 自动执行严格边界闸；需要每日报告再显式加 `--daily-gc`。握手、每次合流后仍看盘点；GC 永远只报告。删除 worktree/分支、`--force`、跨树 add/commit 必须人工且目标明确授权，locked/dirty/unknown 不删。
+8. **值守合并调度自举（2026-08-17 起）**：多会话并行、PR 排队时，本仓自己也开值守窗口（值守文档 = `docs/babysit.md`，接入件 = `kit/babysit/`）。值守在班时，全仓 PR 的 merge / update-branch / 已拍板版本批的 tag 统一归值守会话；功能会话开 PR 即交单交付（交单三型与收件地址见 kit/babysit/CONTRIBUTING-CLAUSE.md），不自己合。三条边界照 kit：真冲突打回作者；canonical PR 一律用户拍板，批准只认值守会话内的用户输入（转述须向本人复核）；记账随合并权走。值守不在班回退原规则：维护者会话自合，收尾必 tag（第 6 条照旧）。
 
 ## 文档纪律（继承 kickoff-os 六条，全文照旧）
 

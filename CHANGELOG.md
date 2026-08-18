@@ -4,9 +4,32 @@
 
 ## [未发布]
 
-（自 v0.14.0 起攒）
+（自 v0.15.0 起攒）
 
-- **babysit 交单协议补强**（kit/babysit 三件）：①交单消息三型——【交单】外新增【撤单/HOLD】（作者发现问题主动撤回，值守挂起该单、队列保留）与【READY】（修复重绿后重新激活），值守以最新一条消息为准、不凭旧交单行动；②在班值守地址——值守上岗把本班会话地址写进值守文档交接快照（下班清掉、接班覆盖），功能会话交单前先读它，读不到才退回 ListAgents 人工辨认（看名字与启动时长）。证据：2026-08-17 Dartify PR #176 实战——交单后对抗核验查出报告实质错误，临场发明 HOLD/READY；作者按 ListAgents 名字猜收件人错发给近名会话，靠收件方主动核实代转才未出「真值守拿旧版交单去合」的事故
+## v0.15.0（2026-08-17）——值守消化批 + 交单协议 + 本仓值守自举
+
+> **minor**：不动手不坏。playbook / bench / kit 纯增补与措辞升级，新 kit 模板一份；agent-on 自身接入值守（docs/babysit.md + AGENTS 第 8 条）不影响下游项目；CLI 零改动。
+
+### 用户可见主线
+
+- **消化批（一卡一 commit，11 卡全收口）**：协作篇 §三½.6 值守合并调度（排队经济学 O(N²)→O(N) / 批准来源转述≠批准 / 调度员打回边界）+ §三½.1 字面匹配盲区（提及≠记账）+ §三½.5 闸三张面升**四张面**（新增出口面：报错即工单）；worktree-control-plane 新节「重划与死锁三解」（lane JSON 直改 = 重划机制、占位 park = 连坐逃生门【2026-08-17 拍板：维持连坐】、`--owns` 逗号雷 workaround）；bench 案 37（等 CI 的信号源）/ 案 38（全 job 秒死 = 账单层）+ 案 34 同步升四面；anti-hallucination #17 扩句（权限自改是硬墙，三模态全拦是防自我解锁设计）+ #19 新条（数字纪律：禁为数字编造解释 / 截断输出须确认全集 / 内容农场污染剔除）
+- **kit/deep-research-prompt-template.md（新）**：调研域派工 prompt——v1 骨架 + v2 四条执行纪律（仓内审计先行 / 授权推翻前提 / 数字纪律 / 对抗自核验）+ 失效对照表；workflow-orchestration-checklist 调研派工行与 kit/README 索引接线
+- **babysit 交单协议补强**（PR #4，kit/babysit 三件）：交单消息三型——【交单】外新增【撤单/HOLD】与【READY】，值守以最新一条为准、不凭旧交单行动；在班值守地址写进交接快照，交单方读文档不猜 ListAgents 名字
+- **本仓值守自举**：`docs/babysit.md`（agent-on 实例化——无 CI 仓核对面三查、三面账本巡检【发版硬门 / intake 积压 / lane 卫生】、本仓四条实测分诊）+ AGENTS 自举纪律第 8 条（值守在班合并权唯一，不在班回退维护者自合 + 必 tag）；推荐 pin v0.12.1→v0.15.0（补 v0.13 / v0.14 两批漏更欠账）；README 对表（38 卡 / 调研模板 / 路线 v0.13–v0.15 行）
+
+### 诚实边界
+
+- 连坐策略维持、CLI 零改动；「逃生门」是文档化姿势不是新机制。CLI 两欠账（`--owns` 逗号分割、`worktree edit`）已立后台任务卡，不在本批
+- 本仓无 CI workflows：docs/babysit.md 的合并核对面为 mergeable / GitGuardian / guard 三查；模板中的 CI watch 链在本仓标注不适用
+- `.claude/settings.local.json`（SETUP §1 允许集）截至本批仍未建——值守首班上岗前须用户手跑；本批合并两次撞分类器即为此因（anti-hallucination #17「两步即停」实录）
+- 消化预算线内全收口：承接层五份值守相关文件零 pending；更早批次此前已收口
+
+### 证据
+
+- 消化九笔 + 自举一笔 + #4 四文件，每笔 commit 过 pre-commit + PreToolUse 双闸（`agent-on worktree check` RESULT: PASS）
+- 分诊选择题四题用户拍板：正文四处全采纳 / kit 新件全采纳 / 连坐维持+写清逃生门 / CLI 立后台任务卡
+- 消化中连坐两次实测（当日累计四棵未登记树全靠占位 park 解开），姿势即本批「重划与死锁三解」第 3 条；PreToolUse 先评估整条命令（claim 与 commit 必须拆条）为当日新发现，已入该节
+- 消化来源：intake `2026-08-16-dartify.md`（6 卡）/ `2026-08-17-dartify.md`（4 卡）/ `2026-08-16-dartify-worktree-guard-field-report.md` / `2026-08-17-dartify-deep-research-prompt.md`（1 卡）——原地标注全部 landed@同批；交单协议证据：Dartify PR #176 实战（HOLD/READY 临场发明 + 收件人错投靠代转补救）
 
 ## v0.14.0（2026-08-17）——值守合并调度（babysit merge dispatcher）
 
