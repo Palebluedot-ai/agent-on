@@ -27,7 +27,7 @@
 | [SETUP.md](SETUP.md) | 三步接入仪式（权限用户手跑 / 治理条款 / 复制模板启动）+ 角色分工 + 换班 SOP |
 | [CONTRIBUTING-CLAUSE.md](CONTRIBUTING-CLAUSE.md) | 治理条款范本（含交单模板），照抄进项目 CONTRIBUTING |
 
-**授权分级与时延参数一律以 [MERGE-POLICY.md](MERGE-POLICY.md) 为准**：模板 §3 的三档清单与治理条款范本的「授权分级照旧」都引用它，不各自展开——两处展开必然漂移。
+**授权分级与时延参数一律以 [MERGE-POLICY.md](MERGE-POLICY.md) 为准**：模板 §3 与治理条款范本第 5 条都只留「照它抄定」的占位，不各自展开——同一份授权写两处必然漂移。
 **值守每轮说完话的格式**走 [../output-contract.md](../output-contract.md)（状态面板在前、拍板带默认值、最后一行球在谁那），不在值守侧另定义。
 
 ## 快速开始
