@@ -2,9 +2,9 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]——跨窗口指令路由：三权唯一 + 误投转投 + 机械闸
+## v0.18.0（2026-08-19）——跨窗口指令路由：三权唯一 + 误投转投 + 机械闸
 
-> 语义预判 **minor**（版本号与档位归封版轨/用户拍板）：不动手不坏——不跑 `agent-on oncall claim` 则路由闸整条 fail-open，所有既有行为一字未变；跑了才多一层退出码。无 breaking，不需要迁移注记。既有六段输出契约、合入授权两张清单、四条值守不变量均未改。
+> **minor**：不动手不坏——不跑 `agent-on oncall claim` 则路由闸整条 fail-open，所有既有行为一字未变；跑了才多一层退出码。无 breaking，不需要迁移注记。既有六段输出契约、合入授权两张清单、四条值守不变量均未改。但新增了三条唯一权的硬要求（合并 / 对外通信 / 跨窗口中转），下游项目照抄治理条款时行为会变，所以不是 patch。
 
 ### 用户可见主线
 
@@ -25,11 +25,15 @@
 - **fail-open 是故意的反常**：本仓一贯 fail-closed，这里反过来——忘了上岗只是没有闸，fail-closed 却会锁死单人开发与值守下班后的仓库。
 - **本轮没动三处**：`docs/babysit.md`（值守自己的 owns，在班期间归它接）· `kit/output-contract.md`（转投回执格式写在 ROUTING §3，不另开第二份模板）· 机器上的 `agent-on` 装机版本（合入后再 `cargo install`，避免装机版领先 main——正是 v0.17.0 调研记过的「版本号相同功能不同」的坑）。三件都在交单里点名。
 - **转投送指令不送授权**：转投消息里的用户原话是情报，外向硬门动作仍须用户本人在值守会话里拍板（MERGE-POLICY §4 未放松）。
+- **SendMessage 闸的首版是错的，同批修掉（#18）**：#17 的判据是「拦一切非值守地址」，把会话内部通信（lead ↔ 自己的子代理、background 子代理回 `main`）一并扫进去了——三权管的是窗口之间，从不管一条会话内部怎么传话。值守 review 时读代码发现，作者当轮改成「拦已知是别的窗口的地址」（依据 lane 台账的 worktree 目录名前缀匹配）。**首版从未生效**：发现时装机版还是没有这段代码的旧二进制。原测试没抓到是因为用了编造地址 `some-other-window-7f`——不匹配任何真实 lane，在旧逻辑下「碰巧」是拦的；测试已改为先 claim 一条真 peer 轨再发给它的目录名。教训：**闸的测试必须用台账里真实存在的地址**。
+- **本节由值守轨代记**：本仓当时无任何活跃作者会话（#17/#18 的作者与上一条封版轨的会话都已消失），用户拍板由值守临时把 `AGENTS.md` / `README.md` 并进值守轨 owns 一轮做完封版四件。这是权宜，不是常态——常态仍是封版轨自己写。
 
 ### 证据
 
 - `cargo test`：**172 passed / 0 failed**（12 条 oncall 单元测试 + 7 条 `cli/tests/oncall_routing.rs` 端到端，端到端走真实二进制与真实 PreToolUse stdin 契约）；`cargo clippy --all-targets` 零 warning
 - 临时仓九项实测（未触碰本仓在班登记，真值守当时在班）：无人在班→0 · 登记后功能窗口 merge→2 带模板 · 值守同命令→0 · Teams webhook/PR 评论/push tag→2 · `gh pr create`/只读→0 · SendMessage 给值守→0（前缀匹配）/横向→2 · `release` 后→0。逐项输出见 snapshot §3
+- 封版时坐标（值守实跑核对）：`origin/main = d4e9536`、上一个 tag `v0.17.0 → f2b2e90`、`v0.17.0..origin/main` = 7 笔（5 笔内容：`3b2a2ea` / `e1d1144` / `84960d0` / `8e514ff` / `5811d1e`，加 2 个 merge：`059d70e` / `d4e9536`）、`gh pr list --state open` 空
+- **本版的机制已在值守窗口实跑**：`cargo install` 自值守树（`d4e9536`）装机后 `agent-on oncall --help` 列出五命令；`oncall claim --session worktree-output-clarity-e02325` 登记成功，`oncall whoami` → 「本窗口是值守」。装机前 `oncall status` 为「无人在班」，闸全程 fail-open——**本版内闸从未拦过任何在跑窗口**
 - 顺手发现不代修（snapshot §5）：landed 轨的 worktree 换题目复用时，`set-status active` 报 `invalid lane transition`、`forget` 拒绝（worktree 仍在）、lane id 不能改名——三条路全堵，只能 `edit` 改 goal/owns 而 status 卡在 landed；副作用是 landed 不算 live，`owns` 重叠闸对该轨不设防
 
 ## v0.17.0（2026-08-19）——跨窗口值守调研 + 输出契约四处增补
