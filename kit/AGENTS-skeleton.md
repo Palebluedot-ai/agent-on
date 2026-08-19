@@ -50,8 +50,8 @@
 2. **轨道=目录+git worktree+合同**:单写会话可留主树；一旦同时有 ≥2 条写会话，主树先 clean 并退为控制轨，**每个**写会话进入独立 worktree，再用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。首次进入并行模式先运行 `agent-on worktree hooks install`，其 shared `pre-commit` / `pre-push` 覆盖本仓所有 worktree；若与已有 hook 或 `core.hooksPath` 冲突则不覆盖，改为每次 commit/push 前手工运行 `agent-on worktree check`。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前检查非零即停。
 3. **互相 Fake**:每轨用 fixture 种子造对方的假实现,自身闭环可测。
 4. **契约测试当裁判**:双端各自直接 import 同一份 fixture 断言。
-5. **报告即数据**:轨道最终回复=逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **契约悬点**(把假设显式交出来)+ commit hash;不 push。
-6. **合流顺序**:先契约后实现;悬点集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
+5. **报告即数据**:所有会话与子代理的每轮输出**统一走 agent-on `kit/output-contract.md`**(状态面板在前 → 拍板收成一节带默认值 → 结论三格 → 撤销两栏 → 球在谁那 → 之后才是过程)。轨道最终回复在该契约内必填:逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **「我按这个假设做了,你不否就当成立」**(把假设显式交出来,每条写清否掉要重做什么)+ commit hash;不 push。类别一律中文人话,机器类别名只准放括号里。
+6. **合流顺序**:先契约后实现;未验证假设集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
 
 **衍生功能不扩轨**:执行中长出可独立目标 → 新 phase + 新 worktree/lane,用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
 
