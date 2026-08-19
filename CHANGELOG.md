@@ -2,6 +2,33 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
+## [未发布]——跨窗口指令路由：三权唯一 + 误投转投 + 机械闸
+
+> 语义预判 **minor**（版本号与档位归封版轨/用户拍板）：不动手不坏——不跑 `agent-on oncall claim` 则路由闸整条 fail-open，所有既有行为一字未变；跑了才多一层退出码。无 breaking，不需要迁移注记。既有六段输出契约、合入授权两张清单、四条值守不变量均未改。
+
+### 用户可见主线
+
+- **`kit/babysit/ROUTING.md`（新）——「谁执行」的唯一真相**：①**三权唯一**（此前只有合并权唯一）——合并权 / **对外通信权**（PR·Issue 评论、Teams/Slack/邮件/webhook）/ **跨窗口中转权**（窗口之间传话经值守）在值守在班期间统一归值守，功能窗口唯一出站通道 = 给值守交单·回执；②**路由表**（八类指令 → 归谁 → 收到的窗口怎么办），含反向误投（功能活派到值守 → 转回作者轨，值守零代修不变）；③**转投四步**（不执行 → 判归属 → 【转投】模板 SendMessage → 给用户一行「已转投、球在值守那」，格式与 output-contract 面板四字段同构）；④边界情形一条判据：改的是**本轨内部状态**还是**全场共享状态**；⑤拿不准 = 当作值守的（fail-closed 分诊）。
+- **`agent-on oncall` 四命令（新，`cli/src/oncall.rs`）**：`claim / status / whoami / release`。在班登记落 **common git dir 的 `agent-on/oncall.json`**，与 lane 台账同处，因此**每棵 worktree 读到同一份**——`docs/babysit.md` 的「在班值守地址」行是每树一份的文件副本，功能窗口在自己分支上读到的可能是任意旧版本，机器寻址从此以登记为准（人读的交接快照照旧写）。`status --json` 给值守/脚本，`whoami` 回答「本窗口是不是值守」。
+- **PreToolUse 路由闸（`cli/src/guard.rs` + `hooks/hooks.json`）**：`Bash` 与新增的 `SendMessage` 两个 matcher 共用同一个 guard。三态——**无人在班 fail-open** / 值守窗口放行 / 功能窗口 `exit 2` 且 stderr 给出：类别 + 在班地址 + 填空版【转投】模板 + 两个逃生门（`oncall release --force` 让值守下班、`oncall claim --force` 本窗口接班，**都改在班登记因而留痕**）。拦的形状：`gh pr merge`·`gh api -X PUT …/pulls/…`·push tag / push main·`gh pr close`·`gh release create`·`gh pr comment`·`gh issue create`·chat webhook（Slack/Teams/Discord/Telegram/Google Chat）·`sendmail` 等；放行的形状：`gh pr create`·一切 `gh` 只读·功能分支 push·交单/回执 SendMessage。
+- **治理与自举同步**：`AGENTS.md` 新增自举纪律 9（本仓自己守）· `kit/babysit/CONTRIBUTING-CLAUSE.md` 第 1 条扩成三权唯一、新增第 7 条转投条款 · `BABYSIT-TEMPLATE.md` §1 上岗加登记 / §3 补三权 / §7 下班四件加 `release` · `SETUP.md` 第 3 步加登记、角色表补通信权、换班补残留清理 · `babysit/README.md` 加第 8 条设计不变量 · `hooks/README.md` 与 `kit/guard/README.md` 记两个 matcher 与三态实测命令。
+- **`snapshot/2026-08-19-cross-window-command-routing.md`（新）**：六个设计选择各附被否掉的替代方案（身份键选 worktree 不选 session id、登记存 common git dir 不存值守文档、故意 fail-open、deny-list 不 allow-list、横向一律中转、逃生门必须留痕）。
+
+### 诚实边界
+
+- **闸拦命令，不拦意图**——换个写法照样做得出去；它防「顺手就做了」，不防蓄意绕过（后者归治理，不归退出码）。
+- **MCP 外发不在闸内**：本轮只挂 `Bash` 与 `SendMessage` 两个 matcher，Telegram/Slack 等 MCP 工具要机械兜住须按其工具名另加 matcher，否则那条通道只有纪律层。
+- **单值守仍不靠锁**：`oncall claim` 是文件登记，两个窗口同时 `--force` 抢后写的赢；`babysit/README.md`「不靠锁机制」那句仍成立，新增的是机器可寻址与留痕。
+- **fail-open 是故意的反常**：本仓一贯 fail-closed，这里反过来——忘了上岗只是没有闸，fail-closed 却会锁死单人开发与值守下班后的仓库。
+- **本轮没动三处**：`docs/babysit.md`（值守自己的 owns，在班期间归它接）· `kit/output-contract.md`（转投回执格式写在 ROUTING §3，不另开第二份模板）· 机器上的 `agent-on` 装机版本（合入后再 `cargo install`，避免装机版领先 main——正是 v0.17.0 调研记过的「版本号相同功能不同」的坑）。三件都在交单里点名。
+- **转投送指令不送授权**：转投消息里的用户原话是情报，外向硬门动作仍须用户本人在值守会话里拍板（MERGE-POLICY §4 未放松）。
+
+### 证据
+
+- `cargo test`：**172 passed / 0 failed**（12 条 oncall 单元测试 + 7 条 `cli/tests/oncall_routing.rs` 端到端，端到端走真实二进制与真实 PreToolUse stdin 契约）；`cargo clippy --all-targets` 零 warning
+- 临时仓九项实测（未触碰本仓在班登记，真值守当时在班）：无人在班→0 · 登记后功能窗口 merge→2 带模板 · 值守同命令→0 · Teams webhook/PR 评论/push tag→2 · `gh pr create`/只读→0 · SendMessage 给值守→0（前缀匹配）/横向→2 · `release` 后→0。逐项输出见 snapshot §3
+- 顺手发现不代修（snapshot §5）：landed 轨的 worktree 换题目复用时，`set-status active` 报 `invalid lane transition`、`forget` 拒绝（worktree 仍在）、lane id 不能改名——三条路全堵，只能 `edit` 改 goal/owns 而 status 卡在 landed；副作用是 landed 不算 live，`owns` 重叠闸对该轨不设防
+
 ## v0.17.0（2026-08-19）——跨窗口值守调研 + 输出契约四处增补
 
 > **minor**：不动手不坏——`kit/output-contract.md` 是**纯新增子节**，既有六段的顺序与语义一字未改，不接入就完全无感。但它加了三条新硬要求（默认值 = 建议值 / Summary 单尾 / 跨窗口编号），下游项目照抄契约时行为会变，所以不是 patch。无 breaking，不需要迁移注记。CLI / playbook / bench / boot / babysit 组件零改动。
