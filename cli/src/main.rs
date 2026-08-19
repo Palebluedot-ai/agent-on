@@ -127,6 +127,16 @@ enum OncallCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
+    /// Which lane owns a path — the on-call window's "reroute to whom" lookup
+    Route {
+        /// Repo-relative or absolute path
+        #[arg(long)]
+        path: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
     /// Go off call; the routing gate fails open again
     Release {
         /// Release someone else's registration (closed window / handover)
@@ -630,6 +640,9 @@ fn main() {
                 }
                 OncallCmd::Whoami { json, cwd } => {
                     oncall::whoami(&cwd.unwrap_or_else(default_cwd), json)
+                }
+                OncallCmd::Route { path, json, cwd } => {
+                    oncall::route(&cwd.unwrap_or_else(default_cwd), &path, json)
                 }
                 OncallCmd::Release { force, cwd } => {
                     oncall::release(&cwd.unwrap_or_else(default_cwd), force)

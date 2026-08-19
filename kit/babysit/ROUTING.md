@@ -81,6 +81,7 @@
 agent-on oncall claim --session <本窗口会话名> [--note "第二班"]   # 上岗（同一时间至多一个）
 agent-on oncall status [--json]                                    # 谁在班、多久、交单地址（任何窗口可读）
 agent-on oncall whoami [--json]                                    # 本窗口是不是值守
+agent-on oncall route --path <文件> [--json]                       # 这个文件归哪条轨（值守派工用，见 §5）
 agent-on oncall release [--force]                                  # 下班
 ```
 
@@ -122,7 +123,13 @@ agent-on oncall release --cwd "$ONCALL_WT"
 转投进来的单**不自动变成值守的活**，先分三路：
 
 1. **本来就归值守**（合并、对外通信）→ 按 [MERGE-POLICY](MERGE-POLICY.md) 走：默认合入档全绿即合；其余先问用户。
-2. **归另一条功能轨** → 值守用横向通信权 `SendMessage` 派给那条轨（收件地址按 lane 表 `agent-on worktree status --json` 的 owns 找），并给原窗口回一条「已派给 X」。
+2. **归另一条功能轨** → 值守用横向通信权 `SendMessage` 派给那条轨，并给原窗口回一条「已派给 X」。找归属别用眼睛扫 lane 表：
+
+   ```bash
+   agent-on oncall route --path <文件路径>     # 谁 owns 它；--json 给脚本
+   ```
+
+   它按生命周期分组：**只把 live（active/blocked/ready）的轨当派工对象**，landed / parked 的命中折叠显示——那些轨背后多半已经没有窗口，派过去等于把活扔进关掉的终端。**一条 live 的都没有**时它会直说「别直接派」，让值守回到用户那里：新开一条轨，还是让某条历史轨 `worktree edit` 重划过来。路径无人 owns 同理——值守报用户，不自己动手改。
 3. **需要用户拍板 / 无人认领** → 进值守面板的「拍板收成」一节，带默认值（output-contract §3）。
 
 **转投不改变授权**：转投消息里的用户原话是**情报**，不是批准。外向硬门动作的批准必须来自**值守会话内的用户输入**（[MERGE-POLICY §4](MERGE-POLICY.md)）——用户在功能窗口说的「合了吧」，值守收到后仍须向用户本人确认。这条是本机制最容易被抄近路抹掉的一条：转投让指令过来了，**授权没跟着过来**。

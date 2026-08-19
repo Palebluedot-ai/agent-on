@@ -508,6 +508,127 @@ pub fn status(cwd: &Path, json: bool) -> (i32, String) {
     }
 }
 
+/// Which window a path belongs to — the second hop of a reroute.
+///
+/// The feature window only needs the on-call address; working out *which*
+/// lane owns the file is the on-call window's job (ROUTING §5). This turns
+/// that lookup from "read the lane table by eye" into one command.
+pub fn route(cwd: &Path, path: &str, json: bool) -> (i32, String) {
+    let rel = match relative_to_repo(cwd, path) {
+        Ok(v) => v,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let records = match worktree::load_records(cwd) {
+        Ok(v) => v,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let hits: Vec<_> = records
+        .iter()
+        .filter(|r| worktree::owns_path(&r.owns, &rel))
+        .collect();
+    let oncall = load(cwd).ok().flatten().filter(|r| !is_stale(r));
+
+    if json {
+        let value = serde_json::json!({
+            "path": rel,
+            "owners": hits.iter().map(|r| serde_json::json!({
+                "lane": r.id,
+                "worktree": r.worktree,
+                "branch": r.branch,
+                "status": r.status,
+                "owns": r.owns,
+                "live": worktree::ownership_live(&r.status),
+            })).collect::<Vec<_>>(),
+            "oncall_session": oncall.as_ref().map(|r| r.session.clone()),
+        });
+        return (0, format!("{value}\n"));
+    }
+
+    if hits.is_empty() {
+        return (
+            0,
+            format!(
+                "ROUTE {rel}\n无主：没有任何 lane 的 owns 覆盖它。\n\
+值守动作：报用户（新开一条轨？并进某条现有轨？），别自己动手改。\n"
+            ),
+        );
+    }
+
+    // A path is routinely inside several lanes' owns — but only a live lane
+    // (active/blocked/ready) has a window behind it worth messaging. Landed
+    // and parked hits are history, and dispatching to them sends work into a
+    // closed window.
+    let (live, history): (Vec<_>, Vec<_>) = hits
+        .iter()
+        .partition(|r| worktree::ownership_live(&r.status));
+
+    let line = |r: &&&worktree::LaneRecord| -> String {
+        let mine = oncall
+            .as_ref()
+            .map(|o| canon(Path::new(&o.worktree)) == canon(Path::new(&r.worktree)))
+            .unwrap_or(false);
+        let boundary = r
+            .owns
+            .iter()
+            .find(|b| worktree::owns_path(std::slice::from_ref(*b), &rel))
+            .cloned()
+            .unwrap_or_default();
+        format!(
+            "- lane {} [{}]{}\n  worktree: {}\n  branch: {}\n  命中边界: {}（该轨共 {} 条 owns）\n",
+            r.id,
+            r.status,
+            if mine { "（值守自己的轨）" } else { "" },
+            r.worktree,
+            r.branch,
+            boundary,
+            r.owns.len()
+        )
+    };
+
+    let mut out = format!("ROUTE {rel}\n");
+    if live.is_empty() {
+        out.push_str("活跃轨：无——命中的都是 landed / parked 的历史轨，它们背后多半已经没有窗口了。\n");
+        for r in &history {
+            out.push_str(&line(r));
+        }
+        out.push_str(
+            "值守动作：**别直接派给上面任何一条**。报用户：新开一条轨，还是让某条历史轨 `worktree edit` 重划过来。\n",
+        );
+        return (0, out);
+    }
+    for r in &live {
+        out.push_str(&line(r));
+    }
+    if !history.is_empty() {
+        out.push_str(&format!(
+            "（另有 {} 条 landed / parked 历史轨也覆盖此路径，已折叠——`agent-on worktree status` 看全量）\n",
+            history.len()
+        ));
+    }
+    out.push_str(
+        "值守动作：SendMessage 派给上面活跃轨的会话，并给原窗口回一条「已派给 X」（ROUTING §5）。\n",
+    );
+    (0, out)
+}
+
+/// Normalise `path` to a repo-relative path, the form lane `owns` uses.
+fn relative_to_repo(cwd: &Path, path: &str) -> Result<String, String> {
+    let repo = worktree::repo_root(cwd)?;
+    let repo = canon(&repo);
+    let raw = Path::new(path);
+    let abs = if raw.is_absolute() {
+        canon(raw)
+    } else {
+        canon(&cwd.join(raw))
+    };
+    match abs.strip_prefix(&repo) {
+        Ok(rel) => Ok(rel.to_string_lossy().replace('\\', "/")),
+        // A path that does not exist on disk cannot be canonicalised; fall back
+        // to treating it as already repo-relative.
+        Err(_) => Ok(path.trim_start_matches("./").to_string()),
+    }
+}
+
 pub fn whoami(cwd: &Path, json: bool) -> (i32, String) {
     let role = role_at(cwd);
     if json {
@@ -857,6 +978,44 @@ mod tests {
             "tool_input": {"to": "some-other-window-7f", "message": "x"}
         });
         assert_eq!(route_decision(&msg), 0);
+    }
+
+    #[test]
+    fn route_names_the_lane_that_owns_the_path() {
+        let (_tmp, root, wt) = fixture();
+        let (code, out) = worktree::claim_lane(
+            &wt,
+            &worktree::ClaimOpts {
+                id: "lane-a".to_string(),
+                goal: "g".to_string(),
+                base: Some("main".to_string()),
+                owns: vec!["app".to_string()],
+                depends_on: Vec::new(),
+                parked: false,
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+
+        let (code, out) = route(&root, "app/page.rs", false);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("lane-a"), "{out}");
+        assert!(out.contains(wt.display().to_string().as_str()), "{out}");
+
+        // Unowned path: the on-call window must escalate, not improvise.
+        let (code, out) = route(&root, "docs/orphan.md", false);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("无主"), "{out}");
+
+        // Once the lane lands, the same path still matches — but dispatching
+        // to it would send work into a window that is very likely closed.
+        // active → ready → landed is the only legal path into the terminal state
+        let (code, out) = worktree::set_lane_status(&wt, Some("lane-a"), "ready");
+        assert_eq!(code, 0, "{out}");
+        let (code, out) = worktree::set_lane_status(&wt, Some("lane-a"), "landed");
+        assert_eq!(code, 0, "{out}");
+        let (_, out) = route(&root, "app/page.rs", false);
+        assert!(out.contains("活跃轨：无"), "{out}");
+        assert!(out.contains("别直接派"), "{out}");
     }
 
     #[test]

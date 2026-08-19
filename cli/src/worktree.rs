@@ -390,7 +390,7 @@ fn boundaries_overlap(a: &str, b: &str) -> bool {
     boundary_contains(a, b) || boundary_contains(b, a)
 }
 
-fn owns_path(boundaries: &[String], path: &str) -> bool {
+pub(crate) fn owns_path(boundaries: &[String], path: &str) -> bool {
     boundaries.iter().any(|b| boundary_contains(b, path))
 }
 
