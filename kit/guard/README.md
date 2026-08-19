@@ -1,6 +1,6 @@
-# kit/guard — 跨仓与 worktree 边界（机械闸）
+# kit/guard — 跨仓、worktree 与跨窗口边界（机械闸）
 
-> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前执行 lane/owns 严格检查。
+> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前执行 lane/owns 严格检查；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
 > **实现**：逻辑在 Rust CLI 的 `agent-on guard`；本目录 extensionless 文件是 canonical Bash shim，`.sh` 仅为旧个人 hook 的 Bash/Python 双兼容入口。
 
 ## 路径 / doctor
@@ -53,6 +53,17 @@ echo '{"tool_input":{"command":"git commit -m probe"},"cwd":"'"$PWD"'"}' \
 ```
 
 若 stderr 含 `OUT-OF-BOUNDS`，把文件移回所属 lane，或由控制轨重新划分 `owns`；若是 `ERROR/unknown`，先修检查器，不以跳过 hook 当修复。
+
+```bash
+# 跨窗口路由：值守在班 + 功能窗口发合并命令 → 2
+agent-on oncall claim --session babysit-window-a --cwd "$ONCALL_WORKTREE"
+echo '{"tool_name":"Bash","cwd":"'"$FEATURE_WORKTREE"'","tool_input":{"command":"gh pr merge 17 --merge"}}' \
+  | agent-on guard; echo "expect 2 + 转投模板"
+
+# 同一条命令在值守窗口 → 0；`agent-on oncall release` 之后任何窗口 → 0
+```
+
+若 stderr 含 `跨窗口指令路由拦截`，**别找等价命令偷跑**：按提示三选一（转投 / 让值守下班 / 本窗口接班），后两条都会改在班登记因而留痕。
 
 ### v0.6 Codex 旧注册
 

@@ -4,6 +4,7 @@ mod audit_lint;
 mod guard;
 mod intake_lint;
 mod landing;
+mod oncall;
 mod paths;
 mod routing;
 mod setup;
@@ -86,6 +87,63 @@ enum Commands {
     Landing {
         #[command(subcommand)]
         action: LandingCmd,
+    },
+    /// Single on-call registry: who holds merge / outbound / cross-window rights
+    Oncall {
+        #[command(subcommand)]
+        action: OncallCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum OncallCmd {
+    /// Go on call from this worktree (at most one on-call window at a time)
+    Claim {
+        /// SendMessage address of this window (session name or a stable prefix)
+        #[arg(long)]
+        session: String,
+        /// Lane id; defaults to the lane registered for this worktree
+        #[arg(long)]
+        lane: Option<String>,
+        #[arg(long, default_value = "")]
+        note: String,
+        /// Take over from the window currently on call (handover, leaves a trace)
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Who is on call, since when, and at which address (any window may read)
+    Status {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Is *this* window the on-call one
+    Whoami {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Which lane owns a path — the on-call window's "reroute to whom" lookup
+    Route {
+        /// Repo-relative or absolute path
+        #[arg(long)]
+        path: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Go off call; the routing gate fails open again
+    Release {
+        /// Release someone else's registration (closed window / handover)
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
     },
 }
 
@@ -553,6 +611,42 @@ fn main() {
                         quiet_hours,
                     },
                 ),
+            };
+            if c == 0 {
+                print!("{out}");
+            } else {
+                eprint!("{out}");
+            }
+            c
+        }
+        Commands::Oncall { action } => {
+            let default_cwd = || env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let (c, out) = match action {
+                OncallCmd::Claim {
+                    session,
+                    lane,
+                    note,
+                    force,
+                    cwd,
+                } => oncall::claim(
+                    &cwd.unwrap_or_else(default_cwd),
+                    &session,
+                    lane.as_deref(),
+                    &note,
+                    force,
+                ),
+                OncallCmd::Status { json, cwd } => {
+                    oncall::status(&cwd.unwrap_or_else(default_cwd), json)
+                }
+                OncallCmd::Whoami { json, cwd } => {
+                    oncall::whoami(&cwd.unwrap_or_else(default_cwd), json)
+                }
+                OncallCmd::Route { path, json, cwd } => {
+                    oncall::route(&cwd.unwrap_or_else(default_cwd), &path, json)
+                }
+                OncallCmd::Release { force, cwd } => {
+                    oncall::release(&cwd.unwrap_or_else(default_cwd), force)
+                }
             };
             if c == 0 {
                 print!("{out}");

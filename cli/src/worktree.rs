@@ -390,7 +390,7 @@ fn boundaries_overlap(a: &str, b: &str) -> bool {
     boundary_contains(a, b) || boundary_contains(b, a)
 }
 
-fn owns_path(boundaries: &[String], path: &str) -> bool {
+pub(crate) fn owns_path(boundaries: &[String], path: &str) -> bool {
     boundaries.iter().any(|b| boundary_contains(b, path))
 }
 
@@ -449,6 +449,17 @@ pub(crate) fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
     }
     records.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(records)
+}
+
+/// Lane id registered for the worktree that contains `cwd`, if any.
+pub(crate) fn lane_id_for_worktree(cwd: &Path) -> Option<String> {
+    let root = repo_root(cwd).ok()?;
+    let canonical = fs::canonicalize(&root).unwrap_or(root);
+    load_records(cwd)
+        .ok()?
+        .into_iter()
+        .find(|r| Path::new(&r.worktree) == canonical)
+        .map(|r| r.id)
 }
 
 fn write_record(cwd: &Path, record: &LaneRecord) -> Result<(), String> {
