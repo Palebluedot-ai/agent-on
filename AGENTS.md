@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.18.0`**（跨窗口指令路由三权唯一 + `agent-on oncall` 在班登记与路由闸 + 每轮输出契约 + 值守合入授权与时延目标 + `worktree edit`）。
+**最新推荐 pin：`v0.19.0`**（输出契约三轮加固：不许有第三个筐 / 拍板六件含「在哪拍」/ 一句话全批 + Gen-1 角色体系归档与元原则第七条 + 互斥 owns 闸按事实判 + 跨窗口指令路由三权唯一与 `agent-on oncall`）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
@@ -45,6 +45,6 @@
 
 ## 不做的事（宪章边界的执行版）
 
-- 不写编排运行时代码；本仓以文档和模板为主，可执行物为 **Rust CLI**（`cli/`：doctor / guard / lint / setup / worktree / tag-release）
+- 不写编排运行时代码；本仓以文档和模板为主，可执行物为 **Rust CLI**（`cli/`：doctor / guard / intake-lint / audit-lint / check / setup / worktree / tag-release / landing / oncall——以 `agent-on --help` 为准）
 - 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认。**push 自己的分支与开 PR 不在此列**——那是本轨内部动作，自己做不问（判据见 [playbook/multi-contributor-protocol.md](playbook/multi-contributor-protocol.md) 的「外向硬门的边界」一节）；原句写「不 push」与自举纪律 6「交付轮次必须 push + 打 tag」直接打架，2026-08-19 用户拍板改正
 - 不引入与 GStack / Superpowers 重叠的环节型功能
