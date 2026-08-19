@@ -37,6 +37,6 @@
 |---|---|---|
 | [truth-hierarchy.md](truth-hierarchy.md) | 单一真相源不够，还要层级（Canonical/承接/举证）+ 仲裁次序 + 跨仓 pin 映射 | 二代 + 支线 |
 | [phase-gates.md](phase-gates.md) | 申请切阶段 ≠ 切阶段：三态语义 + 6 个 block 理由码 + 冻结物双步解锁 fail-closed | 二代 |
-| [meta-principles.md](meta-principles.md) | 方法论的方法论：self-dogfooding / 治理进 Git / 反思必须产出协议升级 / 单 agent 优先 / 不许「感觉更好」过门禁 / 失败预定义降级 | 三仓合成 |
+| [meta-principles.md](meta-principles.md) | 方法论的方法论：self-dogfooding / 治理进 Git / 反思必须产出协议升级 / 单 agent 优先 / 不许「感觉更好」过门禁 / 失败预定义降级 / **角色不是架构原语（三格判据）** | 三仓合成 + 本仓自审 |
 | [abdc-decision.md](abdc-decision.md) | 多轨决策：三轨论证（反例义务）→ 加权评审（强制记异议）→ 最小可证伪实验（三态判定+熔断） | 支线 |
 | [memory-layering.md](memory-layering.md) | 沉淀分层 L0–L4：什么东西该沉到五块的哪一块；高频失败优先沉淀为 anti-pattern | 支线 |
