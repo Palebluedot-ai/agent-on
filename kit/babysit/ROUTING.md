@@ -17,7 +17,9 @@
 | **对外通信权** | PR / Issue 评论与 review · 建 Issue · Teams / Slack / 邮件 / 任何 webhook 外发 · 代表本项目对外发言 | **仅值守** |
 | **跨窗口中转权** | 窗口 A 要跟窗口 B 说话，一律经值守转；功能窗口之间不横向直发 | **仅值守** |
 
-功能窗口保留的**唯一出站通道**：给值守发交单 / 撤单 HOLD / READY / 回执（三型见 [CONTRIBUTING-CLAUSE.md](CONTRIBUTING-CLAUSE.md)）。除此之外，功能窗口的所有动作都朝内——写自己 lane 的文件、跑测试、开 PR。
+功能窗口保留的**唯一跨窗口出站通道**：给值守发交单 / 撤单 HOLD / READY / 回执（三型见 [CONTRIBUTING-CLAUSE.md](CONTRIBUTING-CLAUSE.md)）。除此之外，功能窗口的所有动作都朝内——写自己 lane 的文件、跑测试、开 PR。
+
+**「跨窗口」不含会话内部**：一条会话派出的子代理、`main`、同会话的 teammate 之间怎么传话，是那条会话自己的事，三权一概不管。三条唯一权约束的是**窗口与窗口之间**。
 
 **为什么中转不许省**：横向直发看上去快一步，代价是没人再知道全场在发生什么——值守是唯一持有队列、波次、依赖与拍板通道的角色，绕过它 = 把调度信息打散回各个窗口的聊天记录里，接班的人一条都看不到。中心化传话的延迟是有限的（值守本来就在短循环里），信息散失是不可逆的。
 
@@ -97,7 +99,9 @@ PreToolUse 两个 matcher 共用一个 guard（注册见 [../../hooks/README.md]
 | matcher | 命中什么 | 结果 |
 |---|---|---|
 | `Bash` | `gh pr merge` · `gh api -X PUT …/pulls/…` · `git push --tags` / push tag / push main · `gh pr close` · `gh release create` · `gh pr comment` / `gh issue create` · chat webhook（Slack / Teams / Discord / Telegram / Google Chat）· `sendmail` 等 | 非值守窗口 → **exit 2** + 转投模板 |
-| `SendMessage` | 收件人**不是**在班值守 | 非值守窗口 → **exit 2**；发给值守（交单 / 回执）→ 放行 |
+| `SendMessage` | 收件人是**另一个已登记窗口**（地址前缀匹配某条 lane 的 worktree 目录名） | 非值守窗口 → **exit 2**；发给值守（交单 / 回执）→ 放行；发给 `main` / 子代理等**会话内部**地址 → 放行 |
+
+**为什么 SendMessage 判的是「是不是另一个窗口」，不是「是不是值守」**：三权管的是**窗口之间**的沟通，一条会话内部 lead ↔ subagent 的传话从来不在里面。判据取自 lane 台账——窗口的会话名由它的 worktree 目录派生（本仓值守：worktree `worktree-output-clarity-e02325` → 会话 `worktree-output-clarity-e02325-02`），所以能前缀匹配到**别的** lane 的 worktree 目录名的地址才是真窗口。匹配不到的（`main`、`researcher`、任何子代理名）一律放行。
 
 **三态**：
 
@@ -137,6 +141,7 @@ agent-on oncall release --cwd "$ONCALL_WT"
 ## §6 诚实边界（读懂再挂）
 
 - **闸是 deny-list，不是全覆盖**：它认识已知形状的命令。没列进去的外发方式（新 CLI、MCP 工具、浏览器里点按钮）闸看不见，只有 §1–§3 的纪律兜着。MCP 外发工具要机械兜住，得按其工具名另加 matcher。
+- **横向消息闸只认台账里的窗口**：一个**未登记 worktree** 的窗口不在 lane 台账里，发给它的消息拦不住。这不白给——未登记 worktree 本来就被边界闸报 FAIL 并连坐全场，属于那一层的问题，不该由本闸兜第二遍。同理，会话名与 worktree 目录名完全无关的窗口也认不出来（本机的命名惯例是同源的，别的机器未必）。
 - **闸拦命令，不拦意图**：把同一件事换个写法照样能做出去。它防的是「顺手就做了」，不是防蓄意绕过——后者归治理，不归退出码。
 - **单值守靠登记不靠锁**：`oncall claim` 是文件登记，不是分布式锁；两个人同时 `--force` 抢，后写的赢。互斥的真正保障仍是「一次只开一个值守窗口」这条人的纪律。
 - **fail-open 是故意的**：无人在班时闸完全沉默。代价是「忘了上岗」等于没有闸；收益是这套机制永远不会把单人开发或值守下班后的仓库锁死。
