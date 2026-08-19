@@ -360,6 +360,43 @@ pub(crate) fn addresses_match(a: &str, b: &str) -> bool {
     !a.is_empty() && !b.is_empty() && (a.starts_with(b) || b.starts_with(a))
 }
 
+/// Addresses that are never a window: the lead of this session, and the
+/// conventional名字 for a session's own root conversation.
+const SESSION_INTERNAL: &[&str] = &["main", "parent", "lead"];
+
+/// Does `to` address **another window of this repo**?
+///
+/// Judged against the lane registry rather than a deny-list of names: a
+/// window's session name is derived from its worktree directory (this repo's
+/// on-call window is `worktree-output-clarity-e02325` → session
+/// `worktree-output-clarity-e02325-02`), so a recipient that prefix-matches
+/// some *other* lane's worktree basename is a real window. Anything that
+/// matches nothing — a subagent name, `main`, a teammate inside this session
+/// — is session-internal traffic the on-call gate has no business touching.
+///
+/// Returns the lane id that the address resolves to.
+fn other_window(cwd: &Path, to: &str) -> Option<String> {
+    let to = to.trim();
+    if to.is_empty() || SESSION_INTERNAL.contains(&to.to_ascii_lowercase().as_str()) {
+        return None;
+    }
+    let here = worktree::repo_root(cwd).map(|p| canon(&p)).ok();
+    for record in worktree::load_records(cwd).ok()? {
+        let path = PathBuf::from(&record.worktree);
+        if here.as_deref() == Some(canon(&path).as_path()) {
+            continue; // this window itself
+        }
+        let base = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        if !base.is_empty() && addresses_match(to, base) {
+            return Some(record.id);
+        }
+    }
+    None
+}
+
 // ------------------------------------------------------------------ commands
 
 pub fn claim(
@@ -587,7 +624,9 @@ pub fn route(cwd: &Path, path: &str, json: bool) -> (i32, String) {
 
     let mut out = format!("ROUTE {rel}\n");
     if live.is_empty() {
-        out.push_str("活跃轨：无——命中的都是 landed / parked 的历史轨，它们背后多半已经没有窗口了。\n");
+        out.push_str(
+            "活跃轨：无——命中的都是 landed / parked 的历史轨，它们背后多半已经没有窗口了。\n",
+        );
         for r in &history {
             out.push_str(&line(r));
         }
@@ -739,9 +778,19 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
         if addresses_match(&to, &record.session) {
             return 0; // the one allowed outbound channel: 交单 / 回执给值守
         }
+        // Only *another window* is cross-window traffic. A subagent name or
+        // `main` is session-internal — the three rights are about windows
+        // talking to windows, not about a lead talking to its own subagent.
+        let Some(peer) = other_window(&cwd, &to) else {
+            return 0;
+        };
         eprintln!(
             "{}",
-            block_text(Action::CrossWindow, &record, &format!("SendMessage → {to}"))
+            block_text(
+                Action::CrossWindow,
+                &record,
+                &format!("SendMessage → {to}（该地址对应另一条轨：{peer}）")
+            )
         );
         return 2;
     }
@@ -952,8 +1001,36 @@ mod tests {
 
     #[test]
     fn sendmessage_to_oncall_passes_and_sideways_is_blocked() {
-        let (_tmp, root, wt) = fixture();
+        let (tmp, root, wt) = fixture();
         claim(&root, "oncall-window-a", None, "", false);
+        // A third window, registered in the lane table — this is what makes an
+        // address recognisably "another window".
+        let peer = tmp.path().join("peer-lane-3f21");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "peer",
+                peer.to_str().unwrap(),
+                "main",
+            ],
+        );
+        let (code, out) = worktree::claim_lane(
+            &peer,
+            &worktree::ClaimOpts {
+                id: "peer-lane".to_string(),
+                goal: "g".to_string(),
+                base: Some("main".to_string()),
+                owns: vec!["peer".to_string()],
+                depends_on: Vec::new(),
+                parked: false,
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+
         let msg = |to: &str| {
             json!({
                 "tool_name": "SendMessage",
@@ -964,8 +1041,29 @@ mod tests {
         // 交单通道：功能窗口 → 值守，放行（含带后缀的真实会话名）
         assert_eq!(route_decision(&msg("oncall-window-a")), 0);
         assert_eq!(route_decision(&msg("oncall-window-a-02")), 0);
-        // 横向：功能窗口 → 另一个功能窗口，拦
-        assert_eq!(route_decision(&msg("some-other-window-7f")), 2);
+        // 横向：功能窗口 → 另一个已登记的窗口，拦
+        assert_eq!(route_decision(&msg("peer-lane-3f21")), 2);
+        assert_eq!(route_decision(&msg("peer-lane-3f21-07")), 2);
+    }
+
+    #[test]
+    fn session_internal_messaging_is_not_the_gates_business() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let msg = |to: &str| {
+            json!({
+                "tool_name": "SendMessage",
+                "cwd": wt.display().to_string(),
+                "tool_input": {"to": to, "message": "x"}
+            })
+        };
+        // A lead talking to its own subagent, or a background subagent
+        // reporting to `main`, is not cross-window traffic. Blocking these
+        // was collateral damage of the earlier "block everything that is not
+        // the on-call address" rule.
+        assert_eq!(route_decision(&msg("main")), 0);
+        assert_eq!(route_decision(&msg("researcher")), 0);
+        assert_eq!(route_decision(&msg("Explore")), 0);
     }
 
     #[test]

@@ -12,12 +12,14 @@
 - **`agent-on oncall` 五命令（新，`cli/src/oncall.rs`）**：`claim / status / whoami / route / release`。在班登记落 **common git dir 的 `agent-on/oncall.json`**，与 lane 台账同处，因此**每棵 worktree 读到同一份**——`docs/babysit.md` 的「在班值守地址」行是每树一份的文件副本，功能窗口在自己分支上读到的可能是任意旧版本，机器寻址从此以登记为准（人读的交接快照照旧写）。`status --json` 给值守/脚本，`whoami` 回答「本窗口是不是值守」。
 - **`oncall route --path <文件>`——转投的第二跳**：功能窗口只需知道值守地址，「这文件归哪条轨」是值守的活（ROUTING §5）。本命令把它从肉眼扫 lane 表变成一条命令，并**按生命周期分组**：只把 live（active/blocked/ready）轨当派工对象，landed/parked 的命中折叠显示——那些轨背后多半已无窗口，派过去等于把活扔进关掉的终端；一条 live 都没有时直说「别直接派」，让值守回到用户那里。本仓实测：`docs/babysit.md` 命中三条轨、`cli/src/landing.rs` 命中三条，**全场无一条 live**（正是下面「顺手发现」那个死角的直接后果）。
 - **PreToolUse 路由闸（`cli/src/guard.rs` + `hooks/hooks.json`）**：`Bash` 与新增的 `SendMessage` 两个 matcher 共用同一个 guard。三态——**无人在班 fail-open** / 值守窗口放行 / 功能窗口 `exit 2` 且 stderr 给出：类别 + 在班地址 + 填空版【转投】模板 + 两个逃生门（`oncall release --force` 让值守下班、`oncall claim --force` 本窗口接班，**都改在班登记因而留痕**）。拦的形状：`gh pr merge`·`gh api -X PUT …/pulls/…`·push tag / push main·`gh pr close`·`gh release create`·`gh pr comment`·`gh issue create`·chat webhook（Slack/Teams/Discord/Telegram/Google Chat）·`sendmail` 等；放行的形状：`gh pr create`·一切 `gh` 只读·功能分支 push·交单/回执 SendMessage。
+- **SendMessage 闸判据收窄（#17 合入后由值守 review 发现，同批修正）**：原逻辑是「功能窗口发给任何非值守地址一律 block」，把**会话内部通信**（lead ↔ 自己的子代理、background 子代理回 `main`）一并扫了进去——三权管的是**窗口之间**，从来不管一条会话内部怎么传话。判据因此反向：从「拦一切非值守地址」改成**「拦已知是别的窗口的地址」**，依据取自 lane 台账——窗口会话名由其 worktree 目录派生（`worktree-output-clarity-e02325` → `…-02`），前缀匹配到**别的** lane 的 worktree 目录名才算真窗口；`main`、`researcher` 等匹配不到的一律放行。修正不是加豁免名单（名单永远列不全），误伤面从「所有内部通信」缩到零，横向串联照样拦得住。
 - **治理与自举同步**：`AGENTS.md` 新增自举纪律 9（本仓自己守）· `kit/babysit/CONTRIBUTING-CLAUSE.md` 第 1 条扩成三权唯一、新增第 7 条转投条款 · `BABYSIT-TEMPLATE.md` §1 上岗加登记 / §3 补三权 / §7 下班四件加 `release` · `SETUP.md` 第 3 步加登记、角色表补通信权、换班补残留清理 · `babysit/README.md` 加第 8 条设计不变量 · `hooks/README.md` 与 `kit/guard/README.md` 记两个 matcher 与三态实测命令。
 - **`snapshot/2026-08-19-cross-window-command-routing.md`（新）**：六个设计选择各附被否掉的替代方案（身份键选 worktree 不选 session id、登记存 common git dir 不存值守文档、故意 fail-open、deny-list 不 allow-list、横向一律中转、逃生门必须留痕）。
 
 ### 诚实边界
 
 - **闸拦命令，不拦意图**——换个写法照样做得出去；它防「顺手就做了」，不防蓄意绕过（后者归治理，不归退出码）。
+- **横向消息闸只认台账里的窗口**：未登记 worktree 的窗口不在 lane 台账里，发给它的消息拦不住——但那种树本来就被边界闸报 FAIL 并连坐全场，属那一层的问题，不该由本闸兜第二遍。会话名与 worktree 目录名无关的机器同理认不出（本机命名惯例是同源的，别的机器未必）。
 - **MCP 外发不在闸内**：本轮只挂 `Bash` 与 `SendMessage` 两个 matcher，Telegram/Slack 等 MCP 工具要机械兜住须按其工具名另加 matcher，否则那条通道只有纪律层。
 - **单值守仍不靠锁**：`oncall claim` 是文件登记，两个窗口同时 `--force` 抢后写的赢；`babysit/README.md`「不靠锁机制」那句仍成立，新增的是机器可寻址与留痕。
 - **fail-open 是故意的反常**：本仓一贯 fail-closed，这里反过来——忘了上岗只是没有闸，fail-closed 却会锁死单人开发与值守下班后的仓库。

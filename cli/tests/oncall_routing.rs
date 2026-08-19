@@ -192,10 +192,48 @@ fn sendmessage_is_funnelled_to_the_oncall_window() {
     // 交单 / 回执 → 值守：唯一放行的出站通道
     let out = guard(&feature, &msg("babysit-window-a-02"));
     assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
-    // 横向找别的功能窗口：拦下并要求经值守中转
-    let out = guard(&feature, &msg("other-feature-window-9c"));
+
+    // 会话内部通信（子代理 / main）不归这条闸管
+    for internal in ["main", "researcher"] {
+        let out = guard(&feature, &msg(internal));
+        assert_eq!(out.status.code(), Some(0), "{internal}: {}", combined(&out));
+    }
+
+    // 横向找**另一个已登记的窗口**：拦下并要求经值守中转
+    let peer = feature.parent().unwrap().join("peer-lane-3f21");
+    must_run(
+        &feature,
+        "git",
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "peer",
+            peer.to_str().unwrap(),
+            "main",
+        ],
+    );
+    let claimed = agent_on(
+        &peer,
+        &[
+            "worktree",
+            "claim",
+            "--id",
+            "peer-lane",
+            "--goal",
+            "g",
+            "--base",
+            "main",
+            "--owns",
+            "peer",
+        ],
+    );
+    assert!(claimed.status.success(), "{}", combined(&claimed));
+
+    let out = guard(&feature, &msg("peer-lane-3f21-07"));
     assert_eq!(out.status.code(), Some(2), "{}", combined(&out));
     assert!(combined(&out).contains("跨窗口沟通"), "{}", combined(&out));
+    assert!(combined(&out).contains("peer-lane"), "{}", combined(&out));
 }
 
 #[test]
