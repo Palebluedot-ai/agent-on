@@ -189,7 +189,7 @@ Project A 踩的坑，消化进 kit 的 checklist 后，Project B 的下一次�
 |---|---|---|
 | [BOOTSTRAP.md](BOOTSTRAP.md) + `boot/` | **Boot** | 新项目冷启动（含定档三问）· 存量项目接入书 adopt · 会话续接握手 · 结账/升级执行书 · 深挖版问卷 |
 | `kit/` | **Kit** | 模板层：AGENTS 骨架 + **AGENTS-lite 轻装版**、phase 卡、派工词、审查词、**深度调研派工词**、合流 checklist（含 DoD 门禁）、**多 worktree 控制面**、**值守合并调度（babysit/）**、状态文件、lock 模板、Promotion Card、四张卡 JSON Schema（schemas/）、ABDC 决策四模板（abdc/）、commit 分层、PRD / 需求澄清包 / milestone 模板、**项目仪表盘 dashboard**（M/L）、**想法收集箱 thoughts-and-ideas**（全档） |
-| `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）+ 机制七篇（mechanisms/） |
+| `playbook/` | **Playbook** | 方法论十五篇：SOP（含外部服务集成清单）、防幻觉、二车道、模型无关化、混编经济学、多人协作、架构师透镜、前置追问、真相源治理、阶段闸门、元原则、ABDC 决策、沉淀分层、**迭代闭环**、**工作流编排**（确定性扇出防幻觉七件）。*Gen-1 机制七篇已于 2026-08-19 归档进 `legacy/gen1-role-model/`* |
 | `bench/` | **Bench** | 翻车案例集 38 卡（[bench/cases/](bench/cases/README.md)）+ 能力探针 + 能力真相表 + 修正闭环 |
 | `ledger/` | **Ledger** | **主路径 = 散文台账**（Euan 九次 run 实测）。jsonl 四卡 + audit-lint = **L 档旁路机件，零真实项目跑通——开箱勿启用**；S/M 结账走 loop-notes → Promotion Card，不产 jsonl |
 | `intake/` | — | 承接层：各项目「结账」回流的落点（目录即仪表盘，`ls` 一眼见积压） |

@@ -23,9 +23,13 @@
 | [iteration-loop.md](iteration-loop.md) | 迭代闭环六站：种→采→结→消化→发布→升级；Project A 的坑变成 Project B 的免疫 |
 | [workflow-orchestration.md](workflow-orchestration.md) | 确定性扇出的防幻觉七件：脚本控制流 / schema 强制 / 证据派工 / 对抗 stage / 断点续跑 / 单一合流权——与六步协议按「会不会撞文件」分工 |
 
-## 机制七篇（mechanisms/）
+## 机制七篇 —— 已归档（2026-08-19）
 
-Loop Engineering 的执行机制定义：自包含文件系统、三固化剂、审查者规则与触发流、监控与 Error Signal、文件系统归档。这七篇是 kit 模板背后的规则原文。
+原 `mechanisms/` 七篇（自包含文件系统 / 三固化剂 / Reviewer 规则与触发流 / Checker 规则 / 监控与 Error Signal / 文件系统归档）定义了 Gen-1 抽象角色体系（Reviewer / Checker / Curator / Worker / state-manager），**在真实运行中从未生效**——零机械闸、零下游消费者、`review_status` 等状态字段从未进过 `kit/progress-template.yaml`、`agents/state-manager.md` 从未存在。
+
+**整体移入 [../legacy/gen1-role-model/](../legacy/gen1-role-model/README.md)**，该目录 README 列明「活下来的部分去了哪」逐条对照表；审视全文见 [../snapshot/2026-08-19-gen1-role-model-audit.md](../snapshot/2026-08-19-gen1-role-model-audit.md)。
+
+现役角色只有三个，且都带闸：**maintainer**（[multi-contributor-protocol.md](multi-contributor-protocol.md) §三，CODEOWNERS + CI + 记账棘轮）、**值守 oncall**（`agent-on oncall` + PreToolUse 路由闸 + `../kit/babysit/`）、**独立对抗审查员**（[../kit/review-prompt-template.md](../kit/review-prompt-template.md)，非常驻角色而是派工词）。
 
 ## 五篇前身仓移植（2026-07-07 批二，源流与裁决见 [../snapshot/2026-07-07-fusion-map.md](../snapshot/2026-07-07-fusion-map.md) §5）
 

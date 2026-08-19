@@ -26,7 +26,7 @@
 ### 1. 单写者状态 —— 位置不动,写者换名
 - **诱惑**:让每人都能改 progress.yaml,「各写各的部分」。
 - **为什么是灾难**:progress.yaml 是防状态幻觉的根防线(anti-hallucination 机制 4)。多写者 = merge 冲突 + 状态漂移 = 后续所有决策建立在错前提。
-- **正解(最少改动)**:功能 PR **永不碰** progress.yaml;写者从「单会话」变「单一合并权威(maintainer)」——**不变量的定义没变(仍是单写者),只是写者身份从会话变成角色**。contributor 用旁路(`logs/<handle>.md` 追加,不同文件零冲突)报进展,maintainer merge 后单独 commit 同步。
+- **正解(最少改动)**:功能 PR **永不碰** progress.yaml;写者从「单会话」变「单一合并权威(maintainer)」——**不变量的定义没变(仍是单写者),只是写者身份从会话变成角色**。写者名换过三代——Gen-1 叫 `state-manager`(纯纸面,从未存在过定义文件)、单人期是 orchestrator 主会话、多人期是 maintainer——**三代换的都是名字,不变量一次没动**;这也是 Gen-1 角色体系里唯一活到今天的东西(审视见 `snapshot/2026-08-19-gen1-role-model-audit.md`)。contributor 用旁路(`logs/<handle>.md` 追加,不同文件零冲突)报进展,maintainer merge 后单独 commit 同步。
 - **可复用模式**:任何「多人 + 单一真相源」都这么办——真相源只读于协作者,由合并权威在合并点单独更新。
 
 ### 2. 轨道 = 目录 —— 从 worktree 平移到 branch

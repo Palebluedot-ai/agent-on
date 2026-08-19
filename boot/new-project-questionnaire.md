@@ -34,7 +34,6 @@
 ## Step 3:编排草案
 - executor: claude_code | codex | human
 - mode: single-agent | orchestrator-worker(主会话派子代理) | multi-track(worktree 并行)
-- required_roles:（worker/reviewer/curator,按需;不轻易新增)
 - review_gate: standard | strict（high-risk 强制 strict）
 - hitl_required: yes | no（对外发布动作强制 yes）
 
