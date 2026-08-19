@@ -153,6 +153,26 @@ enum WorktreeCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
+    /// Redivide an existing lane in place: goal, owns, branch, or base
+    Edit {
+        /// Lane id; defaults to the lane registered for the current worktree
+        #[arg(long)]
+        id: Option<String>,
+        #[arg(long)]
+        goal: Option<String>,
+        /// Replacement boundary set; repeat the flag or pass a comma-separated list.
+        /// A path containing a literal comma needs git quoted form, e.g. --owns '"a\054b.md"'
+        #[arg(long = "owns", value_delimiter = ',')]
+        owns: Vec<String>,
+        /// New branch name; must resolve to an existing ref
+        #[arg(long)]
+        branch: Option<String>,
+        /// New base ref; re-pins the recorded base sha
+        #[arg(long)]
+        base: Option<String>,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
     /// Show all worktrees, boundaries, drift, dependencies, and reclaim class
     Status {
         #[arg(long)]
@@ -374,6 +394,33 @@ fn main() {
                 let cwd = cwd
                     .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::set_lane_status(&cwd, id.as_deref(), &status);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Edit {
+                id,
+                goal,
+                owns,
+                branch,
+                base,
+                cwd,
+            } => {
+                let cwd = cwd
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+                let (c, out) = worktree::edit_lane(
+                    &cwd,
+                    &worktree::EditOpts {
+                        id,
+                        goal,
+                        owns,
+                        branch,
+                        base,
+                    },
+                );
                 if c == 0 {
                     print!("{out}");
                 } else {

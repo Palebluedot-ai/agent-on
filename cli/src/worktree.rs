@@ -680,6 +680,106 @@ fn transition_allowed(from: &str, to: &str) -> bool {
         )
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct EditOpts {
+    /// Lane to edit; defaults to the lane registered for the current worktree.
+    pub id: Option<String>,
+    pub goal: Option<String>,
+    /// Replacement boundary set; empty means "leave owns unchanged".
+    pub owns: Vec<String>,
+    pub branch: Option<String>,
+    pub base: Option<String>,
+}
+
+pub fn edit_lane(cwd: &Path, opts: &EditOpts) -> (i32, String) {
+    match edit_lane_inner(cwd, opts) {
+        Ok((record, changed)) => (
+            0,
+            format!(
+                "EDITED {}\n{changed}next: run `agent-on worktree check` to verify the new division\n",
+                record.id
+            ),
+        ),
+        Err(e) => (1, format!("ERROR: {e}\n")),
+    }
+}
+
+fn edit_lane_inner(cwd: &Path, opts: &EditOpts) -> Result<(LaneRecord, String), String> {
+    if opts.goal.is_none() && opts.owns.is_empty() && opts.branch.is_none() && opts.base.is_none() {
+        return Err("nothing to edit; pass --goal, --owns, --branch, or --base".to_string());
+    }
+    let records = load_records(cwd)?;
+    let target_index = if let Some(id) = &opts.id {
+        records.iter().position(|r| &r.id == id)
+    } else {
+        let root = repo_root(cwd)?;
+        let canonical = fs::canonicalize(&root).unwrap_or(root);
+        records
+            .iter()
+            .position(|r| Path::new(&r.worktree) == canonical)
+    }
+    .ok_or_else(|| "no matching lane record".to_string())?;
+
+    let mut record = records[target_index].clone();
+    let mut changed = String::new();
+
+    if let Some(goal) = &opts.goal {
+        if goal.trim().is_empty() {
+            return Err("lane goal cannot be empty".to_string());
+        }
+        record.goal = goal.trim().to_string();
+        changed.push_str(&format!("goal: {}\n", record.goal));
+    }
+    if let Some(branch) = &opts.branch {
+        let branch = branch.trim();
+        if branch.is_empty() {
+            return Err("lane branch cannot be empty".to_string());
+        }
+        git(cwd, &["rev-parse", "--verify", "--quiet", branch])
+            .map_err(|_| format!("branch does not resolve to an existing ref: {branch}"))?;
+        record.branch = branch.to_string();
+        changed.push_str(&format!("branch: {}\n", record.branch));
+    }
+    if let Some(base) = &opts.base {
+        let base = base.trim();
+        if base.is_empty() {
+            return Err("lane base cannot be empty".to_string());
+        }
+        record.base_sha_at_claim = git(cwd, &["rev-parse", "--verify", base])?;
+        record.base = base.to_string();
+        changed.push_str(&format!(
+            "base: {} @ {}\n",
+            record.base,
+            &record.base_sha_at_claim[..record.base_sha_at_claim.len().min(12)]
+        ));
+    }
+    if !opts.owns.is_empty() {
+        let owns = normalize_owns(&opts.owns)?;
+        // Same entry gate as claim: a redivision may not collide with any
+        // other live lane; overlap with parked/landed lanes is tolerated.
+        for existing in records
+            .iter()
+            .filter(|r| r.id != record.id && ownership_live(&r.status))
+        {
+            for new_path in &owns {
+                for old_path in &existing.owns {
+                    if boundaries_overlap(new_path, old_path) {
+                        return Err(format!(
+                            "owned path {} overlaps live lane {} boundary {}",
+                            new_path, existing.id, old_path
+                        ));
+                    }
+                }
+            }
+        }
+        record.owns = owns;
+        changed.push_str(&format!("owns: {}\n", record.owns.join(", ")));
+    }
+    record.updated_at = Utc::now().to_rfc3339();
+    write_record(cwd, &record)?;
+    Ok((record, changed))
+}
+
 pub fn forget_lane(cwd: &Path, id: &str) -> (i32, String) {
     let result = (|| -> Result<(), String> {
         let records = load_records(cwd)?;
@@ -2419,5 +2519,195 @@ mod tests {
         let (decision, reasons) = decide_gc(facts);
         assert_eq!(decision, "review");
         assert_eq!(reasons, ["closed_without_merge"]);
+    }
+
+    fn claim_fixture_lane(wt: &Path, id: &str, owns: &[&str], parked: bool) {
+        let opts = ClaimOpts {
+            parked,
+            id: id.to_string(),
+            goal: format!("work on {id}"),
+            base: Some("main".to_string()),
+            owns: owns.iter().map(|v| v.to_string()).collect(),
+            depends_on: Vec::new(),
+        };
+        let (code, out) = claim_lane(wt, &opts);
+        assert_eq!(code, 0, "{out}");
+    }
+
+    #[test]
+    fn edit_updates_goal_and_owns_in_place() {
+        let (_tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("lane-a".to_string()),
+                goal: Some("redivided goal".to_string()),
+                owns: vec!["app".to_string(), "README.md".to_string()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("EDITED lane-a"), "{out}");
+        assert!(out.contains("owns: README.md, app"), "{out}");
+        let records = load_records(&root).unwrap();
+        let lane = records.iter().find(|r| r.id == "lane-a").unwrap();
+        assert_eq!(lane.goal, "redivided goal");
+        assert_eq!(lane.owns, vec!["README.md".to_string(), "app".to_string()]);
+        assert_eq!(lane.status, "active");
+        assert_eq!(lane.branch, "lane/a");
+        assert_eq!(lane.base, "main");
+    }
+
+    #[test]
+    fn edit_defaults_to_current_worktree_lane_when_id_omitted() {
+        let (_tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                goal: Some("located by cwd".to_string()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let records = load_records(&root).unwrap();
+        assert_eq!(records[0].goal, "located by cwd");
+    }
+
+    #[test]
+    fn edit_requires_at_least_one_field() {
+        let (_tmp, _root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let (code, out) = edit_lane(&wt, &EditOpts::default());
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("nothing to edit"), "{out}");
+    }
+
+    #[test]
+    fn edit_missing_lane_errors() {
+        let (_tmp, _root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("ghost".to_string()),
+                goal: Some("whatever".to_string()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("no matching lane record"), "{out}");
+    }
+
+    #[test]
+    fn edit_owns_rejects_overlap_with_live_lane() {
+        let (tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let wt_b = add_worktree(&root, tmp.path(), "lane-b", "lane/b");
+        claim_fixture_lane(&wt_b, "lane-b", &["README.md"], false);
+        let (code, out) = edit_lane(
+            &wt_b,
+            &EditOpts {
+                id: Some("lane-b".to_string()),
+                owns: vec!["app/pages".to_string()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("overlaps live lane lane-a"), "{out}");
+        let records = load_records(&root).unwrap();
+        let lane_b = records.iter().find(|r| r.id == "lane-b").unwrap();
+        assert_eq!(lane_b.owns, vec!["README.md".to_string()]);
+    }
+
+    #[test]
+    fn edit_owns_tolerates_overlap_with_parked_lane() {
+        let (tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], true);
+        let wt_b = add_worktree(&root, tmp.path(), "lane-b", "lane/b");
+        claim_fixture_lane(&wt_b, "lane-b", &["README.md"], false);
+        let (code, out) = edit_lane(
+            &wt_b,
+            &EditOpts {
+                id: Some("lane-b".to_string()),
+                owns: vec!["app/pages".to_string()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let records = load_records(&root).unwrap();
+        let lane_b = records.iter().find(|r| r.id == "lane-b").unwrap();
+        assert_eq!(lane_b.owns, vec!["app/pages".to_string()]);
+    }
+
+    #[test]
+    fn edit_own_lane_owns_change_does_not_self_overlap() {
+        let (_tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        // Narrowing inside the lane's own current boundary must not be
+        // rejected as an overlap with itself.
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("lane-a".to_string()),
+                owns: vec!["app/base.txt".to_string()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let records = load_records(&root).unwrap();
+        assert_eq!(records[0].owns, vec!["app/base.txt".to_string()]);
+    }
+
+    #[test]
+    fn edit_base_repins_recorded_sha() {
+        let (_tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let before = load_records(&root).unwrap()[0].base_sha_at_claim.clone();
+        fs::write(root.join("README.md"), "moved on\n").unwrap();
+        run(&root, &["git", "commit", "-am", "advance main"]);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("lane-a".to_string()),
+                base: Some("main".to_string()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let lane = &load_records(&root).unwrap()[0];
+        assert_eq!(lane.base, "main");
+        let tip = git(&root, &["rev-parse", "--verify", "main"]).unwrap();
+        assert_eq!(lane.base_sha_at_claim, tip);
+        assert_ne!(lane.base_sha_at_claim, before);
+    }
+
+    #[test]
+    fn edit_branch_must_resolve_to_existing_ref() {
+        let (_tmp, root, wt) = fixture();
+        claim_fixture_lane(&wt, "lane-a", &["app"], false);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("lane-a".to_string()),
+                branch: Some("lane/renamed".to_string()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("branch does not resolve"), "{out}");
+        run(&wt, &["git", "branch", "lane/renamed"]);
+        let (code, out) = edit_lane(
+            &wt,
+            &EditOpts {
+                id: Some("lane-a".to_string()),
+                branch: Some("lane/renamed".to_string()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let records = load_records(&root).unwrap();
+        assert_eq!(records[0].branch, "lane/renamed");
     }
 }
