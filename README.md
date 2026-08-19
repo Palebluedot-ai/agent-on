@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.16.1`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.17.0`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.16.1`** |
+| **推荐 pin** | **`v0.17.0`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -274,6 +274,7 @@ Claude / Codex guard 都随 plugin 挂并共用一份 hook；Codex 非 managed h
 - **v0.14 ✅**：**`v0.14.0`** 值守合并调度 babysit（kit/babysit 四件：模板 §0–§7 / 三步接入 / 治理条款范本；landing 的执行半场）。
 - **v0.15 ✅**：**`v0.15.0`** 值守两批消化收口（协作篇 §三½.6 值守段 + 记账字面匹配盲区 + 闸四张面 + worktree 重划死锁三解 + bench 37/38 + anti-hallucination #17/#19）+ Deep Research 派工模板 + babysit 交单三型协议 + 本仓值守自举（docs/babysit.md + AGENTS 第 8 条）。
 - **v0.16 ✅**：**`v0.16.1`** 契约层收口（`kit/output-contract.md` 每轮输出契约 + `kit/babysit/MERGE-POLICY.md` 合入授权/门铃即起跑/时延目标）+ CLI 两件（`worktree edit` 重划 lane、`claim --owns` 逗号串修复）+ 真相之页「开发史」tab；`v0.16.1` 另补本仓值守文档接契约与推荐 pin 文案（patch）。
+- **v0.17 ✅**：**`v0.17.0`** 跨窗口值守调研（interactive 会话没有状态字段 / 缺口在强制点与状态可读性）+ 输出契约四处增补（表格渲染映射 / 末尾 Summary 块 / 跨窗口编号 `<会话名>#<任务 id>` / 默认值默认等于建议值）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 
