@@ -22,10 +22,13 @@
 ### 交接快照（上一班下班时更新；本班核对，不信任）
 
 ```text
-时间：2026-08-17（实例化写入；首班照 §1 自己核）
-在班值守地址：<空——首班上岗写入>
-main：<首班跑 git rev-parse origin/main 填>
-open PR：#1 真相之页「开发史」（孤本救回，无交单，等拍板处置）
+时间：2026-08-19 10:1x（首班上岗，§1 全项自核；用户当日拍板三条全 A）
+在班值守地址：会话名前缀 `worktree-output-clarity-e02325-*`（ListAgents 按前缀匹配；
+              精确后缀本会话读不到自己，交单前用 ListAgents 确认一次）
+main：cf94ae9f4a1d6304daee8309bc9ee3b7872b1b59
+open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
+最新 tag：v0.15.0；v0.16.0 封版 PR 在途（CHANGELOG 补 #8/#10/#11 + 本文档），
+          合入后由值守代打 tag（语义已拍板：minor / v0.16.0）
 在途后台链：无
 ```
 
@@ -68,16 +71,23 @@ open PR：#1 真相之页「开发史」（孤本救回，无交单，等拍板�
 - **分类器间歇拦合并命令**（本仓 2026-08-17 实测）：`gh pr merge` 与 `gh api -X PUT` 时好时坏——settings.local.json（SETUP §1）未建则必撞；按 anti-hallucination #17 两步不过即停，贴命令给用户手跑
 - **PreToolUse guard 先评估整条命令**：占位 claim 与 `git commit` 必须拆成两条命令——合在一条里 claim 永远跑不到（2026-08-17 实测）
 - **GitHub GraphQL 与 REST 可分层故障**：`gh pr create` 503 时换 `gh api repos/…/pulls` REST 直建（2026-08-17 实测两侧恢复时间不同）
-- 未登记 worktree 连坐全场 FAIL → 占位 park 逃生门（kit/worktree-control-plane「重划与死锁三解」）；lane 重划 = JSON 直改 + check 验证
+- 未登记 worktree 连坐全场 FAIL → 占位 park 逃生门（kit/worktree-control-plane「重划与死锁三解」）；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
 - squash / merge 后祖先误判 → 以 `gh pr list --state merged` / 托管平台为准
 - 状态闸拉 GitHub API 抖动 → 重试即绿，非业务违规
+- **装机 CLI 与仓内源码同版本号、功能不同**（2026-08-19 实测）：`agent-on landing` / `worktree edit` 报 `unrecognized subcommand`，但 `cli/Cargo.toml` 与 `agent-on --version` 都是 0.12.1——功能落地没 bump 版本号，光看版本号分辨不出。命令报「没这个子命令」时先 `cargo install --path cli` 重装再怀疑文档写错
+- **`worktree check` 的输出别用 `tail` 截**（2026-08-19 实测）：lane 按字母序列出、`RESULT` 行在末尾，`tail -40` 会砍掉开头几条轨（本轮漏看 `affectionate-hofstadter-placeholder` 与 `agent-on-data-hygiene` 两条）。要判 RESULT 用 `tail -3`，要看 lane 清单就全量看，别两件事一条管道办
+- **活跃轨上限 3/3 会挡住值守自己 `set-status active`**（2026-08-19 实测）：报 `活跃轨上限已满（3/3）；先 park / land 一条再激活`。**别为腾位子去动别人的 lane 状态**——值守轨留 `parked` 照样能写自己 owns 内的文件（guard 判边界不判生命周期），登记清楚就行
+- **值守写文件前先确认自己在哪棵树**（2026-08-19 实测踩到）：`cd /Users/chao/Projects/Agent-On` 是**主仓 worktree（main 分支）**，不是值守自己的树；在那里编辑等于往 main 的工作区写。写之前 `cd` 到值守 worktree 绝对路径，或所有 git 命令带 `-C <值守树>`。误写了就 `cp` 到自己树 + 主仓 `git checkout -- <file>` 复原，复原前先 `git status --porcelain` 确认那棵树只有你这一笔改动
 
 ## §5 已知遗留（交接清单；提醒用，值守不抢活）
 
-- PR #1 真相之页「开发史」（孤本救回）：开着、无交单，等用户拍板处置
-- output-contract 轨（worktree-dashboard-pipeline-21eb94）：kit/output-contract.md + kit/babysit/MERGE-POLICY.md 待开 PR；落地时连带 kit/README 两行索引 + babysit 模板/条款三处引用接线（归其轨原子做，别代做）
-- CLI 任务卡在跑（另一会话）：claim --owns 逗号 bug + worktree edit 命令
-- settings.local.json 未建：首班 §1 权限自检必撞——先催 SETUP §1 命令
+> 2026-08-19 首班核对：上一版四条**全部过期**，已逐条结清（PR #1 已关闭；output-contract 轨 #9/#10 已合含 kit/README 索引；CLI 两件 #6/#7 已合；settings.local.json 已建且规则与 SETUP §1 逐字一致）。下面是本班新开的清单。
+
+- **v0.16.0 封版 PR 在途**：CHANGELOG 补 #8/#10/#11 条目 + 本文档交接快照/遗留/分诊三处更新（值守轨 `worktree-output-clarity-placeholder`，owns = `CHANGELOG.md, docs/babysit.md`）。合入需用户拍板（canonical 边缘），合入后值守代打 `v0.16.0` tag。
+- **5 棵树齐回收证据未删**：`babysit-merge-dispatcher-6aeff4`(#5)、`eloquent-sanderson-4b245b`(#4)、`gracious-shtern-07ae02`(#6, 397 MB)、`v0121-agent-skeleton-hooks`、`v0121-worktree-enforcement`(843 MB)。值守不代删，命令附在每轮撤销面。
+- **两条 active 轨有孤本**（changed=1，`reclaim rescue`）：`agent-on-data-hygiene`、`owns-octal-unescape`、外加 parked 的 `affectionate-hofstadter-placeholder`——归各自作者会话，值守只播报。
+- **活跃轨 3/3 占满**：`agent-on-data-hygiene` / `orchestrator-loop` / `owns-octal-unescape`。值守轨因此只能留 parked（见 §4）。
+- **`landing status --human` 面板渲染未挂**：CHANGELOG v0.16.0「诚实边界」记的后续，需单独拍板，值守不代做。
 
 ## §6 汇报纪律
 

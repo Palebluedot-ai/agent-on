@@ -2,9 +2,9 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.15.0 起攒）
+## v0.16.0（2026-08-19）——契约层收口 + CLI 两件 + 真相之页开发史
 
-> 三笔已合入 main：#9（kit 契约层）+ #7 / #6（CLI 两件）。**minor**：不动手不坏——kit 纯增补 + 既有模板改为引用；CLI 新增一个子命令与一处静默缺陷修复,既有命令行为不变。封版前请各作者核对本节自己那笔。
+> 六笔已合入 main：#9 / #10 / #8（kit 契约与文档）+ #7 / #6（CLI 两件）+ #11（真相之页开发史）。**minor**：不动手不坏——kit 纯增补 + 既有模板改为引用；CLI 新增一个子命令与一处静默缺陷修复,既有命令行为不变；dashboard 模板新增一个 tab,既有五 tab 不变。
 
 ### 每轮输出契约 + 值守合入授权（#9,kit)
 
@@ -19,16 +19,28 @@
 - **`agent-on worktree edit`（新,#7）**——lane 就地重划 goal / owns / branch / base,免得每次重划都去手改 `.git/agent-on/lanes/*.json`;owns 仍过活跃轨重叠闸。(`cli/src/{main,worktree}.rs` + `cli/tests/worktree_edit.rs`,+458 行)
 - **`worktree claim --owns` 逗号列表修复（#6）**——此前传逗号分隔列表会被**整串存成单条边界**(静默缺陷:边界看似登记成功,实际一条也没生效);入口自动分割 + 回归测试。(`cli/src/main.rs` + `cli/tests/worktree_hooks.rs`)
 
+### kit 文档收口（#10 / #8）
+
+- **kit 索引两行（#10）**——`kit/README.md` 补 `output-contract.md` 与 `babysit/MERGE-POLICY.md` 两行索引,外加「四条不许省的纪律」后的第五条汇报纪律(每轮输出走 output-contract)。索引行与文件必须同批落地,此前被 #5 占用 CHANGELOG 故延到本批;#10 同时写下本节的初版(自 v0.15.0 起攒的三笔)。
+- **重划节改指 `worktree edit`（#8）**——`kit/worktree-control-plane.md`「重划与死锁三解」的重划入口由「JSON 直改」改为 `agent-on worktree edit`,JSON 直改降级为 fallback(无 CLI 或被活跃轨重叠闸拦住时);死锁第 2 条注明 `edit` 与 claim 同闸、该条仍只能 JSON 直改;「已知雷」的逗号串改成「0.12.x 装机版」历史注记 + 指向 #6/#7 的修复与 `edit --owns` 改错路径。文档随 CLI 能力同批更新,不留悬空说明。
+
+### 真相之页「开发史」（#11,kit）
+
+- **`kit/dashboard-template.html` 新增第六 tab「开发史」**——日历热力图(每格一天,颜色=当日主力平台,深浅=提交量,点格子锚点跳当天明细)+ 倒序逐日时间线(类型徽章 功能/DEBUG/拍板/文档/收件 + 平台徽章 Claude Code/Codex/Grok/未标注)。与「里程碑」分工明确:里程碑人挑大事记,开发史机器转录全量流水。
+- 真相源 = `git log` 机械转录,模板内附重绘命令与转录规则(类型读 commit 前缀,平台读 `Co-Authored-By` 署名,读不到标「未标注」);顶部数据源清单与页脚补「开发史 ← git log」行;配色全取既有变量;`instantiated-from` 版本戳由硬编码 `v0.4` 改为占位符。
+- **这是 PR #1 的救回**:原分支从 v0.12.0 时代长出(落后 35),其 CHANGELOG 条目写进了此后已随四次发版定稿的 [未发布] 段而逐字冲突死锁。#11 把唯一的功能文件原样落到 fresh `origin/main` 上(逐字取自原提交 `5720a40`,无二次编辑),不 force-push、不改写原分支历史;PR #1 已于 `2026-08-19T02:01:04Z` 关闭。
+
 ### 诚实边界
 
 - **默认合入档不是无人自动合并**:它是用户显式预授权的清单,拍板前移了一次,仍然是人拍的;**用户没明确授权过则不生效**,全部按「必须先问」办。
 - #9 只改契约与调度参数(模板 / 治理条款 / 派工词 / 汇报纪律),**kit 侧 CLI 零改动**;把面板渲染做进 `landing status --human` 是未挂的后续,需单独拍板。
-- `.claude/settings.local.json`(SETUP §1 允许集)截至本节仍未建——本批三条 PR 仍由用户手合,值守未上岗;这也是「值守太慢」这条需求至今只落到文档、没落到实跑的原因。
+- `.claude/settings.local.json`(SETUP §1 允许集)在 #9 写下本节时尚未建,故本批六条 PR **全部由用户手合**,值守未参与任何一次合并;该文件已于封版前建好(两条 allow 规则与 SETUP §1 逐字一致),值守首班同日上岗,但「值守实跑合并」在本版内仍是零次——下一版才有实测数据。
 - 本节 CLI 两件由 #9 作者代记以便封版(封版必须描述版内全部改动),条目照两笔 commit 的实际 diff 写;**各作者封版前核对自己那笔**。
 
 ### 证据
 
-- #9 合入 `2026-08-19T01:26:54Z`、#7 `01:27:07Z`、#6 `01:27:22Z`;每笔过 `agent-on worktree check` RESULT: PASS
+- 合入时刻:#9 `2026-08-19T01:26:54Z`、#7 `01:27:07Z`、#6 `01:27:22Z`、#11 `01:59:58Z`、#10 `02:00:10Z`、#8 `02:00:22Z`;每笔过 `agent-on worktree check` RESULT: PASS
+- 封版时坐标(值守首班实跑核对):`origin/main = cf94ae9`、`gh pr list --state open` 空、`git log --oneline v0.15.0..origin/main | wc -l` → 15、`intake/` 41 卡全部已标去向
 - 契约自查器对交付轮次输出跑 **10/10 PASS**;面板渲染器直接吃 `agent-on worktree gc --dry-run --json` + `gh pr list --json` 机械生成四字段面板,`unknown` 确实落进「不能删」栏
 - 跨轨顺序留痕:`#4` lane 核远端后 ready → landed 释放 babysit 四文件 → #9 追平 origin/main 并扩 owns 后才接线;`kit/README.md` 索引两行等 `#5` 落地后同批补(索引行与文件同 PR,先加会造成悬空引用)
 
