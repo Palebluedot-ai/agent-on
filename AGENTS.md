@@ -46,5 +46,5 @@
 ## 不做的事（宪章边界的执行版）
 
 - 不写编排运行时代码；本仓以文档和模板为主，可执行物为 **Rust CLI**（`cli/`：doctor / guard / lint / setup / worktree / tag-release）
-- 不 push / 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认
+- 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认。**push 自己的分支与开 PR 不在此列**——那是本轨内部动作，自己做不问（判据见 [playbook/multi-contributor-protocol.md](playbook/multi-contributor-protocol.md) 的「外向硬门的边界」一节）；原句写「不 push」与自举纪律 6「交付轮次必须 push + 打 tag」直接打架，2026-08-19 用户拍板改正
 - 不引入与 GStack / Superpowers 重叠的环节型功能
