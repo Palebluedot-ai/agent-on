@@ -207,9 +207,16 @@ struct LaneAudit {
     reclaim: String,
     present: bool,
     /// Measured, not registered: this worktree holds work its base has not
-    /// taken in, so the boundary gate must hold its `owns` whatever `status`
-    /// says.
+    /// taken in, so a stale `landed` cannot switch the boundary gate off.
     writing: bool,
+    /// It holds such work, but nobody has touched it inside the dormancy
+    /// window. Rescue debt, not a second writer.
+    dormant: bool,
+    /// Whether the mutual-exclusion gate holds a boundary for this lane at all.
+    enforced: bool,
+    /// The boundary the gate actually holds: the declaration for a live lane,
+    /// the paths it has work in for a stale one, nothing otherwise.
+    gate_boundary: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -219,6 +226,9 @@ struct AuditReport {
     unregistered_worktrees: Vec<String>,
     overlaps: Vec<String>,
     dependency_blocks: Vec<String>,
+    /// Unlanded work in lanes nobody is writing any more. Reported every run,
+    /// never fatal: no registry edit can clear it, only rescuing the work can.
+    rescue_debt: Vec<String>,
     errors: Vec<String>,
 }
 
@@ -409,71 +419,170 @@ fn holds_unmerged_work(clean: bool, merged: bool, unique_commits: Option<u64>) -
     !clean || (!merged && unique_commits.unwrap_or(0) > 0)
 }
 
-/// The same predicate measured straight from a lane's worktree, for the gates
-/// that run before any audit exists. A worktree that is gone cannot be written
-/// to; one that is present but that git refuses to describe counts as written,
-/// so the gate fails closed.
-fn lane_writes_in_fact(record: &LaneRecord) -> bool {
+/// What the mutual-exclusion gate holds for one lane.
+///
+/// The gate exists to keep two sessions from writing the same file at the same
+/// time. Holding a boundary for anything else is not caution, it is noise — and
+/// a gate that is always red carries no signal at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GateHold {
+    /// A live lane is coming back, so it reserves ground it has not written
+    /// yet: the boundary is its declared `owns`.
+    Contract,
+    /// Registered as finished, but its worktree is being written to now. The
+    /// declaration is stale, so it reserves nothing; the boundary narrows to
+    /// the paths the lane actually has work in.
+    Writing,
+    /// Registered as finished, and its unlanded work has not been touched
+    /// inside the dormancy window. Nobody is writing here. The work still
+    /// matters, but as rescue debt for `gc`, not as a boundary.
+    Dormant,
+    /// Nothing unlanded at all: the lane holds nothing.
+    Released,
+}
+
+impl GateHold {
+    fn enforced(self) -> bool {
+        matches!(self, GateHold::Contract | GateHold::Writing)
+    }
+
+    /// The word that names this hold in an error message.
+    fn word(self) -> &'static str {
+        match self {
+            GateHold::Contract => "live",
+            GateHold::Writing => "still-writing",
+            GateHold::Dormant => "dormant",
+            GateHold::Released => "released",
+        }
+    }
+}
+
+/// Newest moment this worktree's unlanded work was touched: the mtime of the
+/// files git reports dirty, and the commit time of anything the base has not
+/// taken in.
+///
+/// `None` means the age could not be measured, which every caller reads as
+/// "recent" so the gate stays closed on an unreadable tree.
+fn newest_work_epoch(path: &Path, base: &str) -> Option<u64> {
+    let mut newest: Option<u64> = None;
+    // The files this lane's unlanded work touches, straight from the same
+    // helper the boundary audit uses. A path that no longer exists was deleted;
+    // it carries no mtime and simply does not vote.
+    let touched = changed_files(path, base).ok()?;
+    for rel in &touched {
+        let stamp = fs::metadata(path.join(rel))
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        if let Some(stamp) = stamp {
+            newest = Some(newest.map_or(stamp, |v: u64| v.max(stamp)));
+        }
+    }
+    // Committed work carries its own timestamp; a clean worktree holding
+    // unlanded commits is dated by the newest of them, not by checkout mtimes.
+    if let Ok(stamp) = git(
+        path,
+        &["log", "-1", "--format=%ct", &format!("{base}..HEAD")],
+    ) {
+        if let Ok(v) = stamp.trim().parse::<u64>() {
+            newest = Some(newest.map_or(v, |n| n.max(v)));
+        }
+    }
+    newest
+}
+
+/// Has this worktree's unlanded work gone cold? A window of `0` disables
+/// dormancy entirely, so a mistyped config can only tighten the gate.
+fn work_is_dormant(path: &Path, base: &str, dormant_after_days: u64) -> bool {
+    if dormant_after_days == 0 {
+        return false;
+    }
+    let (Some(touched), Ok(now)) = (
+        newest_work_epoch(path, base),
+        SystemTime::now().duration_since(UNIX_EPOCH),
+    ) else {
+        return false;
+    };
+    now.as_secs().saturating_sub(touched) > dormant_after_days.saturating_mul(86_400)
+}
+
+/// Which hold a lane has, measured from its worktree. Used by the gates that
+/// run before any audit exists; the audit path reuses the measurements it has
+/// already taken via [`hold_from_facts`].
+fn lane_gate_hold(record: &LaneRecord, dormant_after_days: u64) -> GateHold {
+    if ownership_live(&record.status) {
+        return GateHold::Contract;
+    }
     let path = Path::new(&record.worktree);
     if !path.exists() {
-        return false;
+        return GateHold::Released;
     }
     let clean = git(path, &["status", "--porcelain"])
         .map(|v| v.is_empty())
         .unwrap_or(false);
-    holds_unmerged_work(
+    hold_from_facts(
+        &record.status,
         clean,
         is_ancestor(path, "HEAD", &record.base),
         count_revs(path, &format!("{}..HEAD", record.base)),
+        path,
+        &record.base,
+        dormant_after_days,
     )
 }
 
-/// Why the mutual-exclusion gate still holds this lane's `owns`, if it does:
-/// the gate word plus any trailing detail for the error message.
-///
-/// `status` is a registration, and it goes stale the moment a session reuses a
-/// worktree whose lane already reached a terminal state. The write is the fact.
-/// Either one arms the gate, so a forgotten `landed` cannot switch off boundary
-/// checking for a lane that two sessions are in fact both writing.
-fn boundary_gate_reason(record: &LaneRecord) -> Option<(&'static str, String)> {
-    if ownership_live(&record.status) {
-        return Some(("live", String::new()));
+/// The same decision over measurements a caller already has in hand.
+#[allow(clippy::too_many_arguments)]
+fn hold_from_facts(
+    status: &str,
+    clean: bool,
+    merged: bool,
+    unique_commits: Option<u64>,
+    path: &Path,
+    base: &str,
+    dormant_after_days: u64,
+) -> GateHold {
+    if ownership_live(status) {
+        return GateHold::Contract;
     }
-    if lane_writes_in_fact(record) {
-        return Some((
-            "still-writing",
-            format!(
-                " (registered {}, but its worktree holds work its base has not taken in)",
-                record.status
-            ),
-        ));
+    if !holds_unmerged_work(clean, merged, unique_commits) {
+        return GateHold::Released;
     }
-    None
+    if work_is_dormant(path, base, dormant_after_days) {
+        return GateHold::Dormant;
+    }
+    GateHold::Writing
 }
 
-/// First boundary of `owns` that collides with `existing`, if any.
-fn first_overlap<'a>(
-    owns: &'a [String],
-    existing: &'a LaneRecord,
-) -> Option<(&'a String, &'a String)> {
+/// The paths a lane's worktree actually has unlanded work in — the boundary a
+/// stale registration narrows to.
+fn lane_fact_boundary(record: &LaneRecord) -> Vec<String> {
+    changed_files(Path::new(&record.worktree), &record.base).unwrap_or_default()
+}
+
+/// First boundary of `owns` that collides with the boundary `existing` holds.
+fn first_overlap<'a>(owns: &'a [String], held: &'a [String]) -> Option<(&'a String, &'a String)> {
     owns.iter().find_map(|new_path| {
-        existing
-            .owns
-            .iter()
+        held.iter()
             .find(|old_path| boundaries_overlap(new_path, old_path))
             .map(|old_path| (new_path, old_path))
     })
 }
 
-fn overlap_error(
-    new_path: &str,
-    existing: &LaneRecord,
-    old_path: &str,
-    reason: &(&'static str, String),
-) -> String {
+fn overlap_error(new_path: &str, existing: &LaneRecord, old_path: &str, hold: GateHold) -> String {
+    let detail = if hold == GateHold::Writing {
+        format!(
+            " (registered {}, but its worktree still has that work in hand)",
+            existing.status
+        )
+    } else {
+        String::new()
+    };
     format!(
-        "owned path {new_path} overlaps {} lane {} boundary {old_path}{}",
-        reason.0, existing.id, reason.1
+        "owned path {new_path} overlaps {} lane {} boundary {old_path}{detail}",
+        hold.word(),
+        existing.id
     )
 }
 
@@ -481,40 +590,68 @@ fn overlap_error(
 /// another lane still holds. `skip` is the lane being edited, which never
 /// collides with itself.
 fn reject_boundary_collision(
+    cwd: &Path,
     records: &[LaneRecord],
     owns: &[String],
     skip: Option<&str>,
 ) -> Result<(), String> {
+    let dormant_after = dormant_after_days(cwd);
     for existing in records.iter().filter(|r| Some(r.id.as_str()) != skip) {
-        // Measure the fact only for lanes whose boundaries actually collide;
-        // every other lane costs no git calls at all.
-        let Some((new_path, old_path)) = first_overlap(owns, existing) else {
+        // Measure the fact only for lanes whose declaration could collide at
+        // all; every other lane costs no git calls. The declaration is the
+        // widest a lane's boundary can ever be, so a miss here is a real miss.
+        if first_overlap(owns, &existing.owns).is_none() {
+            continue;
+        }
+        let hold = lane_gate_hold(existing, dormant_after);
+        if !hold.enforced() {
+            continue;
+        }
+        let held = match hold {
+            GateHold::Writing => lane_fact_boundary(existing),
+            _ => existing.owns.clone(),
+        };
+        let Some((new_path, old_path)) = first_overlap(owns, &held) else {
             continue;
         };
-        let Some(reason) = boundary_gate_reason(existing) else {
-            continue;
-        };
-        return Err(overlap_error(new_path, existing, old_path, &reason));
+        return Err(overlap_error(new_path, existing, old_path, hold));
     }
     Ok(())
 }
 
 pub(crate) const DEFAULT_ACTIVE_CAP: u64 = 3;
 
-/// Configurable ACTIVE-lane cap, read from `<common git dir>/agent-on/config.json`
-/// (`{"active_cap": N}`). Missing or malformed config falls back to the default.
-pub(crate) fn active_cap(cwd: &Path) -> u64 {
+/// How long a finished lane's unlanded work may sit untouched before the
+/// mutual-exclusion gate stops reading it as a second writer. Long enough to
+/// cover a weekend plus a couple of distracted days.
+pub(crate) const DEFAULT_DORMANT_AFTER_DAYS: u64 = 7;
+
+/// One `u64` knob out of `<common git dir>/agent-on/config.json`. Missing or
+/// malformed config falls back to the default.
+fn config_u64(cwd: &Path, key: &str, default: u64) -> u64 {
     let Ok(common) = common_git_dir(cwd) else {
-        return DEFAULT_ACTIVE_CAP;
+        return default;
     };
     let path = common.join("agent-on").join("config.json");
     let Ok(raw) = fs::read_to_string(&path) else {
-        return DEFAULT_ACTIVE_CAP;
+        return default;
     };
     serde_json::from_str::<serde_json::Value>(&raw)
         .ok()
-        .and_then(|v| v.get("active_cap").and_then(|c| c.as_u64()))
-        .unwrap_or(DEFAULT_ACTIVE_CAP)
+        .and_then(|v| v.get(key).and_then(|c| c.as_u64()))
+        .unwrap_or(default)
+}
+
+/// Configurable ACTIVE-lane cap (`{"active_cap": N}`).
+pub(crate) fn active_cap(cwd: &Path) -> u64 {
+    config_u64(cwd, "active_cap", DEFAULT_ACTIVE_CAP)
+}
+
+/// Configurable dormancy window (`{"dormant_after_days": N}`); `0` turns
+/// dormancy off, so a finished-but-writing lane keeps its fact boundary
+/// forever.
+pub(crate) fn dormant_after_days(cwd: &Path) -> u64 {
+    config_u64(cwd, "dormant_after_days", DEFAULT_DORMANT_AFTER_DAYS)
 }
 
 pub(crate) fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
@@ -640,7 +777,7 @@ fn claim_lane_inner(cwd: &Path, opts: &ClaimOpts) -> Result<LaneRecord, String> 
             existing.id, existing.status
         ));
     }
-    reject_boundary_collision(&records, &owns, None)?;
+    reject_boundary_collision(cwd, &records, &owns, None)?;
     for dep in &opts.depends_on {
         if !valid_id(dep) {
             return Err(format!("invalid dependency lane id: {dep}"));
@@ -882,7 +1019,7 @@ fn edit_lane_inner(cwd: &Path, opts: &EditOpts) -> Result<(LaneRecord, String), 
         let owns = normalize_owns(&opts.owns)?;
         // Same entry gate as claim: a redivision may not collide with a lane
         // that is live by registration or writing in fact.
-        reject_boundary_collision(&records, &owns, Some(&record.id))?;
+        reject_boundary_collision(cwd, &records, &owns, Some(&record.id))?;
         record.owns = owns;
         changed.push_str(&format!("owns: {}\n", record.owns.join(", ")));
     }
@@ -1142,6 +1279,7 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
         }
     }
 
+    let dormant_after = dormant_after_days(&root);
     let mut audits = Vec::new();
     let mut errors = Vec::new();
     for record in &records {
@@ -1210,6 +1348,26 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
                 record.id, record.status
             ));
         }
+        let hold = if present {
+            hold_from_facts(
+                &record.status,
+                clean,
+                merged,
+                unique_commits,
+                &path,
+                &record.base,
+                dormant_after,
+            )
+        } else if ownership_live(&record.status) {
+            GateHold::Contract
+        } else {
+            GateHold::Released
+        };
+        let gate_boundary = match hold {
+            GateHold::Contract => record.owns.clone(),
+            GateHold::Writing => files.clone(),
+            GateHold::Dormant | GateHold::Released => Vec::new(),
+        };
         audits.push(LaneAudit {
             id: record.id.clone(),
             goal: record.goal.clone(),
@@ -1229,21 +1387,21 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             reclaim,
             present,
             writing: present && holds_unmerged_work(clean, merged, unique_commits),
+            dormant: hold == GateHold::Dormant,
+            enforced: hold.enforced(),
+            gate_boundary,
         });
     }
 
-    // Overlap is judged after the audit, on what each worktree actually holds:
-    // a lane still writing keeps its boundary even when its status says the
-    // work is over.
-    let enforced: Vec<&LaneAudit> = audits
-        .iter()
-        .filter(|lane| ownership_live(&lane.status) || lane.writing)
-        .collect();
+    // Overlap is judged after the audit, on the boundary each lane actually
+    // holds: a live lane's declaration, a stale-but-writing lane's real work,
+    // and nothing at all for work nobody has come back to.
+    let enforced: Vec<&LaneAudit> = audits.iter().filter(|lane| lane.enforced).collect();
     let mut overlaps = Vec::new();
     for (i, a) in enforced.iter().enumerate() {
         for b in enforced.iter().skip(i + 1) {
-            for aa in &a.owns {
-                for bb in &b.owns {
+            for aa in &a.gate_boundary {
+                for bb in &b.gate_boundary {
                     if boundaries_overlap(aa, bb) {
                         overlaps.push(format!("{}:{} <-> {}:{}", a.id, aa, b.id, bb));
                     }
@@ -1251,12 +1409,26 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             }
         }
     }
+    let rescue_debt = audits
+        .iter()
+        .filter(|lane| lane.dormant)
+        .map(|lane| {
+            format!(
+                "{}: {} unrescued change(s) untouched for over {} day(s); boundary released to the gate, reclaim stays {}",
+                lane.id,
+                lane.changed_files.len(),
+                dormant_after,
+                lane.reclaim
+            )
+        })
+        .collect();
     Ok(AuditReport {
         repo: root.display().to_string(),
         lanes: audits,
         unregistered_worktrees: unregistered,
         overlaps,
         dependency_blocks,
+        rescue_debt,
         errors,
     })
 }
@@ -1265,10 +1437,12 @@ fn report_has_failures(report: &AuditReport) -> bool {
     !report.unregistered_worktrees.is_empty()
         || !report.overlaps.is_empty()
         || !report.errors.is_empty()
+        // A boundary violation is a live-lane fact. In a dormant lane it is
+        // history nobody can edit away, so it rides with the rescue debt.
         || report
             .lanes
             .iter()
-            .any(|lane| !lane.out_of_bounds.is_empty())
+            .any(|lane| lane.enforced && !lane.out_of_bounds.is_empty())
 }
 
 fn render_text(report: &AuditReport) -> String {
@@ -1298,9 +1472,9 @@ fn render_text(report: &AuditReport) -> String {
                 lane.out_of_bounds.join(", ")
             ));
         }
-        if lane.writing && !ownership_live(&lane.status) {
+        if lane.writing && !ownership_live(&lane.status) && !lane.dormant {
             out.push_str(&format!(
-                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate keeps its owns. Re-register with `agent-on worktree edit --status active --id {}`, or land the work.\n",
+                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate holds the paths that work touches. Re-register with `agent-on worktree edit --status active --id {}`, or land the work.\n",
                 lane.status, lane.base, lane.id
             ));
         }
@@ -1313,6 +1487,9 @@ fn render_text(report: &AuditReport) -> String {
     }
     for item in &report.dependency_blocks {
         out.push_str(&format!("WAIT: {item}\n"));
+    }
+    for item in &report.rescue_debt {
+        out.push_str(&format!("RESCUE-DEBT: {item}\n"));
     }
     for item in &report.errors {
         out.push_str(&format!("ERROR: {item}\n"));
@@ -2168,6 +2345,42 @@ pub fn run_gc(repo: &Path, opts: &GcOpts) -> (i32, String) {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    /// The whole decision table of the boundary gate, over facts alone. A path
+    /// that never exists cannot be measured for dormancy, so these cases pin
+    /// the three that do not need the filesystem.
+    #[test]
+    fn gate_hold_decision_table() {
+        let nowhere = Path::new("/nonexistent/lane");
+        // A live registration reserves ground it has not written yet.
+        assert_eq!(
+            hold_from_facts("active", true, true, Some(0), nowhere, "main", 7),
+            GateHold::Contract
+        );
+        // Finished and nothing unlanded: the lane holds nothing.
+        assert_eq!(
+            hold_from_facts("landed", true, true, Some(0), nowhere, "main", 7),
+            GateHold::Released
+        );
+        // Finished by registration but dirty in fact, and the age cannot be
+        // measured, so the gate stays closed rather than guessing.
+        assert_eq!(
+            hold_from_facts("landed", false, true, Some(0), nowhere, "main", 7),
+            GateHold::Writing
+        );
+        // Unlanded commits count as work even with a clean tree.
+        assert_eq!(
+            hold_from_facts("parked", true, false, Some(3), nowhere, "main", 7),
+            GateHold::Writing
+        );
+    }
+
+    /// A window of zero must tighten the gate, never loosen it: a typo in
+    /// config cannot be a way to switch dormancy on for everything.
+    #[test]
+    fn zero_window_disables_dormancy() {
+        assert!(!work_is_dormant(Path::new("/nonexistent/lane"), "main", 0));
+    }
 
     fn run(cwd: &Path, args: &[&str]) {
         let output = Command::new(args[0])
