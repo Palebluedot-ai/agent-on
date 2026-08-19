@@ -52,6 +52,7 @@ open PR：<#号 一句话状态，逐条>
    写台账**只记自己的号**——叙述别人未清偿的工作不写其编号（字面匹配闸会把「提及」当「销账」，拆掉对方补账压力）；
    **元动作自涵盖**——值守自己的 state / 交接 PR 也要入账，禁止只记别人。
 5. **低频（每天一次）**：worktree 盘点回收 + `agent-on worktree check` 控制面卫生 + 磁盘余量。
+   **陈年树清账是值守的常设议程**（不是撞闸会话的意外任务）：`agent-on worktree gc --dry-run` 里 `rescue`/`review` 且落后超阈值（无经验值先用 100 个提交）的树，逐棵写进 §5 已知遗留，一行写清「归谁 / 下一动作」；孤本先 push 消单点，删树本身是破坏性动作、归用户拍板。**债不清会连坐**：一棵死了很久的树能把全场在跑的 lane 一起锁死，而 FAIL 砸中的是下一个恰好要提交的会话——它既不是肇事者也没有删树权限（bench 案 40）。
 6. **节奏**：后台链 + 任务通知为主信号，定时唤醒只做兜底；盯活跃 CI 按其时长定唤醒（如 flutter ~11min → 600–900s）；全绿无账可记 = noop tick 放 20–30 分钟（noop 会被终端折叠，安静值守不刷屏）；用户说「值守加速」→ 切 3–5 分钟，连续 3 轮 noop 自动回落，用户不改任何配置文件（MERGE-POLICY §2）；宿主不支持动态节奏 → 固定 /loop 5–10 分钟；事故（billing 类）= 推一条通知 + 每轮最小探针。
 
 ## §3 权限边界（硬，越界前先问）
@@ -78,7 +79,11 @@ open PR：<#号 一句话状态，逐条>
 - `gh pr checks --watch` 在 push 后数秒视图滞后，只见外部 app check 就误判全绿 → 改 `gh run list --branch <br>` 拿 run id，盯 `gh run watch <id> --exit-status`
 - CI 全 job 数秒死、step 零执行、日志不存在 → org 级 Actions billing 问题；查 job annotation 取证（实证文案 "recent account payments have failed or your spending limit needs to be increased"），推通知等用户修，每轮最小探针测恢复；别按测试红分诊、别反复 Re-run
 - 状态闸脚本拉 GitHub API 抖动（RemoteDisconnected / 连败）→ Re-run 即绿，非业务违规
-- lane 控制面死锁三解：claim 拒绝重划 → 直改 `.git/agent-on/lanes/<id>.json` 再 `worktree check` 验证；OUT-OF-BOUNDS 死锁 → 回填清单进 owns（check 容忍 parked 轨重叠）；未登记 worktree 连坐全场 FAIL → 替它们占位登记（claim + set-status parked，goal 写明「占位 park，复活时重划」）；生命周期合法链 parked→ready→landed
+- lane 控制面死锁：①claim 拒绝重划 → `agent-on worktree edit`（旧版无此命令才 fallback 直改 `.git/agent-on/lanes/<id>.json`），改完 `worktree check` 验证 ②未登记 worktree 连坐全场 FAIL → 替它们占位登记（claim + park，goal 写明「占位 park，复活时重划」）
+  **三条实测更正（2026-08-20，别照旧口径操作）**：
+  - 占位 park **只对干净树是完解**。脏树 / 有独有 commit 的树 park 完边界照占（互斥闸判事实不判登记，`STATUS-DRIFT: ...the boundary gate keeps its owns`），OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉——「check 容忍 parked 轨重叠」只对**干净** parked 轨成立。
+  - **回填 OUT-OF-BOUNDS 清单进 owns 不是通解**：多棵脏树同时回填必然撞出 OVERLAP，一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空。别改账换绿灯，按上面 §2.5 的债务口径交单。
+  - 生命周期**没有 `parked→ready` 这条边**（实测 `invalid lane transition`）。合法链是 `parked→active→ready→landed`。
 - squash 后 `merge-base --is-ancestor` 误判「未并入」→ 以 `gh pr list --state merged` / 托管平台为准
 - <项目补充区：本仓实测过的坑>
 

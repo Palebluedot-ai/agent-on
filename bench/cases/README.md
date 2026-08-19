@@ -42,6 +42,8 @@
 | [36](36-browser-entry-no-node-fs.md) | 浏览器入口打进 node:fs | CSR barrel 不得 re-export Node 写盘;读数与写盘分入口 |
 | [37](37-ci-signal-source.md) | 等 CI 看错信号源 | checks --watch 滞后 + 快 workflow 都造假全绿;run id 按 workflowName 过滤后盯 run watch |
 | [38](38-instant-job-death-billing.md) | 全 job 秒死=账单层 | 秒死 + 零 step 先拉 job annotation 查账单,别按测试红分诊 |
+| [39](39-harness-boilerplate-as-project-rule.md) | 宿主安全句当项目制度 | 答不出文件名的规矩不是制度;过度收紧也是漂移,授权要幂等 |
+| [40](40-gate-exit-unreachable.md) | 出口在权限外的闸=死锁 | 每个 FAIL 至少一条出口在被拦者权限内且非破坏;互锁 FAIL 对设计期消除 |
 
 ## 使用时机
 
@@ -66,3 +68,5 @@
 - **CSR barrel 同时导出读数与写盘时**:案 36(浏览器入口不得 re-export Node)
 - **值守/自动化「等 CI 完成再动作」时**:案 37(信号源显式指定,禁裸 --limit 1)
 - **CI 全线 job 秒死零 step 时**:案 38(先查账单层,这红不属于任何 PR)
+- **被宿主通用安全句要求「先确认」时**:案 39(答不出文件名的规矩不是制度)
+- **设计闸 / 被闸拦住且解法看着互相打架时**:案 40(出口必须在被拦者权限内;互锁 FAIL 对 = 死锁)
