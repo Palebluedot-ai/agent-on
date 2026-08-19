@@ -613,55 +613,7 @@ pub fn set_lane_status(cwd: &Path, id: Option<&str>, status: &str) -> (i32, Stri
         if !transition_allowed(current, status) {
             return Err(format!("invalid lane transition: {current} -> {status}"));
         }
-        if status == "active" && current != "active" {
-            let cap = active_cap(cwd);
-            let active = records
-                .iter()
-                .enumerate()
-                .filter(|(i, r)| *i != target_index && r.status == "active")
-                .count() as u64;
-            if active >= cap {
-                return Err(format!(
-                    "活跃轨上限已满（{active}/{cap}）；先 park / land 一条再激活"
-                ));
-            }
-        }
-        if status == "ready" {
-            let target = &records[target_index];
-            for dep in &target.depends_on {
-                let dep_status = records
-                    .iter()
-                    .find(|r| &r.id == dep)
-                    .map(|r| r.status.as_str())
-                    .unwrap_or("missing");
-                if dep_status != "landed" {
-                    return Err(format!(
-                        "lane {} waits for {} ({})",
-                        target.id, dep, dep_status
-                    ));
-                }
-            }
-            let path = Path::new(&target.worktree);
-            if !path.exists() {
-                return Err(format!("worktree is missing: {}", target.worktree));
-            }
-            if !git(path, &["status", "--porcelain"]).map(|v| v.is_empty())? {
-                return Err(
-                    "ready requires a clean worktree; commit or park the lane first".to_string(),
-                );
-            }
-            let files = changed_files(path, &target.base)?;
-            let escaped: Vec<String> = files
-                .into_iter()
-                .filter(|f| !owns_path(&target.owns, f))
-                .collect();
-            if !escaped.is_empty() {
-                return Err(format!(
-                    "ready blocked by out-of-bound changes: {}",
-                    escaped.join(", ")
-                ));
-            }
-        }
+        status_guards(cwd, &records, target_index, status)?;
         let target = &mut records[target_index];
         target.status = status.to_string();
         target.updated_at = Utc::now().to_rfc3339();
@@ -673,6 +625,65 @@ pub fn set_lane_status(cwd: &Path, id: Option<&str>, status: &str) -> (i32, Stri
         Ok(r) => (0, format!("UPDATED {}: {}\n", r.id, r.status)),
         Err(e) => (1, format!("ERROR: {e}\n")),
     }
+}
+
+/// Invariants that hold however a lane arrives at a status. `set-status`
+/// applies them on top of the lifecycle transition graph.
+fn status_guards(
+    cwd: &Path,
+    records: &[LaneRecord],
+    target_index: usize,
+    status: &str,
+) -> Result<(), String> {
+    let target = &records[target_index];
+    if status == "active" && target.status != "active" {
+        let cap = active_cap(cwd);
+        let active = records
+            .iter()
+            .enumerate()
+            .filter(|(i, r)| *i != target_index && r.status == "active")
+            .count() as u64;
+        if active >= cap {
+            return Err(format!(
+                "活跃轨上限已满（{active}/{cap}）；先 park / land 一条再激活"
+            ));
+        }
+    }
+    if status == "ready" {
+        for dep in &target.depends_on {
+            let dep_status = records
+                .iter()
+                .find(|r| &r.id == dep)
+                .map(|r| r.status.as_str())
+                .unwrap_or("missing");
+            if dep_status != "landed" {
+                return Err(format!(
+                    "lane {} waits for {} ({})",
+                    target.id, dep, dep_status
+                ));
+            }
+        }
+        let path = Path::new(&target.worktree);
+        if !path.exists() {
+            return Err(format!("worktree is missing: {}", target.worktree));
+        }
+        if !git(path, &["status", "--porcelain"]).map(|v| v.is_empty())? {
+            return Err(
+                "ready requires a clean worktree; commit or park the lane first".to_string(),
+            );
+        }
+        let escaped: Vec<String> = changed_files(path, &target.base)?
+            .into_iter()
+            .filter(|f| !owns_path(&target.owns, f))
+            .collect();
+        if !escaped.is_empty() {
+            return Err(format!(
+                "ready blocked by out-of-bound changes: {}",
+                escaped.join(", ")
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn transition_allowed(from: &str, to: &str) -> bool {
