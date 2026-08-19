@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.15.0`**（值守合并调度 babysit + landing 控制面 + worktree 执行强制层）。
+**最新推荐 pin：`v0.16.1`**（每轮输出契约 + 值守合入授权与时延目标 + `worktree edit` + 真相之页开发史）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
