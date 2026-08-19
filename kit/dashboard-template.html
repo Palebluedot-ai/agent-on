@@ -2,7 +2,7 @@
 <!--
   ═══════════════════════════════════════════════════════════════════════════
   项目仪表盘 · 人机共读的「真相之页」
-  instantiated-from kit/dashboard-template.html @ v0.4 | 最后更新: [日期]
+  instantiated-from kit/dashboard-template.html @ [pin 版本] | 最后更新: [日期]
   ═══════════════════════════════════════════════════════════════════════════
 
   这是什么：一张纯静态单文件 HTML，人和 AI 都看它，一眼看清项目全貌。
@@ -18,6 +18,7 @@
       决策台账   ← docs/snapshots/ 或项目的决策记录（拍板即入）
       To-do      ← progress.yaml（等我）+ phase 卡（等我）+ requirements 待拍板区（等你）
       里程碑     ← 合流战报 / snapshot / progress.yaml.monitoring_summary（append-only）
+      开发史     ← git log（逐 commit 机械转录：日期 / 前缀→类型 / 一句话 / Co-Authored-By 署名→平台）
       （接管的存量项目可多源分工：如模块/TODO ← 项目自有 STATUS 文件，阶段 ← progress.yaml——
         按维度登记各块读哪个源即可，不强并真相源。IPONews 实证）
 
@@ -117,6 +118,26 @@
   .ms .d8{flex:none;width:92px;color:var(--brand);font-size:12.5px;font-variant-numeric:tabular-nums}
   .ms .tx{font-size:13px;color:var(--text2);line-height:1.65}
   .ms .tx b{color:var(--text)}
+  /* 开发史：日历热力图 + 逐日时间线（配色只取 :root 既有变量，平台/类型词典在 <script> 里） */
+  .calwrap{overflow-x:auto;padding-bottom:6px}
+  .cal{display:inline-flex;gap:3px}
+  .gut{display:flex;flex-direction:column;gap:3px;margin-right:4px;flex:none}
+  .mo,.gut i{height:12px;line-height:12px;font-size:10px;font-style:normal;color:var(--text3)}
+  .mo{margin-bottom:3px;white-space:nowrap}
+  .wk{display:flex;flex-direction:column;gap:3px;flex:none;width:12px}
+  .cell{display:block;width:12px;height:12px;border-radius:3px;background:rgba(234,242,255,.05)}
+  a.cell:hover{outline:1px solid var(--line2)}
+  .callegend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:11.5px;color:var(--text3);margin:10px 0 2px}
+  .pdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .dvday{padding:12px 0 6px;border-bottom:1px solid var(--line);scroll-margin-top:20px}
+  .dvhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px}
+  .dvhead .dd{color:var(--brand);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .dvhead .ds{color:var(--text3);font-size:11.5px;text-align:right}
+  .dvrow{display:flex;align-items:baseline;gap:10px;padding:5px 0;font-size:12.5px}
+  .dvrow .tm{flex:none;width:38px;color:var(--text3);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .pill{flex:none;font-size:10.5px;letter-spacing:.5px;padding:1px 8px;border-radius:999px;border:1px solid;line-height:1.6}
+  .dvrow .tx{flex:1;color:var(--text2);line-height:1.6;min-width:0;overflow-wrap:anywhere}
+  .dvrow .plat{flex:none;font-size:11px;color:var(--text3);white-space:nowrap}
   footer{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;font-size:12.5px;color:var(--text3);line-height:1.8}
   footer code{color:var(--warn);background:rgba(255,209,102,.08);padding:1px 6px;border-radius:6px}
   .glow{text-shadow:0 0 18px rgba(110,231,255,.5)}
@@ -173,6 +194,19 @@
 <section id="s-里程碑">
   <h2>历史里程碑（append-only，只追加不删改）</h2>
   <div id="miles"></div>
+</section>
+
+<!-- ⑥ 开发史 —— 数据源：git log 逐 commit 机械转录（比其它块更机械：一条命令出全量，见 DATA.devlog 注释）。 -->
+<section id="s-开发史">
+  <h2>开发日历（每格一天 · 颜色 = 当日主力平台 · 深浅 = 提交量）</h2>
+  <p class="lead">真相源 = <b style="color:var(--text2)">git log</b>：类型读 commit 前缀（feat=功能 / fix=DEBUG / decision=拍板…），平台读
+    Co-Authored-By 署名（Claude Code 默认署名；Codex / Grok 想被认出需在各自提交模板加同款署名；读不到标「未标注」）。点格子跳到当天明细。</p>
+  <div class="chips" id="devChips"></div>
+  <div class="calwrap"><div class="cal" id="cal"></div></div>
+  <div class="callegend" id="calLegend"></div>
+  <h2>开发时间线（倒序 · 逐 commit 流水）</h2>
+  <p class="lead">与「里程碑」分工：里程碑是人挑的大事记；这里是机器转录的全量流水——历史上每天在做功能还是在 debug、用的哪个平台，一目了然。</p>
+  <div id="devlog"></div>
 </section>
 
 <script>
@@ -245,6 +279,19 @@ decisions: [
 miles: [
   ["[MM-DD]","[需求日：idea→PRD→切片定版；设计底座落地]"],
   ["[MM-DD]","[<b>首个端到端闭环走通</b>：核心链路第一次跑通]"]
+],
+
+// ⑥ 开发史：[日期时间, 类型前缀, 一句话, 平台]。数据源：git log —— 唯一真相 = 提交历史。
+// 重绘 = 机械转录（这块比别的块更省心：一条命令出全量，逐行搬进来即可）：
+//   git log --date=format:'%Y-%m-%d %H:%M' --format='%ad|%s|%(trailers:key=Co-Authored-By,valueonly,separator=+)'
+// 转录规则：类型 = subject 冒号前的前缀去掉括号 scope（feat/fix/docs/decision/intake/chore…）；
+//   一句话 = 冒号后原文；平台 = 署名关键词 Claude→claude / Codex|ChatGPT→codex / Grok→grok / 读不到→human。
+// 日期必须真实可解析（YYYY-MM-DD HH:MM），日历靠它排格子；超大历史可只转录最近一年（日历同窗）。
+// 下面是示例行，首次重绘整块替换：
+devlog: [
+  ["2026-07-18 21:40","feat","[示例] 某功能落地一句话（整块替换为 git log 转录）","claude"],
+  ["2026-07-18 15:12","fix","[示例] 某 bug 修复一句话","codex"],
+  ["2026-07-17 11:03","decision","[示例] 某拍板一句话","human"]
 ]
 
 };
@@ -257,7 +304,7 @@ document.getElementById('chips').innerHTML = DATA.chips
   .map(c=>`<span class="chip">${c[0]} <b>${c[1]}</b></span>`).join('');
 
 // tab 导航（顺序即用户点名的五块）
-const secs=["当前","Todo","计划","决策","里程碑"];
+const secs=["当前","Todo","计划","决策","里程碑","开发史"];
 document.getElementById('nav').innerHTML = secs
   .map((s,i)=>`<button class="${i==0?'on':''}" onclick="go('${s}',this)">${s}</button>`).join('');
 function go(s,btn){
@@ -292,6 +339,70 @@ document.getElementById('decis').innerHTML = DATA.decisions
 // 里程碑
 document.getElementById('miles').innerHTML = DATA.miles
   .map(m=>`<div class="ms"><span class="d8">${m[0]}</span><span class="tx">${m[1]}</span></div>`).join('');
+
+/* ── 开发史：日历热力图 + 逐日时间线 ──
+   平台/类型词典（配色只取 :root 既有变量，不发明新色相）。新平台/新前缀在这两行加。 */
+const PLAT={claude:["Claude Code","var(--brand)"],codex:["Codex","var(--purple)"],grok:["Grok","var(--warn)"],human:["未标注","var(--text3)"]};
+const TYPE={feat:["功能","var(--blue)"],fix:["DEBUG","var(--danger)"],decision:["拍板","var(--deep)"],docs:["文档","var(--text2)"],intake:["收件","var(--ok)"],refactor:["重构","var(--blue)"]};
+const pkey=p=>PLAT[p]?p:'human', typeOf=t=>TYPE[t]||[t||"其他","var(--text3)"];
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const dv=(DATA.devlog||[]).slice().sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0); // 倒序
+const byDay={}; dv.forEach(e=>{const k=e[0].slice(0,10);(byDay[k]=byDay[k]||[]).push(e)});
+const dayPlat=es=>{const m={};es.forEach(e=>{const p=pkey(e[3]);m[p]=(m[p]||0)+1});return m};
+
+// 速览 chips：总量 + 各平台 + 各类型
+if(dv.length){
+  const pc=dayPlat(dv), tc={}; dv.forEach(e=>{tc[e[1]]=(tc[e[1]]||0)+1});
+  document.getElementById('devChips').innerHTML =
+    [`共 <b>${dv.length}</b> 项`]
+    .concat(Object.keys(PLAT).filter(p=>pc[p]).map(p=>`<i class="pdot" style="background:${PLAT[p][1]}"></i>${PLAT[p][0]} <b>${pc[p]}</b>`))
+    .concat(Object.keys(tc).sort((a,b)=>tc[b]-tc[a]).map(t=>`${esc(typeOf(t)[0])} <b>${tc[t]}</b>`))
+    .map(h=>`<span class="chip">${h}</span>`).join('');
+}
+
+// 日历：周一列首，≤53 周（超出只画最近一年，更早的仍在时间线里）
+const D=s=>{const d=new Date(s.slice(0,10)+'T00:00:00');return isNaN(d)?null:d};
+const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const validDays=Object.keys(byDay).filter(k=>D(k)).sort();
+if(validDays.length){
+  const MS=864e5, mon=d=>{const x=new Date(d);x.setDate(x.getDate()-(x.getDay()+6)%7);return x};
+  const today=new Date(); today.setHours(0,0,0,0);
+  const end=new Date(Math.max(+today,+D(validDays[validDays.length-1])));
+  let start=mon(D(validDays[0])), capped=false;
+  if((end-start)/MS/7>53){start=mon(new Date(+end-52*7*MS));capped=true}
+  let html='<div class="gut"><i class="mo"></i>'+['一','','三','','五','','日'].map(w=>`<i>${w}</i>`).join('')+'</div>', lastMo=-1;
+  for(let w=new Date(start); w<=end; w.setDate(w.getDate()+7)){
+    const moLabel=w.getMonth()!==lastMo?`${w.getMonth()+1}月`:''; lastMo=w.getMonth();
+    let col=`<div class="wk"><i class="mo">${moLabel}</i>`;
+    for(let i=0;i<7;i++){
+      const d=new Date(w); d.setDate(d.getDate()+i);
+      if(d>end){col+='<span class="cell" style="visibility:hidden"></span>';continue}
+      const k=fmt(d), es=byDay[k];
+      if(!es){col+=`<span class="cell" title="${k}"></span>`;continue}
+      const m=dayPlat(es), dom=Object.keys(m).sort((a,b)=>m[b]-m[a])[0];
+      const lv=es.length>=7?1:es.length>=4?.75:es.length>=2?.55:.35;
+      const tip=`${k} · ${es.length} 项（${Object.keys(m).map(p=>PLAT[p][0]+' '+m[p]).join(' · ')}）`;
+      col+=`<a class="cell" href="#dv-${k}" title="${tip}" style="background:${PLAT[dom][1]};opacity:${lv}"></a>`;
+    }
+    html+=col+'</div>';
+  }
+  document.getElementById('cal').innerHTML=html;
+  const pc=dayPlat(dv);
+  document.getElementById('calLegend').innerHTML =
+    Object.keys(PLAT).filter(p=>pc[p]).map(p=>`<span><i class="pdot" style="background:${PLAT[p][1]}"></i>${PLAT[p][0]}</span>`).join('')
+    +'<span>深浅 = 当日提交量</span>'+(capped?'<span>（日历仅最近一年，更早见下方时间线）</span>':'');
+}
+
+// 时间线：日期分组倒序，组头带当日平台小结
+const wdCN=['日','一','二','三','四','五','六'];
+document.getElementById('devlog').innerHTML = Object.keys(byDay).sort().reverse().map(k=>{
+  const es=byDay[k], d=D(k), m=dayPlat(es);
+  const head=d?`${d.getMonth()+1}月${d.getDate()}日 · 周${wdCN[d.getDay()]}`:esc(k);
+  const sum=`${es.length} 项 · `+Object.keys(m).map(p=>`<i class="pdot" style="background:${PLAT[p][1]}"></i>${m[p]}`).join(' ');
+  const rows=es.map(e=>{const T=typeOf(e[1]),P=PLAT[pkey(e[3])];
+    return `<div class="dvrow"><span class="tm">${esc(e[0].slice(11,16))}</span><span class="pill" style="color:${T[1]};border-color:${T[1]}">${esc(T[0])}</span><span class="tx">${esc(e[2])}</span><span class="plat"><i class="pdot" style="background:${P[1]}"></i>${P[0]}</span></div>`}).join('');
+  return `<div class="dvday" id="dv-${k}"><div class="dvhead"><span class="dd">${head}</span><span class="ds">${sum}</span></div>${rows}</div>`;
+}).join('') || '<p class="lead">暂无记录——按 DATA.devlog 注释从 git log 转录。</p>';
 </script>
 
 <footer>
@@ -300,7 +411,7 @@ document.getElementById('miles').innerHTML = DATA.miles
   ② 更新时机：每次切片合流（合流 checklist 的「更新 dashboard」步）/ 用户随时手动喊。<br>
   ③ 单写者纪律：只有主开发会话可写（与 <code>progress.yaml</code> 同级）；轨道 agent 与人类只读。<br>
   ④ 忠于真相不定义真相：本页与代码/测试冲突时，以代码测试为准并回来修本页；禁止手填。<br>
-  <span style="color:var(--text3)">数据源：docs/state/progress.yaml · docs/phases/*.md · docs/snapshots/* · requirements 待拍板区</span>
+  <span style="color:var(--text3)">数据源：docs/state/progress.yaml · docs/phases/*.md · docs/snapshots/* · requirements 待拍板区 · git log（开发史）</span>
 </footer>
 
 </div></body>
