@@ -98,7 +98,12 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 - **分类器间歇拦合并命令**（本仓 2026-08-17 实测）：`gh pr merge` 与 `gh api -X PUT` 时好时坏——settings.local.json（SETUP §1）未建则必撞；按 anti-hallucination #17 两步不过即停，贴命令给用户手跑
 - **PreToolUse guard 先评估整条命令**：占位 claim 与 `git commit` 必须拆成两条命令——合在一条里 claim 永远跑不到（2026-08-17 实测）
 - **GitHub GraphQL 与 REST 可分层故障**：`gh pr create` 503 时换 `gh api repos/…/pulls` REST 直建（2026-08-17 实测两侧恢复时间不同）
-- 未登记 worktree 连坐全场 FAIL → 占位 park 逃生门（kit/worktree-control-plane「重划与死锁三解」）；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
+- 未登记 worktree 连坐全场 FAIL → 占位 park 逃生门；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
+  **三条实测更正（2026-08-20，别照 `kit/worktree-control-plane.md` 那节的旧口径操作——那节尚未改，改它的 PR 归 `multi-lane-docs-conflict` 轨）**：
+  - **占位 park 只对干净树是完解**。脏树 / 有独有 commit 的树 park 完边界照占（互斥闸判事实不判登记，报 `STATUS-DRIFT: …the boundary gate keeps its owns`），OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉——「check 容忍 parked 轨重叠」只对**干净** parked 轨成立。
+  - **回填 OUT-OF-BOUNDS 清单进 owns 不是通解**：多棵脏树同时回填必然撞出 OVERLAP，一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空。别改账换绿灯，按债务口径交单。
+  - 生命周期**没有 `parked→ready` 这条边**（`set-status` 实测 `invalid lane transition`；转移图只给了 `parked→active`）。合法链是 `parked→active→ready→landed`。**注意 `worktree edit --status` 绕过转移图**（只守不变量，不守边），所以同一件事两条命令行为不同——`set-status` 守图，`edit --status` 不守。
+- **`edit --status landed` 没有干净树守卫**（2026-08-20 实测报告，未修）：`--status ready` 有干净树守卫，`landed` 一道都没有——脏树、有独有 commit 的树都能被直接记成 landed。闸没被骗过（边界照占、check 照 FAIL），但 CLI 允许写下假账，而假账正是「为让闸变绿而改账」这条反模式的入口。看见某条轨突然 landed 而树还脏，先怀疑这个。
 - squash / merge 后祖先误判 → 以 `gh pr list --state merged` / 托管平台为准
 - 状态闸拉 GitHub API 抖动 → 重试即绿，非业务违规
 - **装机 CLI 与仓内源码同版本号、功能不同**（2026-08-19 实测）：`agent-on landing` / `worktree edit` 报 `unrecognized subcommand`，但 `cli/Cargo.toml` 与 `agent-on --version` 都是 0.12.1——功能落地没 bump 版本号，光看版本号分辨不出。命令报「没这个子命令」时先 `cargo install --path cli` 重装再怀疑文档写错
