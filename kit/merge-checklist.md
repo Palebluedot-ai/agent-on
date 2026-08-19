@@ -4,6 +4,7 @@
 
 - [ ] **0. 开工/提交前查重**(第四型撞题):`gh pr list` **开工前一次 + 提 PR/push 前再一次**,按主题(安全洞/功能名)不靠文件路径;撞题 → handoff 不抢轨。
 - [ ] **0b. worktree 控制面对表**(≥2 写轨时):`agent-on worktree check` 必须绿;逐轨核 goal/owns/depends_on/status,未登记、OUT-OF-BOUNDS、OVERLAP 先停。ready 依赖未 landed 不得抢跑;衍生目标必须新 lane,禁膨胀旧轨。
+- [ ] **0b-1. 被闸拦住时:禁止改账换绿灯**。把 OUT-OF-BOUNDS 清单回填进 owns、直改 lane JSON 扩边界、`--no-verify`,都是用假账换绿——多棵脏树同时回填还必然撞出 OVERLAP,**一条 FAIL 换成另一条**(2026-08-20 实测:两个 FAIL 条件互为对方的唯一解,可行域为空)。**陈年树按债务交单给值守/控制轨**(kit/worktree-gc-pattern「陈年树是债务」),本会话只报告不偿还,自己的活换非阻塞路径推进;删树/清脏文件是破坏性动作,归用户拍板。
 - [ ] **0c. 值守在班对表**(仓启用值守合并调度时):本清单的 merge / 追平执行权归在班值守窗口([kit/babysit/](babysit/README.md))——功能会话开 PR 即交付,不自己合;追平一律服务端 update-branch。值守不在班回退本清单原规则。
 - [ ] **1. 顺序合流**:契约变更(若有)先进 main;再 merge 各轨 worktree 分支(`--no-ff` 留 run 痕)。**合流前文件域对照**:各轨改动清单互不重叠?三共享面(design/ · contracts/ · progress.yaml)归口单一轨了吗?重叠先裁决再合。
 - [ ] **1b. 撞上改名浪潮时**(对方 PR 做了大规模机械 rename):①从已合并侧反推映射表 ②对冲突文件算 `diff(base套映射, 现状)` 残差行数分档——≈0=纯改名机械解,残差大=真双改手工并 ③**新增文件不触发冲突**,收尾独立 grep 旧标识符(Euan 2026-07-30:100 文件去命名 + 18 冲突残差分档)
