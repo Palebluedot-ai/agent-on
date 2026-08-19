@@ -214,7 +214,7 @@ enum WorktreeCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
-    /// Redivide an existing lane in place: goal, owns, branch, or base
+    /// Redivide an existing lane in place: goal, owns, branch, base, or status
     Edit {
         /// Lane id; defaults to the lane registered for the current worktree
         #[arg(long)]
@@ -231,6 +231,12 @@ enum WorktreeCmd {
         /// New base ref; re-pins the recorded base sha
         #[arg(long)]
         base: Option<String>,
+        /// Re-register the lifecycle state, bypassing the transition graph:
+        /// active, blocked, ready, landed, or parked. Repair door for a stale
+        /// registration, e.g. a reused worktree still booked as landed while a
+        /// session writes in it. All other status guards still apply.
+        #[arg(long)]
+        status: Option<String>,
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
@@ -468,6 +474,7 @@ fn main() {
                 owns,
                 branch,
                 base,
+                status,
                 cwd,
             } => {
                 let cwd = cwd
@@ -480,6 +487,7 @@ fn main() {
                         owns,
                         branch,
                         base,
+                        status,
                     },
                 );
                 if c == 0 {
