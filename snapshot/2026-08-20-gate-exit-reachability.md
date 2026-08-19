@@ -26,6 +26,14 @@
 
 **OUT-OF-BOUNDS 与 OVERLAP 互为对方的唯一解，可行域为空。** 剩下的真出口只有两个——清空脏文件、删 worktree——**全是破坏性动作，全部在 Agent 权限之外。**
 
+### 本轮中途的一次实拦（旁证）
+
+写这份快照的会话自己在提交时被连坐拦了一次：另一个窗口新开的 worktree（`decision-default-firing`）还没登记，PreToolUse guard 当场 `UNREGISTERED` + `RESULT: FAIL`，拦下本轨的 `git commit`。
+
+这次两分钟就解开了，而且解法恰好落在权限内、非破坏性——因为那棵树是**干净的**（`dirty=false, unique=0`）。它反过来印证了下面根因二的分界：**park 类逃生门只对干净树成立**。同样是连坐，干净树两分钟解开，脏陈年树把五条 lane 锁死到只剩破坏性出口。**分界不在「登不登记」，在「树干不干净」。**
+
+（附带一条小发现：`claim` 在这里报的是 `worktree already has lane record ... (active)`，而两秒前 `check` 还报它 UNREGISTERED——那棵树的会话在这几秒里自己登记了。连坐闸对这种正常 race 也会开火，报错文案值得能区分「没人管」与「刚好晚了两秒」。）
+
 ## 三条根因
 
 ### 根因一：出口面只要求「说得清」，没要求「走得通」
