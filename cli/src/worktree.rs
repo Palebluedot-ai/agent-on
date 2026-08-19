@@ -206,6 +206,10 @@ struct LaneAudit {
     prunable: bool,
     reclaim: String,
     present: bool,
+    /// Measured, not registered: this worktree holds work its base has not
+    /// taken in, so the boundary gate must hold its `owns` whatever `status`
+    /// says.
+    writing: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -398,6 +402,103 @@ pub(crate) fn ownership_live(status: &str) -> bool {
     matches!(status, "active" | "blocked" | "ready")
 }
 
+/// Fact side of the boundary gate, over the same measurements an audit already
+/// takes: a worktree carrying uncommitted changes, or commits its base has not
+/// taken in, is being written to right now.
+fn holds_unmerged_work(clean: bool, merged: bool, unique_commits: Option<u64>) -> bool {
+    !clean || (!merged && unique_commits.unwrap_or(0) > 0)
+}
+
+/// The same predicate measured straight from a lane's worktree, for the gates
+/// that run before any audit exists. A worktree that is gone cannot be written
+/// to; one that is present but that git refuses to describe counts as written,
+/// so the gate fails closed.
+fn lane_writes_in_fact(record: &LaneRecord) -> bool {
+    let path = Path::new(&record.worktree);
+    if !path.exists() {
+        return false;
+    }
+    let clean = git(path, &["status", "--porcelain"])
+        .map(|v| v.is_empty())
+        .unwrap_or(false);
+    holds_unmerged_work(
+        clean,
+        is_ancestor(path, "HEAD", &record.base),
+        count_revs(path, &format!("{}..HEAD", record.base)),
+    )
+}
+
+/// Why the mutual-exclusion gate still holds this lane's `owns`, if it does:
+/// the gate word plus any trailing detail for the error message.
+///
+/// `status` is a registration, and it goes stale the moment a session reuses a
+/// worktree whose lane already reached a terminal state. The write is the fact.
+/// Either one arms the gate, so a forgotten `landed` cannot switch off boundary
+/// checking for a lane that two sessions are in fact both writing.
+fn boundary_gate_reason(record: &LaneRecord) -> Option<(&'static str, String)> {
+    if ownership_live(&record.status) {
+        return Some(("live", String::new()));
+    }
+    if lane_writes_in_fact(record) {
+        return Some((
+            "still-writing",
+            format!(
+                " (registered {}, but its worktree holds work its base has not taken in)",
+                record.status
+            ),
+        ));
+    }
+    None
+}
+
+/// First boundary of `owns` that collides with `existing`, if any.
+fn first_overlap<'a>(
+    owns: &'a [String],
+    existing: &'a LaneRecord,
+) -> Option<(&'a String, &'a String)> {
+    owns.iter().find_map(|new_path| {
+        existing
+            .owns
+            .iter()
+            .find(|old_path| boundaries_overlap(new_path, old_path))
+            .map(|old_path| (new_path, old_path))
+    })
+}
+
+fn overlap_error(
+    new_path: &str,
+    existing: &LaneRecord,
+    old_path: &str,
+    reason: &(&'static str, String),
+) -> String {
+    format!(
+        "owned path {new_path} overlaps {} lane {} boundary {old_path}{}",
+        reason.0, existing.id, reason.1
+    )
+}
+
+/// Shared entry gate for `claim` and `edit`: a lane may not take a boundary that
+/// another lane still holds. `skip` is the lane being edited, which never
+/// collides with itself.
+fn reject_boundary_collision(
+    records: &[LaneRecord],
+    owns: &[String],
+    skip: Option<&str>,
+) -> Result<(), String> {
+    for existing in records.iter().filter(|r| Some(r.id.as_str()) != skip) {
+        // Measure the fact only for lanes whose boundaries actually collide;
+        // every other lane costs no git calls at all.
+        let Some((new_path, old_path)) = first_overlap(owns, existing) else {
+            continue;
+        };
+        let Some(reason) = boundary_gate_reason(existing) else {
+            continue;
+        };
+        return Err(overlap_error(new_path, existing, old_path, &reason));
+    }
+    Ok(())
+}
+
 pub(crate) const DEFAULT_ACTIVE_CAP: u64 = 3;
 
 /// Configurable ACTIVE-lane cap, read from `<common git dir>/agent-on/config.json`
@@ -539,18 +640,7 @@ fn claim_lane_inner(cwd: &Path, opts: &ClaimOpts) -> Result<LaneRecord, String> 
             existing.id, existing.status
         ));
     }
-    for existing in records.iter().filter(|r| ownership_live(&r.status)) {
-        for new_path in &owns {
-            for old_path in &existing.owns {
-                if boundaries_overlap(new_path, old_path) {
-                    return Err(format!(
-                        "owned path {} overlaps live lane {} boundary {}",
-                        new_path, existing.id, old_path
-                    ));
-                }
-            }
-        }
-    }
+    reject_boundary_collision(&records, &owns, None)?;
     for dep in &opts.depends_on {
         if !valid_id(dep) {
             return Err(format!("invalid dependency lane id: {dep}"));
@@ -613,55 +703,7 @@ pub fn set_lane_status(cwd: &Path, id: Option<&str>, status: &str) -> (i32, Stri
         if !transition_allowed(current, status) {
             return Err(format!("invalid lane transition: {current} -> {status}"));
         }
-        if status == "active" && current != "active" {
-            let cap = active_cap(cwd);
-            let active = records
-                .iter()
-                .enumerate()
-                .filter(|(i, r)| *i != target_index && r.status == "active")
-                .count() as u64;
-            if active >= cap {
-                return Err(format!(
-                    "活跃轨上限已满（{active}/{cap}）；先 park / land 一条再激活"
-                ));
-            }
-        }
-        if status == "ready" {
-            let target = &records[target_index];
-            for dep in &target.depends_on {
-                let dep_status = records
-                    .iter()
-                    .find(|r| &r.id == dep)
-                    .map(|r| r.status.as_str())
-                    .unwrap_or("missing");
-                if dep_status != "landed" {
-                    return Err(format!(
-                        "lane {} waits for {} ({})",
-                        target.id, dep, dep_status
-                    ));
-                }
-            }
-            let path = Path::new(&target.worktree);
-            if !path.exists() {
-                return Err(format!("worktree is missing: {}", target.worktree));
-            }
-            if !git(path, &["status", "--porcelain"]).map(|v| v.is_empty())? {
-                return Err(
-                    "ready requires a clean worktree; commit or park the lane first".to_string(),
-                );
-            }
-            let files = changed_files(path, &target.base)?;
-            let escaped: Vec<String> = files
-                .into_iter()
-                .filter(|f| !owns_path(&target.owns, f))
-                .collect();
-            if !escaped.is_empty() {
-                return Err(format!(
-                    "ready blocked by out-of-bound changes: {}",
-                    escaped.join(", ")
-                ));
-            }
-        }
+        status_guards(cwd, &records, target_index, status)?;
         let target = &mut records[target_index];
         target.status = status.to_string();
         target.updated_at = Utc::now().to_rfc3339();
@@ -673,6 +715,66 @@ pub fn set_lane_status(cwd: &Path, id: Option<&str>, status: &str) -> (i32, Stri
         Ok(r) => (0, format!("UPDATED {}: {}\n", r.id, r.status)),
         Err(e) => (1, format!("ERROR: {e}\n")),
     }
+}
+
+/// Invariants that hold however a lane arrives at a status. `set-status`
+/// applies them on top of the lifecycle transition graph; `worktree edit
+/// --status` relaxes only the graph, never these.
+fn status_guards(
+    cwd: &Path,
+    records: &[LaneRecord],
+    target_index: usize,
+    status: &str,
+) -> Result<(), String> {
+    let target = &records[target_index];
+    if status == "active" && target.status != "active" {
+        let cap = active_cap(cwd);
+        let active = records
+            .iter()
+            .enumerate()
+            .filter(|(i, r)| *i != target_index && r.status == "active")
+            .count() as u64;
+        if active >= cap {
+            return Err(format!(
+                "活跃轨上限已满（{active}/{cap}）；先 park / land 一条再激活"
+            ));
+        }
+    }
+    if status == "ready" {
+        for dep in &target.depends_on {
+            let dep_status = records
+                .iter()
+                .find(|r| &r.id == dep)
+                .map(|r| r.status.as_str())
+                .unwrap_or("missing");
+            if dep_status != "landed" {
+                return Err(format!(
+                    "lane {} waits for {} ({})",
+                    target.id, dep, dep_status
+                ));
+            }
+        }
+        let path = Path::new(&target.worktree);
+        if !path.exists() {
+            return Err(format!("worktree is missing: {}", target.worktree));
+        }
+        if !git(path, &["status", "--porcelain"]).map(|v| v.is_empty())? {
+            return Err(
+                "ready requires a clean worktree; commit or park the lane first".to_string(),
+            );
+        }
+        let escaped: Vec<String> = changed_files(path, &target.base)?
+            .into_iter()
+            .filter(|f| !owns_path(&target.owns, f))
+            .collect();
+        if !escaped.is_empty() {
+            return Err(format!(
+                "ready blocked by out-of-bound changes: {}",
+                escaped.join(", ")
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn transition_allowed(from: &str, to: &str) -> bool {
@@ -700,6 +802,11 @@ pub struct EditOpts {
     pub owns: Vec<String>,
     pub branch: Option<String>,
     pub base: Option<String>,
+    /// Re-register the lifecycle state, bypassing the transition graph. This is
+    /// the repair door for a stale registration — `landed` has no way out
+    /// through `set-status`, so a reused worktree could otherwise never be
+    /// booked back as the live lane it has become.
+    pub status: Option<String>,
 }
 
 pub fn edit_lane(cwd: &Path, opts: &EditOpts) -> (i32, String) {
@@ -716,8 +823,15 @@ pub fn edit_lane(cwd: &Path, opts: &EditOpts) -> (i32, String) {
 }
 
 fn edit_lane_inner(cwd: &Path, opts: &EditOpts) -> Result<(LaneRecord, String), String> {
-    if opts.goal.is_none() && opts.owns.is_empty() && opts.branch.is_none() && opts.base.is_none() {
-        return Err("nothing to edit; pass --goal, --owns, --branch, or --base".to_string());
+    if opts.goal.is_none()
+        && opts.owns.is_empty()
+        && opts.branch.is_none()
+        && opts.base.is_none()
+        && opts.status.is_none()
+    {
+        return Err(
+            "nothing to edit; pass --goal, --owns, --branch, --base, or --status".to_string(),
+        );
     }
     let records = load_records(cwd)?;
     let target_index = if let Some(id) = &opts.id {
@@ -766,25 +880,27 @@ fn edit_lane_inner(cwd: &Path, opts: &EditOpts) -> Result<(LaneRecord, String), 
     }
     if !opts.owns.is_empty() {
         let owns = normalize_owns(&opts.owns)?;
-        // Same entry gate as claim: a redivision may not collide with any
-        // other live lane; overlap with parked/landed lanes is tolerated.
-        for existing in records
-            .iter()
-            .filter(|r| r.id != record.id && ownership_live(&r.status))
-        {
-            for new_path in &owns {
-                for old_path in &existing.owns {
-                    if boundaries_overlap(new_path, old_path) {
-                        return Err(format!(
-                            "owned path {} overlaps live lane {} boundary {}",
-                            new_path, existing.id, old_path
-                        ));
-                    }
-                }
-            }
-        }
+        // Same entry gate as claim: a redivision may not collide with a lane
+        // that is live by registration or writing in fact.
+        reject_boundary_collision(&records, &owns, Some(&record.id))?;
         record.owns = owns;
         changed.push_str(&format!("owns: {}\n", record.owns.join(", ")));
+    }
+    if let Some(status) = &opts.status {
+        let status = status.trim();
+        if !VALID_STATUSES.contains(&status) {
+            return Err(format!(
+                "invalid status {status}; expected {}",
+                VALID_STATUSES.join("|")
+            ));
+        }
+        // Judge the guards against the lane as this edit leaves it, so a
+        // combined `--owns X --status ready` is checked against the new X.
+        let mut projected = records.clone();
+        projected[target_index] = record.clone();
+        status_guards(cwd, &projected, target_index, status)?;
+        record.status = status.to_string();
+        changed.push_str(&format!("status: {}\n", record.status));
     }
     record.updated_at = Utc::now().to_rfc3339();
     write_record(cwd, &record)?;
@@ -1004,23 +1120,6 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
         }
     }
 
-    let live: Vec<&LaneRecord> = records
-        .iter()
-        .filter(|r| ownership_live(&r.status))
-        .collect();
-    let mut overlaps = Vec::new();
-    for (i, a) in live.iter().enumerate() {
-        for b in live.iter().skip(i + 1) {
-            for aa in &a.owns {
-                for bb in &b.owns {
-                    if boundaries_overlap(aa, bb) {
-                        overlaps.push(format!("{}:{} <-> {}:{}", a.id, aa, b.id, bb));
-                    }
-                }
-            }
-        }
-    }
-
     let statuses: BTreeMap<&str, &str> = records
         .iter()
         .map(|r| (r.id.as_str(), r.status.as_str()))
@@ -1129,7 +1228,28 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             prunable,
             reclaim,
             present,
+            writing: present && holds_unmerged_work(clean, merged, unique_commits),
         });
+    }
+
+    // Overlap is judged after the audit, on what each worktree actually holds:
+    // a lane still writing keeps its boundary even when its status says the
+    // work is over.
+    let enforced: Vec<&LaneAudit> = audits
+        .iter()
+        .filter(|lane| ownership_live(&lane.status) || lane.writing)
+        .collect();
+    let mut overlaps = Vec::new();
+    for (i, a) in enforced.iter().enumerate() {
+        for b in enforced.iter().skip(i + 1) {
+            for aa in &a.owns {
+                for bb in &b.owns {
+                    if boundaries_overlap(aa, bb) {
+                        overlaps.push(format!("{}:{} <-> {}:{}", a.id, aa, b.id, bb));
+                    }
+                }
+            }
+        }
     }
     Ok(AuditReport {
         repo: root.display().to_string(),
@@ -1176,6 +1296,12 @@ fn render_text(report: &AuditReport) -> String {
             out.push_str(&format!(
                 "  OUT-OF-BOUNDS: {}\n",
                 lane.out_of_bounds.join(", ")
+            ));
+        }
+        if lane.writing && !ownership_live(&lane.status) {
+            out.push_str(&format!(
+                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate keeps its owns. Re-register with `agent-on worktree edit --status active --id {}`, or land the work.\n",
+                lane.status, lane.base, lane.id
             ));
         }
     }
