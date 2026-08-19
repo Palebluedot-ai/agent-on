@@ -19,6 +19,7 @@
 | [output-contract.md](output-contract.md) | **每轮输出契约(状态面板在前)**:面板四字段 / 机器类别→中文人话 / 拍板必带默认值 / 结论三格 / 撤销两栏 / 具名角色——派工词与值守文档都引用它,不各自抄 | 2026-08-17 用户实测反馈(多 worktree 并行读不动) |
 | [babysit/](babysit/README.md) | 值守合并调度:合并权中央化的值班手册(模板 §0–§7 + 三步接入 + 治理条款范本) | Dartify 值守夜班 9 连合 + 三单实战 |
 | [babysit/MERGE-POLICY.md](babysit/MERGE-POLICY.md) | **合入授权与时延的唯一真相**:默认合入档 5 类 / 必须先问档 / 门铃即起跑 / 一个口令切高频 / 时延目标 X = CI 中位 + 5 分钟 | 同上 + 2026-08-17 用户「值守太慢」实测 |
+| [babysit/ROUTING.md](babysit/ROUTING.md) | **「谁执行」的唯一真相**:合并权/对外通信权/跨窗口中转权三条唯一归值守 · 发错窗口的指令按【转投】模板转投不执行 · `agent-on oncall` 在班登记与 PreToolUse 路由闸(无人在班 fail-open) | 2026-08-19 用户拍板「只由一个值守负责，发错窗口的直接转过去」 |
 | [progress-template.yaml](progress-template.yaml) | 单写者状态文件骨架 | docs/state/progress.yaml |
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
