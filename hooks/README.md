@@ -6,7 +6,17 @@
 
 | 文件 | 工具 | 状态 |
 |---|---|---|
-| `hooks.json` | Claude Code + Codex | `PreToolUse(Bash)` 调同一 guard；Codex plugin manifest 已接线 |
+| `hooks.json` | Claude Code + Codex | `PreToolUse(Bash)` 与 `PreToolUse(SendMessage)` 调**同一** guard；Codex plugin manifest 已接线 |
+
+## 两个 matcher，一个 guard
+
+| matcher | 判什么 | 拦什么 |
+|---|---|---|
+| `Bash` | ①跨仓 git 边界 ②lane/owns 边界（只在 `commit`/`push`）③**跨窗口指令路由**（值守在班时的合并 / 对外通信命令） | 越界 git 写；非值守窗口的 `gh pr merge`、`update-branch`、tag push、PR/Issue 评论、chat webhook |
+| `SendMessage` | **跨窗口沟通归属**：收件人是不是在班值守 | 非值守窗口发给非值守窗口的横向消息（交单 / 回执发给值守照旧放行） |
+
+路由闸只在**有人 `agent-on oncall claim`** 时生效，无人在班一律 fail-open；协议全文见 [`kit/babysit/ROUTING.md`](../kit/babysit/ROUTING.md)。
+**MCP 外发工具不在这两个 matcher 内**（Telegram / Slack MCP 等按各自工具名注册）——要机械兜住，自己加一条 matcher 指向同一 shim；否则那条通道只有纪律层兜着。
 
 ## 路径约定（可移植）
 
@@ -36,6 +46,7 @@ bash "$HOME/Projects/Agent-On/kit/guard/agent-on-git-guard"
 1. Claude 与 Codex plugin 均能加载 `hooks/hooks.json`。
 2. 两种真实 payload 经 shim：普通命令/`git status` exit 0；lane 内 `commit/push` exit 0；越界时 exit 2 且 stderr 含 `OUT-OF-BOUNDS` 与修复命令。
 3. `python3 kit/guard/agent-on-git-guard.sh` 与 `bash kit/guard/agent-on-git-guard.sh` 对同一 payload 给出同一 exit code。
+4. 路由闸三态：无人在班 → 任何 payload exit 0；值守在班 → 值守窗口 exit 0、功能窗口 `gh pr merge` exit 2 且 stderr 含「转投」模板与在班地址。
 
 ## 回滚
 

@@ -313,6 +313,13 @@ pub(crate) fn inside_agent_on(p: &Path, agent_on: &Path) -> bool {
 
 /// Core decision given parsed tool payload JSON.
 pub fn guard_decision(data: &Value) -> i32 {
+    // Cross-window routing runs first: it also judges non-git tools
+    // (SendMessage) and non-git commands (gh, chat webhooks).
+    let routed = crate::oncall::route_decision(data);
+    if routed != 0 {
+        return routed;
+    }
+
     let cmd = tool_command(data);
     if !cmd.contains("git") {
         return 0;

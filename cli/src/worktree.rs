@@ -451,6 +451,17 @@ pub(crate) fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
     Ok(records)
 }
 
+/// Lane id registered for the worktree that contains `cwd`, if any.
+pub(crate) fn lane_id_for_worktree(cwd: &Path) -> Option<String> {
+    let root = repo_root(cwd).ok()?;
+    let canonical = fs::canonicalize(&root).unwrap_or(root);
+    load_records(cwd)
+        .ok()?
+        .into_iter()
+        .find(|r| Path::new(&r.worktree) == canonical)
+        .map(|r| r.id)
+}
+
 fn write_record(cwd: &Path, record: &LaneRecord) -> Result<(), String> {
     let path = record_path(cwd, &record.id)?;
     let parent = path
