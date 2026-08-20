@@ -59,7 +59,14 @@ fn fixture() -> (TempDir, PathBuf, PathBuf) {
         must_run(
             &root,
             "git",
-            &["worktree", "add", "-b", branch, path.to_str().unwrap(), "main"],
+            &[
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                path.to_str().unwrap(),
+                "main",
+            ],
         );
     }
     (tmp, a, b)
@@ -71,8 +78,16 @@ fn landed_lane_redivided_onto_shared(a: &Path) {
     ok(
         a,
         &[
-            "worktree", "claim", "--id", "lane-a", "--goal", "first goal", "--base", "main",
-            "--owns", "app",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-a",
+            "--goal",
+            "first goal",
+            "--base",
+            "main",
+            "--owns",
+            "app",
         ],
     );
     ok(a, &["worktree", "set-status", "ready"]);
@@ -108,8 +123,16 @@ fn check_fails_when_two_writing_lanes_share_a_boundary() {
     ok(
         &b,
         &[
-            "worktree", "claim", "--id", "lane-b", "--goal", "parallel work", "--base", "main",
-            "--owns", "shared",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-b",
+            "--goal",
+            "parallel work",
+            "--base",
+            "main",
+            "--owns",
+            "shared",
         ],
     );
     // Now both sessions actually write inside the shared boundary.
@@ -139,8 +162,16 @@ fn check_passes_when_the_landed_lane_is_clean_and_merged() {
     ok(
         &b,
         &[
-            "worktree", "claim", "--id", "lane-b", "--goal", "parallel work", "--base", "main",
-            "--owns", "shared",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-b",
+            "--goal",
+            "parallel work",
+            "--base",
+            "main",
+            "--owns",
+            "shared",
         ],
     );
     write_in(&b, "shared/s.md", "lane-b writing");
@@ -163,8 +194,16 @@ fn claim_refuses_a_boundary_a_landed_lane_is_still_writing() {
     let claimed = agent_on(
         &b,
         &[
-            "worktree", "claim", "--id", "lane-b", "--goal", "parallel work", "--base", "main",
-            "--owns", "shared",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-b",
+            "--goal",
+            "parallel work",
+            "--base",
+            "main",
+            "--owns",
+            "shared",
         ],
     );
     let text = combined(&claimed);
@@ -205,8 +244,16 @@ fn claim_refuses_a_boundary_a_landed_lane_holds_unmerged_commits_for() {
     let claimed = agent_on(
         &b,
         &[
-            "worktree", "claim", "--id", "lane-b", "--goal", "parallel work", "--base", "main",
-            "--owns", "shared",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-b",
+            "--goal",
+            "parallel work",
+            "--base",
+            "main",
+            "--owns",
+            "shared",
         ],
     );
     let text = combined(&claimed);
@@ -248,8 +295,16 @@ fn edit_status_active_restores_the_live_boundary_gate() {
     let claimed = agent_on(
         &b,
         &[
-            "worktree", "claim", "--id", "lane-b", "--goal", "parallel work", "--base", "main",
-            "--owns", "shared",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-b",
+            "--goal",
+            "parallel work",
+            "--base",
+            "main",
+            "--owns",
+            "shared",
         ],
     );
     let text = combined(&claimed);
