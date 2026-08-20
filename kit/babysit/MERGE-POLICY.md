@@ -61,6 +61,10 @@
 | **自动合** | 没命中任何清单 | 直接合，合完记一行账，**不出声** | `precheck` 退出码 `0` |
 | **需播报** | 命中 §4 的「需播报」两类 | 照常合，但本轮面板必须写一行让用户看见 | 退出码 `10` |
 | **硬停** | 命中 §4 硬停四类，或健康度红 | **不许合**，带证据去问用户 | 退出码 `20` |
+| **判不了** | 工具自己出错（`gh` 没装 / 没登录 / 网络断 / 文件清单被截断补不回来 / 说好深扫却没扫成） | **当成硬停处理**，别当成「没问题」 | 退出码 `2` |
+
+**退出码 2 必须按 fail-closed 读。** 「工具没能给出判断」和「工具判断没问题」是两件事，
+把前者当后者是这套机制最容易死的死法——所有静默失效都长这个样子。
 
 ### 健康度：三档之上的先决条件
 
@@ -90,7 +94,7 @@
 
 | 类别 | 具体判据 | 为什么 |
 |---|---|---|
-| **1. 闸与权限自身** | `.claude/settings*.json` · `hooks/**` · `.github/workflows/**` · `cli/src/guard.rs` · `cli/src/oncall.rs` · `cli/src/routing.rs` · **`tools/merge-audit/**`** | 被监控者不许改监控自己的东西。**审计工具自己也在表上不是形式主义**——agent 能悄悄把自己从清单里删掉，上面所有机制一起失效 |
+| **1. 闸与权限自身** | `.claude/settings*.json` · `hooks/**` · **`kit/guard/**`** · **`cli/src/**`** · **`.github/**`** · `.claude-plugin/**` · `.codex-plugin/**` · **`tools/merge-audit/**`** | 被监控者不许改监控自己的东西。**审计工具自己也在表上不是形式主义**——agent 能悄悄把自己从清单里删掉，上面所有机制一起失效 |
 | **2. 凭据与密钥** | `.env*` · `*.pem/.p12/.pfx` · `id_rsa*` · 文件名含 secret/credential · **diff 新增行命中密钥模式**（`--deep`） | 凭据一旦进 git 历史就撤不干净——revert 只删当前状态，历史里那份永远在 |
 | **3. 不可逆的文件改动** | `**/migrations/**` · `**/*.sql` | 撤不回来 |
 | **4. 外部作者的 PR** | 作者不在 `trusted_authors` 里 | 供应链。哪怕它只改一个 typo |
@@ -101,6 +105,28 @@
 |---|---|---|
 | **带 breaking / 迁移标注** | 整行以 `BREAKING:` / `迁移注记：` / `MIGRATION:` 开头，或挂 `breaking`/`migration` 标签 | 它可 `git revert`，落在「撤不回来」这条理由之外。它真正的价值是**信号**——用播报兑现信号，不用阻塞兑现。**这是本轮唯一比旧清单松的地方**，`policy.json` 里把这条规则从 `notable_rules` 挪进 `hard_stop_rules` 就改回去了 |
 | **改的是规矩本身** | `AGENTS.md` · `CHARTER.md` · `BOOTSTRAP.md` · `kit/babysit/**` · `playbook/multi-contributor-protocol.md` | 同上，可 revert；但它改的是全场行为，用户该有机会当场喊停 |
+
+### 按目录整括，不按文件枚举（2026-08-20 红队实测）
+
+第 1 类原先按文件枚举（`cli/src/guard.rs` `.github/workflows/**` 之类），对抗性复查一跑就露两个洞：
+
+- **路条 vs 实体**：`hooks/hooks.json` 在清单里，但它的全部内容只是一张路条——
+  `bash "${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard"`。**被指向的闸本体不在清单里**，
+  往它开头加一行 `exit 0` 就能让全仓跨仓 git 闸静默失效，而判定是**自动合**。
+- **判据的来源**：`cli/src/guard.rs` 在清单里，但它的判据来自 `paths.rs` 与 `worktree.rs`
+  （`use crate::paths::resolve_work_root;`），dispatch 在 `main.rs:358`，
+  pre-commit/pre-push 模板在 `worktree_hooks.rs`。改哪个效果都一样，判定全是**自动合**。
+  同理 `.github/workflows/gate.yml` 执行 `.github/scripts/check_docs.py`，而后者读
+  `doc-boundary-baseline.txt`——**基线就是判据**。
+
+所以规则写死一条：**清单必须括住「配置文件指向的实体」，不能只括配置文件；能整括目录就别枚举文件**，
+因为枚举必然漏掉下一个新增的文件，而那个洞不会有人主动想起来补。
+
+代价是实测过的，不是拍脑袋：最近 36 条已合并 PR 里 `cli/src/**` 命中 8 条（22%）、
+`.github/**` 1 条（3%）、`kit/guard/**` 1 条（3%）。**这不是新增摩擦**——翻面前
+「功能代码 / 脚本 / CLI 行为改动」本来就在必须先问档。整括之后对最近 20 条重跑：
+**9 条自动合 + 7 条需播报（照样自动合）+ 4 条硬停**，翻面要解决的那个痛点（canonical 文档单被堵）
+一条没被吃掉。
 
 ### 判据必须是客观事实，不许是正文关键词
 
@@ -167,9 +193,12 @@ X = CI 中位时长 + 5 分钟
 标定值：
 
 - **有 CI 的仓**：Dartify CI ~11 分钟 → X = 16 分钟
-- **无 CI 的仓**：agent-on 自身（`.github/` 下只有 PR/Issue 模板，没有 `workflows/`）→ X = 5 分钟。实测 PR #2 从开到合 56 秒，说明 5 分钟是宽松值而非激进值
+- **agent-on 自身**：2026-08-20 之前无 CI，X = 5 分钟；**同日 PR #37 落地首道 CI 之后重算**——
+  `gh run list --workflow gate.yml --limit 10` 实测 15 / 23 / 45 / 46 / 52 秒，中位 45 秒 → 取 1 分钟 → **X = 6 分钟**。
+  （原文这里写着「`.github/` 下只有 PR/Issue 模板，没有 `workflows/`」，那句自 2026-08-20 12:53Z 起为假，已更正。**标定值会过期，接入后每次仓的 CI 面变化都要重算**。）
 
-项目接入时把自己的 X 算出来写进 `docs/babysit.md` §0，别留公式。
+项目接入时把自己的 X 算出来写进 `docs/babysit.md` 的每轮检查单里那条时延项旁边，别留公式。
+（原文写「写进 §0」，但模板与本仓实例的 §0 都是 GOAL 段，X 实际落在每轮检查单——以实际落点为准。）
 
 ### 超时怎么算
 

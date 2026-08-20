@@ -19,8 +19,9 @@ POLICY = json.loads((Path(__file__).resolve().parent / "policy.json").read_text(
 
 
 def pr(number=1, title="t", author="Palebluedot-ai", files=(), body="",
-       labels=(), review="", checks=(), merged_at="2026-08-20T00:00:00Z", oid="abc123"):
-    return {
+       labels=(), review="", checks=(), merged_at="2026-08-20T00:00:00Z", oid="abc123",
+       draft=False, mergeable="MERGEABLE", changed_files=None):
+    d = {
         "number": number, "title": title, "body": body,
         "author": {"login": author},
         "files": [{"path": p} for p in files],
@@ -28,7 +29,15 @@ def pr(number=1, title="t", author="Palebluedot-ai", files=(), body="",
         "reviewDecision": review,
         "statusCheckRollup": [{"name": n, "conclusion": c} for n, c in checks],
         "mergedAt": merged_at, "mergeCommit": {"oid": oid},
+        "isDraft": draft, "mergeable": mergeable,
     }
+    if changed_files is not None:
+        d["changedFiles"] = changed_files
+    return d
+
+
+def claim(pr_no, claimed, note=""):
+    return {"kind": "claim", "action": "merged", "pr": pr_no, "claimed": claimed, "note": note}
 
 
 class TestGlob(unittest.TestCase):
@@ -82,9 +91,15 @@ class TestClassify(unittest.TestCase):
         v = ma.classify(pr(files=[".github/workflows/ci.yml"]), POLICY)
         self.assertEqual(v["decision"], "HARD_STOP")
 
-    def test_issue_template_is_not_a_workflow(self):
+    def test_whole_github_dir_is_hard_stop_including_templates(self):
+        """刻意整括 `.github/**`，连 issue 模板一起停。
+
+        枚举子目录的代价是「下一个 `.github/actions/` 又是同一个洞」；
+        整括的代价是 issue/PR 模板改动也要问一次——实测最近 36 条 PR 里只有 1 条碰
+        `.github/`（3%），这个代价买断一整类盲区，划算。
+        """
         v = ma.classify(pr(files=[".github/ISSUE_TEMPLATE/intake-card.md"]), POLICY)
-        self.assertEqual(v["decision"], "AUTO")
+        self.assertEqual(v["decision"], "HARD_STOP")
 
     def test_breaking_marker_is_notable_not_hard_stop(self):
         v = ma.classify(pr(files=["playbook/sop.md"], body="正文\n\nBREAKING: 口令改名"), POLICY)
@@ -188,7 +203,7 @@ class TestLedgerChain(unittest.TestCase):
 class TestFindings(unittest.TestCase):
     def test_hard_stop_that_got_merged_is_a_violation(self):
         v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v], {1: {"claimed": "HARD_STOP", "pr": 1}}, None)
+        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP")]}, None)
         self.assertIn("VIOLATION", [x["level"] for x in f])
 
     def test_merged_without_a_record_is_unrecorded(self):
@@ -198,30 +213,29 @@ class TestFindings(unittest.TestCase):
 
     def test_claim_disagreeing_with_verdict_is_mismatch(self):
         v = ma.classify(pr(3, files=["AGENTS.md"]), POLICY)  # 真相 NOTABLE
-        f = ma.collect_findings([v], {3: {"claimed": "AUTO", "pr": 3, "note": ""}}, None)
+        f = ma.collect_findings([v], {3: [claim(3, "AUTO")]}, None)
         levels = [x["level"] for x in f]
         self.assertIn("MISMATCH", levels)
 
     def test_clean_auto_merge_with_a_record_is_silent(self):
         v = ma.classify(pr(4, files=["snapshot/x.md"]), POLICY)
-        f = ma.collect_findings([v], {4: {"claimed": "AUTO", "pr": 4}}, None)
+        f = ma.collect_findings([v], {4: [claim(4, "AUTO")]}, None)
         self.assertEqual(f, [])
 
     def test_red_merge_is_flagged(self):
         v = ma.classify(pr(5, files=["a.md"], checks=[("CI", "FAILURE")]), POLICY)
-        f = ma.collect_findings([v], {5: {"claimed": "AUTO", "pr": 5}}, None)
+        f = ma.collect_findings([v], {5: [claim(5, "AUTO")]}, None)
         self.assertIn("MERGED_RED", [x["level"] for x in f])
 
     def test_broken_chain_surfaces_even_with_no_pr_problems(self):
         v = ma.classify(pr(6, files=["a.md"]), POLICY)
-        f = ma.collect_findings([v], {6: {"claimed": "AUTO", "pr": 6}}, 2)
+        f = ma.collect_findings([v], {6: [claim(6, "AUTO")]}, 2)
         self.assertEqual([x["level"] for x in f], ["LEDGER_BROKEN"])
 
     def test_findings_sorted_worst_first(self):
         v1 = ma.classify(pr(7, files=["AGENTS.md"]), POLICY)
         v2 = ma.classify(pr(8, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v1, v2], {7: {"claimed": "NOTABLE", "pr": 7},
-                                           8: {"claimed": "HARD_STOP", "pr": 8}}, None)
+        f = ma.collect_findings([v1, v2], {7: [claim(7, "NOTABLE")], 8: [claim(8, "HARD_STOP")]}, None)
         self.assertEqual(f[0]["level"], "VIOLATION")
 
 
@@ -284,8 +298,6 @@ class TestCliOffline(unittest.TestCase):
         self.assertIsNone(ma.verify_chain(raw))
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 class TestNoFalsePositivesOnProse(unittest.TestCase):
@@ -331,16 +343,24 @@ class TestLedgerStartPoint(unittest.TestCase):
         f = ma.collect_findings([v], {}, None, self.START)
         self.assertEqual([x["level"] for x in f], ["UNRECORDED"])
 
-    def test_old_hard_stop_merge_is_still_a_violation(self):
+    def test_old_hard_stop_merge_is_reported_as_pre_existing_not_violation(self):
+        """存量越界仍要列出来，但不该每轮把退出码钉死在 1——那会训练人忽略报告。"""
         v = ma.classify(pr(3, files=["hooks/h.json"], merged_at="2026-08-01T00:00:00Z"), POLICY)
         f = ma.collect_findings([v], {}, None, self.START)
-        self.assertIn("VIOLATION", [x["level"] for x in f])
+        levels = [x["level"] for x in f]
+        self.assertIn("PRE_EXISTING", levels)
+        self.assertNotIn("VIOLATION", levels)
 
-    def test_old_red_merge_is_still_flagged(self):
+    def test_old_red_merge_is_pre_existing(self):
         v = ma.classify(pr(4, files=["a.md"], checks=[("CI", "FAILURE")],
                            merged_at="2026-08-01T00:00:00Z"), POLICY)
         f = ma.collect_findings([v], {}, None, self.START)
-        self.assertIn("MERGED_RED", [x["level"] for x in f])
+        self.assertIn("PRE_EXISTING", [x["level"] for x in f])
+
+    def test_new_hard_stop_merge_is_a_real_violation(self):
+        v = ma.classify(pr(5, files=["hooks/h.json"], merged_at="2026-08-21T00:00:00Z"), POLICY)
+        f = ma.collect_findings([v], {}, None, self.START)
+        self.assertIn("VIOLATION", [x["level"] for x in f])
 
 
 class TestDiffAttribution(unittest.TestCase):
@@ -379,3 +399,217 @@ class TestDiffAttribution(unittest.TestCase):
     def test_headerless_diff_falls_back_to_whole_scan(self):
         hits = ma.diff_patterns_hit("+AKIAIOSFODNN7EXAMPLE\n", [r"AKIA[0-9A-Z]{16}"])
         self.assertEqual(len(hits), 1)
+
+
+class TestTruncatedFileList(unittest.TestCase):
+    """红队最重的一条：gh --json files 封顶 100 条且按字典序，
+    超出部分静默丢失 → 路径类硬停整体失效，而工具自己察觉不到。"""
+
+    def test_detects_truncation_via_changed_files(self):
+        self.assertTrue(ma.files_truncated(pr(files=["a.md"] , changed_files=134)))
+        self.assertFalse(ma.files_truncated(pr(files=["a.md"], changed_files=1)))
+
+    def test_missing_changed_files_is_not_treated_as_truncation(self):
+        """离线夹具没有 changedFiles，不能据此把所有夹具判成硬停。"""
+        self.assertFalse(ma.files_truncated(pr(files=["a.md"])))
+
+    def test_unrepairable_truncation_is_hard_stop(self):
+        d = pr(files=["bench/cases/pad.md"], changed_files=134)
+        d["_files_truncated"] = True
+        v = ma.classify(d, POLICY)
+        self.assertEqual(v["decision"], "HARD_STOP")
+        self.assertIn("unjudgeable-truncated-files", [r["id"] for r in v["hard_stop"]])
+
+    def test_the_exact_evasion_scenario(self):
+        """100 个字典序靠前的 pad 文件 + 一个排在后面的危险文件 = 危险文件被砍掉。"""
+        danger = "tools/merge-audit/policy.json"
+        full = sorted([f"bench/cases/pad-{i:03}.md" for i in range(100)] + [danger])
+        self.assertEqual(ma.classify(pr(files=full), POLICY)["decision"], "HARD_STOP")
+        truncated = full[:100]
+        self.assertNotIn(danger, truncated)
+        d = pr(files=truncated, changed_files=len(full))
+        d["_files_truncated"] = True
+        self.assertEqual(ma.classify(d, POLICY)["decision"], "HARD_STOP",
+                         "截断必须硬停——否则这正是绕过路径")
+
+
+class TestDeepScanFailsClosed(unittest.TestCase):
+    """fetch_diff 失败原本返回 ""，classify 会把 deep 标成 True：
+    「扫描失败」被记成「扫过了且干净」，失败方向是放行。"""
+
+    def test_none_means_not_scanned(self):
+        self.assertFalse(ma.classify(pr(files=["a.md"]), POLICY, None)["deep"])
+
+    def test_empty_string_means_scanned_and_clean(self):
+        self.assertTrue(ma.classify(pr(files=["a.md"]), POLICY, "")["deep"])
+
+
+class TestHealthCompleteness(unittest.TestCase):
+    """MERGE-POLICY §3 健康度写了 draft 与 mergeable，代码原来零实现。"""
+
+    def test_draft_is_red_before_merge(self):
+        d = pr(files=["a.md"], draft=True); d.pop("mergedAt")
+        self.assertTrue(ma.classify(d, POLICY)["health"]["red"])
+
+    def test_conflicting_is_red_before_merge(self):
+        d = pr(files=["a.md"], mergeable="CONFLICTING"); d.pop("mergedAt")
+        self.assertTrue(ma.classify(d, POLICY)["health"]["red"])
+
+    def test_unknown_mergeable_before_merge_means_wait(self):
+        d = pr(files=["a.md"], mergeable="UNKNOWN"); d.pop("mergedAt")
+        self.assertTrue(ma.classify(d, POLICY)["health"]["red"])
+
+    def test_merged_pr_is_not_judged_by_premerge_conditions(self):
+        """已合并的 PR，GitHub 把 mergeable 报成 UNKNOWN——事后拿它判会全场误报。"""
+        d = pr(files=["a.md"], mergeable="UNKNOWN", draft=True,
+               merged_at="2026-08-20T00:00:00Z")
+        self.assertFalse(ma.classify(d, POLICY)["health"]["red"])
+
+    def test_error_conclusion_is_red(self):
+        self.assertTrue(ma.classify(pr(files=["a.md"], checks=[("x", "ERROR")]), POLICY)["health"]["red"])
+
+    def test_clean_pr_is_green(self):
+        self.assertFalse(ma.classify(pr(files=["a.md"], checks=[("x", "SUCCESS")]), POLICY)["health"]["red"])
+
+
+class TestGlobCaseAndEnv(unittest.TestCase):
+    def test_uppercase_env_is_caught(self):
+        for path in [".ENV", "config/PROD.env", "app/Secrets.yaml", "keys/ID_RSA"]:
+            self.assertEqual(ma.classify(pr(files=[path]), POLICY)["decision"], "HARD_STOP",
+                             f"{path} 应命中凭据类")
+
+    def test_dot_env_suffix_form(self):
+        self.assertEqual(ma.classify(pr(files=["deploy/prod.env"]), POLICY)["decision"], "HARD_STOP")
+
+    def test_ordinary_doc_still_auto(self):
+        self.assertEqual(ma.classify(pr(files=["playbook/environment.md"]), POLICY)["decision"], "AUTO")
+
+
+class TestDiffPathWithSpaces(unittest.TestCase):
+    def test_authoritative_path_comes_from_plus_line(self):
+        diff = ("diff --git a/my dir/a b.py b/my dir/a b.py\n"
+                "--- a/my dir/a b.py\n+++ b/my dir/a b.py\n"
+                "+KEY='AKIAIOSFODNN7EXAMPLE'\n")
+        per_file = ma.split_diff_by_file(diff)
+        self.assertIn("my dir/a b.py", per_file)
+        hits = ma.diff_patterns_hit(diff, [r"AKIA[0-9A-Z]{16}"])
+        self.assertTrue(hits[0].startswith("my dir/a b.py "))
+
+
+class TestTimestampComparison(unittest.TestCase):
+    """字符串比大小会把同一时刻的不同写法判成差 8 小时。"""
+
+    def test_equivalent_instants_compare_equal(self):
+        self.assertTrue(ma.ts_at_or_after("2026-08-20T11:20:00+08:00", "2026-08-20T03:20:00Z"))
+        self.assertTrue(ma.ts_at_or_after("2026-08-20T03:20:00Z", "2026-08-20T11:20:00+08:00"))
+
+    def test_ordering_still_works(self):
+        self.assertFalse(ma.ts_at_or_after("2026-08-19T00:00:00Z", "2026-08-20T00:00:00Z"))
+        self.assertTrue(ma.ts_at_or_after("2026-08-21T00:00:00Z", "2026-08-20T00:00:00Z"))
+
+    def test_unparseable_defaults_to_in_scope(self):
+        self.assertTrue(ma.ts_at_or_after("garbage", "2026-08-20T00:00:00Z"))
+
+
+class TestClaimRevision(unittest.TestCase):
+    """被点名之后追加一条「改口」记录就能洗掉 MISMATCH——追加合法、链完整、零痕迹。"""
+
+    def test_first_claim_is_the_one_compared(self):
+        v = ma.classify(pr(1, files=["AGENTS.md"]), POLICY)   # 真相 NOTABLE
+        f = ma.collect_findings([v], {1: [claim(1, "AUTO"), claim(1, "NOTABLE")]}, None)
+        levels = [x["level"] for x in f]
+        self.assertIn("MISMATCH", levels, "拿第一条比，改口不该洗掉 MISMATCH")
+
+    def test_revision_itself_is_reported(self):
+        v = ma.classify(pr(1, files=["AGENTS.md"]), POLICY)
+        f = ma.collect_findings([v], {1: [claim(1, "AUTO"), claim(1, "NOTABLE")]}, None)
+        self.assertIn("CLAIM_REVISED", [x["level"] for x in f])
+
+    def test_single_consistent_claim_is_silent(self):
+        v = ma.classify(pr(1, files=["snapshot/x.md"]), POLICY)
+        self.assertEqual(ma.collect_findings([v], {1: [claim(1, "AUTO")]}, None), [])
+
+
+class TestReportDiscloseWhatItDidNotSee(unittest.TestCase):
+    """报告最危险的失败不是漏判，是把「我没查」说成「没发现」。"""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.d = Path(self.dir.name)
+        self.prs = self.d / "prs.json"
+        self.ledger = self.d / "l.jsonl"
+        pol = dict(POLICY)
+        pol.pop("ledger_starts_at", None)
+        self.policy = self.d / "policy.json"
+        self.policy.write_text(json.dumps(pol, ensure_ascii=False), encoding="utf-8")
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def _run(self, argv):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = ma.main(["--ledger", str(self.ledger), "--policy", str(self.policy)] + argv)
+        return rc, buf.getvalue()
+
+    def test_json_report_declares_deep_and_window(self):
+        self.prs.write_text(json.dumps([pr(1, files=["a.md"])]), encoding="utf-8")
+        _, out = self._run(["report", "--from-file", str(self.prs), "--json"])
+        d = json.loads(out)
+        self.assertFalse(d["deep"])
+        self.assertIsNotNone(d["window"])
+
+    def test_text_report_says_it_did_not_scan_diffs(self):
+        self.prs.write_text(json.dumps([pr(1, files=["a.md"])]), encoding="utf-8")
+        _, out = self._run(["report", "--from-file", str(self.prs)])
+        self.assertIn("没有**扫 diff", out.replace("*", "*"))
+
+    def test_zero_findings_never_fails_even_with_fail_on_ok(self):
+        self.prs.write_text(json.dumps([pr(1, files=["a.md"])]), encoding="utf-8")
+        ma.main(["--ledger", str(self.ledger), "--policy", str(self.policy),
+                 "record", "--pr", "1", "--action", "merged", "--claimed", "AUTO"])
+        rc, _ = self._run(["report", "--from-file", str(self.prs), "--json", "--fail-on", "ok"])
+        self.assertEqual(rc, 0)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+
+
+class TestGateEntitiesNotJustPointers(unittest.TestCase):
+    """红队实测：清单里放的是「配置文件」，而闸的真正行为由它**指向的实体**决定。
+    hooks/hooks.json 在清单里，它指向的 kit/guard/agent-on-git-guard 却不在——
+    往后者开头加一行 `exit 0` 就能让全仓跨仓 git 闸失效，判定还是 AUTO。"""
+
+    def _decide(self, path):
+        return ma.classify(pr(files=[path]), POLICY)["decision"]
+
+    def test_the_guard_script_itself(self):
+        self.assertEqual(self._decide("kit/guard/agent-on-git-guard"), "HARD_STOP")
+
+    def test_guard_judgment_sources(self):
+        for path in ["cli/src/paths.rs", "cli/src/worktree.rs",
+                     "cli/src/worktree_hooks.rs", "cli/src/main.rs"]:
+            self.assertEqual(self._decide(path), "HARD_STOP", path)
+
+    def test_a_brand_new_file_in_cli_src_is_covered(self):
+        """整目录括住的意义：下一个新文件不用等谁想起来补清单。"""
+        self.assertEqual(self._decide("cli/src/some_future_gate.rs"), "HARD_STOP")
+
+    def test_ci_script_and_its_baseline(self):
+        for path in [".github/workflows/gate.yml",
+                     ".github/scripts/check_docs.py",
+                     ".github/scripts/doc-boundary-baseline.txt"]:
+            self.assertEqual(self._decide(path), "HARD_STOP", path)
+
+    def test_plugin_manifests_that_register_hooks(self):
+        """子代理实测把 .codex-plugin/plugin.json 的 hooks 注册删掉 = Codex 侧闸整条失效。"""
+        for path in [".codex-plugin/plugin.json", ".claude-plugin/plugin.json"]:
+            self.assertEqual(self._decide(path), "HARD_STOP", path)
+
+    def test_ordinary_docs_are_still_automatic(self):
+        """翻面的目的没被这次收紧吃掉：本仓绝大多数 PR 仍然自动合。"""
+        for path in ["playbook/sop.md", "bench/cases/9.md", "snapshot/x.md",
+                     "intake/2026-07-16-IPONews.md", "ledger/merge-audit.jsonl"]:
+            self.assertEqual(self._decide(path), "AUTO", path)

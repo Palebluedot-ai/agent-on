@@ -13,17 +13,25 @@
     {
       "id": "gate-and-permissions",
       "title": "闸与权限自身",
-      "why": "被监控者不许改监控自己的东西。权限配置、PreToolUse 闸、路由闸、CI 权限、以及本审计工具自己——改这些等于扩自己的权限，改完之后所有其它防线一起失效。",
+      "why": "被监控者不许改监控自己的东西。权限配置、PreToolUse 闸、路由闸、CI、以及本审计工具自己——改这些等于扩自己的权限，改完之后所有其它防线一起失效。\n\n**按目录整括，不按文件枚举。** 2026-08-20 红队实测两条：① `hooks/hooks.json` 在清单里，但它只是一张路条，内容是 `bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"`——**被指向的闸本体不在清单里**，往它开头加一行 `exit 0` 就能让全仓跨仓 git 闸失效，而判定是 AUTO。② `cli/src/guard.rs` 在清单里，但它的判据来自 `paths.rs`、`worktree.rs`，dispatch 在 `main.rs`，pre-commit/pre-push 模板在 `worktree_hooks.rs`——改哪个效果都一样，判定都是 AUTO。\n\n所以判据必须括住**配置文件指向的实体**，不能只括配置文件。整括 `cli/src/**` 的代价实测是最近 36 条已合并 PR 里的 8 条（22%）会停下来问；这不是新增摩擦——翻面前「功能代码 / CLI 行为改动」本来就在必须先问档。要更省事可以只枚举那 7 个闸文件，但那就把「下一个新文件」重新变成洞。",
       "path_globs": [
+        "**/.claude-plugin/**",
+        "**/.claude/settings*.json",
+        "**/.codex-plugin/**",
         ".claude/settings.json",
         ".claude/settings.local.json",
-        "**/.claude/settings*.json",
+        ".github/**",
+        "cli/src/**",
         "hooks/**",
-        ".github/workflows/**",
-        "cli/src/guard.rs",
-        "cli/src/oncall.rs",
-        "cli/src/routing.rs",
+        "kit/guard/**",
         "tools/merge-audit/**"
+      ],
+      "_verified_2026_08_20": [
+        "cli/src/guard.rs:3 `use crate::paths::resolve_work_root;`",
+        "cli/src/guard.rs:4 `use crate::worktree;`",
+        "cli/src/main.rs:358 `Commands::Guard => guard::run_from_stdin()`",
+        ".github/workflows/gate.yml:68 `run: python3 .github/scripts/check_docs.py`",
+        ".github/scripts/check_docs.py:31 BASELINE = doc-boundary-baseline.txt（基线即判据）"
       ]
     },
     {
@@ -39,7 +47,12 @@
         "**/id_rsa*",
         "**/id_ed25519*",
         "**/*secret*",
-        "**/*credential*"
+        "**/*credential*",
+        "**/*.env",
+        "**/*.key",
+        "**/*.keystore",
+        "**/*.jks",
+        "**/*token*"
       ],
       "diff_patterns": [
         "-----BEGIN [A-Z ]*PRIVATE KEY-----",
@@ -52,7 +65,8 @@
       "diff_exclude_globs": [
         "tools/merge-audit/**"
       ],
-      "_diff_exclude_why": "规则定义与它们的测试夹具必然包含模式本身。这些文件被硬停第 1 类（gate-and-permissions）拦着，不需要再被密钥规则误报一次。**只排这一个目录**——别往里加业务目录，那才是真会漏密钥的地方。"
+      "_diff_exclude_why": "规则定义与它们的测试夹具必然包含模式本身。这些文件被硬停第 1 类（gate-and-permissions）拦着，不需要再被密钥规则误报一次。**只排这一个目录**——别往里加业务目录，那才是真会漏密钥的地方。",
+      "ignore_case": true
     },
     {
       "id": "irreversible-or-not-ours",
@@ -61,7 +75,8 @@
       "path_globs": [
         "**/migrations/**",
         "**/*.sql"
-      ]
+      ],
+      "ignore_case": true
     },
     {
       "id": "untrusted-author",
@@ -107,7 +122,11 @@
       "TIMED_OUT",
       "CANCELLED",
       "ACTION_REQUIRED",
-      "STARTUP_FAILURE"
-    ]
+      "STARTUP_FAILURE",
+      "ERROR",
+      "STALE"
+    ],
+    "block_on_draft": true,
+    "block_on_not_mergeable": true
   }
 }

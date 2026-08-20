@@ -41,8 +41,10 @@ DEFAULT_POLICY = TOOL_DIR / "policy.json"
 # 严重度：数字越大越严重。--fail-on 拿它做阈值。
 LEVELS = {
     "OK": 0,
+    "PRE_EXISTING": 5,   # 机制上线前就已存在的越界：列一次供人知情，不计进退出码
     "NOTABLE": 10,
     "MISMATCH": 20,
+    "CLAIM_REVISED": 25,  # 同一单被记了两次不同的档 —— 「改口」的指纹
     "UNRECORDED": 30,
     "MERGED_RED": 35,
     "LEDGER_BROKEN": 38,
@@ -76,6 +78,35 @@ def default_ledger() -> Path:
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def parse_ts(value: str | None):
+    """把 ISO 时间解析成带时区的 datetime。
+
+    别拿字符串比大小：`2026-08-20T03:20:00Z` 与 `2026-08-20T11:20:00+08:00` 是同一时刻，
+    字符串比较会把它们判成差 8 小时（实测把覆盖面从 19 条砍到 4 条）。
+    """
+    if not value:
+        return None
+    txt = value.strip()
+    if txt.endswith("Z"):
+        txt = txt[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(txt)
+    except ValueError:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def ts_at_or_after(value: str | None, boundary: str | None) -> bool:
+    """value >= boundary。任一侧解析不出来时**按「在范围内」处理**（宁可多查一条）。"""
+    b = parse_ts(boundary)
+    if b is None:
+        return True
+    v = parse_ts(value)
+    if v is None:
+        return True
+    return v >= b
 
 
 def die(msg: str, code: int = EXIT_ERROR):
@@ -128,8 +159,9 @@ def glob_to_regex(pat: str) -> re.Pattern:
     return re.compile("^" + "".join(out) + "$")
 
 
-def paths_matching(paths: list[str], globs: list[str]) -> list[str]:
-    pats = [glob_to_regex(g) for g in globs]
+def paths_matching(paths: list[str], globs: list[str], ignore_case: bool = False) -> list[str]:
+    flags = re.IGNORECASE if ignore_case else 0
+    pats = [re.compile(glob_to_regex(g).pattern, flags) for g in globs]
     return [p for p in paths if any(rx.match(p) for rx in pats)]
 
 
@@ -150,10 +182,21 @@ def split_diff_by_file(diff: str) -> dict[str, str]:
     for ln in (diff or "").splitlines():
         m = re.match(r"^diff --git a/(.+?) b/(.+)$", ln)
         if m:
+            # `diff --git a/x b/y` 在文件名含空格时无法无歧义切分；先用它占位，
+            # 随后的 `+++ b/<path>` 行才是权威路径（git 只在这一行给单一路径）。
             cur = m.group(2)
             out.setdefault(cur, [])
             continue
-        if cur and ln.startswith("+") and not ln.startswith("+++"):
+        m = re.match(r"^\+\+\+ (?:b/)?(.*)$", ln)
+        if m:
+            authoritative = m.group(1).strip()
+            if authoritative and authoritative != "/dev/null":
+                if cur is not None and cur != authoritative:
+                    out.setdefault(authoritative, []).extend(out.pop(cur, []))
+                cur = authoritative
+                out.setdefault(cur, [])
+            continue
+        if cur and ln.startswith("+"):
             out[cur].append(ln)
     return {k: "\n".join(v) for k, v in out.items()}
 
@@ -173,7 +216,7 @@ def diff_patterns_hit(diff: str, patterns: list[str],
             ln for ln in diff.splitlines()
             if ln.startswith("+") and not ln.startswith("+++"))}
 
-    excluded = set(paths_matching(list(per_file), exclude_globs or []))
+    excluded = set(paths_matching(list(per_file), exclude_globs or [], True))
     hits = []
     for path, added in per_file.items():
         if path in excluded:
@@ -198,7 +241,7 @@ def evaluate_rule(rule: dict, pr: dict, policy: dict, diff: str | None) -> list[
     paths = pr_paths(pr)
     text = f"{pr.get('title', '')}\n{pr.get('body', '')}"
 
-    hit_paths = paths_matching(paths, rule.get("path_globs", []))
+    hit_paths = paths_matching(paths, rule.get("path_globs", []), rule.get("ignore_case", False))
     ev += [f"文件 {p}" for p in hit_paths]
 
     ev += [f"描述/标题命中「{m}」" for m in text_markers_hit(text, rule.get("body_markers", []))]
@@ -231,6 +274,24 @@ def merge_health(pr: dict, policy: dict) -> dict:
     red_set = set(cfg.get("check_conclusions_treated_as_red", []))
     reasons: list[str] = []
 
+    # MERGE-POLICY §3「健康度」第一条：mergeable 不是 clean、或是 draft，就先分诊不合。
+    # 这两条原先只写在散文里、代码零实现。
+    #
+    # **但它们是合并前的条件。** PR 一旦合了，GitHub 就把 mergeable 报成 UNKNOWN、
+    # draft 也失去意义——事后拿它们判会把每一条已合并 PR 都判成红（实测：#33–#36 全中）。
+    # 所以只在「还没合」的单上查这两条。
+    already_merged = bool(pr.get("mergedAt")) or (pr.get("state") or "").upper() == "MERGED"
+    if not already_merged:
+        if cfg.get("block_on_draft", True) and pr.get("isDraft") is True:
+            reasons.append("PR 是 draft")
+        if cfg.get("block_on_not_mergeable", True):
+            m = (pr.get("mergeable") or "").upper()
+            # UNKNOWN = GitHub 还没算出来，那就等它算完，别当成绿也别当成红判死
+            if m == "UNKNOWN":
+                reasons.append("mergeable=UNKNOWN（GitHub 还没算完，等一下再判）")
+            elif m and m != "MERGEABLE":
+                reasons.append(f"mergeable={m}（非 clean）")
+
     if cfg.get("block_on_changes_requested", True):
         if (pr.get("reviewDecision") or "") == "CHANGES_REQUESTED":
             reasons.append("评审结论是 CHANGES_REQUESTED")
@@ -247,6 +308,17 @@ def merge_health(pr: dict, policy: dict) -> dict:
 def classify(pr: dict, policy: dict, diff: str | None = None) -> dict:
     """独立重判。**只看 PR 的客观事实**，不看任何人对它的自述。"""
     hard, notable = [], []
+
+    # 文件清单不可信时，路径类规则全部失效——这时唯一安全的判定是「判不了」。
+    if pr.get("_files_truncated"):
+        hard.append({
+            "id": "unjudgeable-truncated-files",
+            "title": "文件清单被截断，判不了",
+            "why": ("gh 的 files 数组封顶 100 条且按字典序，超出部分静默丢失；"
+                    "硬停清单里有三类完全建立在文件清单上。**判不了必须停，不能放行。**"),
+            "evidence": [f"gh 只给了 {len(pr.get('files') or [])} 个文件，"
+                         f"changedFiles 声称 {pr.get('changedFiles')}；REST 全量补取也失败了"],
+        })
 
     for rule in policy.get("hard_stop_rules", []):
         ev = evaluate_rule(rule, pr, policy, diff)
@@ -273,6 +345,8 @@ def classify(pr: dict, policy: dict, diff: str | None = None) -> dict:
         "merged_at": pr.get("mergedAt"),
         "merge_commit": ((pr.get("mergeCommit") or {}).get("oid")),
         "deep": diff is not None,
+        "files_repaired": bool(pr.get("_files_repaired")),
+        "changed_files": pr.get("changedFiles"),
     }
 
 
@@ -325,26 +399,74 @@ def append_record(path: Path, rec: dict) -> dict:
 
 # ---------------------------------------------------------------- 取数
 
-PR_FIELDS = ("number,title,author,body,labels,files,mergedAt,mergeCommit,"
-             "reviewDecision,statusCheckRollup,isDraft,state")
+# changedFiles 是**真相计数**：gh 的 files 数组静默截断到 100 条，没有它就察觉不到自己被截断了。
+PR_FIELDS = ("number,title,author,body,labels,files,changedFiles,mergedAt,mergeCommit,"
+             "reviewDecision,statusCheckRollup,isDraft,mergeable,state")
+
+GH_FILES_PAGE_CAP = 100  # gh --json files 的硬上限（实测 gh 2.88.1）
 
 
 def fetch_pr(repo: str, number: int) -> dict:
-    return gh_json(["pr", "view", str(number), "--repo", repo, "--json", PR_FIELDS])
+    pr = gh_json(["pr", "view", str(number), "--repo", repo, "--json", PR_FIELDS])
+    return repair_truncated_files(repo, pr)
 
 
 def fetch_merged(repo: str, limit: int) -> list[dict]:
-    return gh_json(["pr", "list", "--repo", repo, "--state", "merged",
-                    "--limit", str(limit), "--json", PR_FIELDS])
+    prs = gh_json(["pr", "list", "--repo", repo, "--state", "merged",
+                   "--limit", str(limit), "--json", PR_FIELDS])
+    return [repair_truncated_files(repo, pr) for pr in prs]
 
 
-def fetch_diff(repo: str, number: int) -> str:
+def files_truncated(pr: dict) -> bool:
+    """gh 只给了前 100 个文件，而这条 PR 实际改得更多。
+
+    后果极重：硬停清单有三类完全建立在文件清单上，清单残缺 = 那三类静默失效。
+    而 gh 返回的 100 条是**按路径字典序**的，也就是说「哪些路径被砍掉」是可预测、可构造的。
+    """
+    total = pr.get("changedFiles")
+    if total is None:
+        return False  # 离线夹具没有这个字段，不能据此判截断
+    return len(pr.get("files") or []) < total
+
+
+def fetch_all_files(repo: str, number: int) -> list[str] | None:
+    """绕开 gh --json files 的 100 条上限，用 REST 分页取全量文件清单。"""
+    try:
+        proc = subprocess.run(
+            ["gh", "api", "--paginate",
+             f"repos/{repo}/pulls/{number}/files", "--jq", ".[].filename"],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
+    if proc.returncode != 0:
+        return None
+    names = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+    return names or None
+
+
+def repair_truncated_files(repo: str, pr: dict) -> dict:
+    """截断就补全；补不回来就打标记，让 classify 硬停。**失败方向必须是停。**"""
+    if not files_truncated(pr):
+        return pr
+    full = fetch_all_files(repo, pr.get("number"))
+    if full and len(full) >= (pr.get("changedFiles") or 0):
+        pr = dict(pr)
+        pr["files"] = [{"path": f} for f in full]
+        pr["_files_repaired"] = True
+        return pr
+    pr = dict(pr)
+    pr["_files_truncated"] = True
+    return pr
+
+
+def fetch_diff(repo: str, number: int) -> str | None:
+    """取 diff。**失败返回 None，不是空串**——空串会被当成「扫过了且干净」。"""
     try:
         proc = subprocess.run(["gh", "pr", "diff", str(number), "--repo", repo],
                               capture_output=True, text=True)
     except FileNotFoundError:
-        return ""
-    return proc.stdout if proc.returncode == 0 else ""
+        return None
+    return proc.stdout if proc.returncode == 0 else None
 
 
 def load_prs(args, policy: dict) -> list[dict]:
@@ -370,7 +492,9 @@ def render_verdict(v: dict) -> str:
         for r in v["health"]["reasons"]:
             lines.append(f"        ⚠ 健康度：{r}")
     if not v["deep"]:
-        lines.append("        （未跑 --deep：diff 里的密钥模式这一轮没扫）")
+        lines.append("        （本轮没扫 diff 里的密钥模式——加 --deep 才扫）")
+    if v.get("files_repaired"):
+        lines.append("        （文件清单被 gh 截断过，已用 REST 分页补全）")
     return "\n".join(lines)
 
 
@@ -410,9 +534,26 @@ def cmd_precheck(args) -> int:
         diff = None
     else:
         pr = fetch_pr(repo, args.pr)
-        diff = fetch_diff(repo, args.pr) if not args.no_deep else None
+        diff = None
+        deep_failed = False
+        if not args.no_deep:
+            diff = fetch_diff(repo, args.pr)
+            deep_failed = diff is None   # None = 取失败；"" = 真的空 diff
+        if deep_failed:
+            # 说好要深扫却没扫成，唯一安全的处理是停下来。
+            # 原来这里 fetch_diff 失败返回 ""，classify 会把 deep 标成 True——
+            # 「扫描失败」被记成「扫过了且干净」，失败方向是放行。
+            pr = dict(pr)
+            pr["_deep_failed"] = True
 
     v = classify(pr, policy, diff)
+    if pr.get("_deep_failed"):
+        v["hard_stop"].append({
+            "id": "deep-scan-failed", "title": "密钥深扫失败",
+            "why": "说好要扫 diff 却没扫成。扫描失败不等于没发现——失败方向必须是停。",
+            "evidence": [f"gh pr diff {args.pr} 取不到内容（未登录 / 网络 / PR 太大）"],
+        })
+        v["decision"] = "HARD_STOP"
 
     if args.json:
         print(json.dumps(v, ensure_ascii=False, indent=2))
@@ -459,7 +600,7 @@ def cmd_scan(args) -> int:
 
     prs = load_prs(args, policy)
     if args.since:
-        prs = [p for p in prs if (p.get("mergedAt") or "") >= args.since]
+        prs = [p for p in prs if ts_at_or_after(p.get("mergedAt"), args.since)]
 
     verdicts = []
     for pr in prs:
@@ -492,54 +633,77 @@ def cmd_scan(args) -> int:
     return 0
 
 
-def collect_findings(verdicts: list[dict], claims: dict[int, dict],
+def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
                      chain_break: int | None, starts_at: str | None = None) -> list[dict]:
-    """starts_at 之前合的 PR 不产生**记账类**发现（那时还没有账可对），
-    但仍然产生**内容类**发现（合了不该合的，什么时候合的都算数）。"""
+    """starts_at 之前合的 PR 不产生**记账类**发现（那时还没有账可对）。
+
+    内容类发现（合了不该合的）仍然产生，但机制上线**之前**的那些降级成 PRE_EXISTING：
+    它们是存量债务，列一次让人知情就够了；每轮把退出码钉死在 1 只会训练人忽略这份报告。
+    """
     findings: list[dict] = []
 
     if chain_break is not None:
         findings.append({
             "level": "LEDGER_BROKEN", "pr": None,
             "summary": f"账本哈希链在第 {chain_break} 行断了",
-            "detail": "有人改写或删掉了历史记录。账本是追加写的，正常情况下链不会断。",
+            "detail": ("要么有人改写/删掉了历史记录，要么两条分支各自追加后合并过——"
+                       "后者在多 worktree 协作里是正常事件。**权威证据是 git 历史**："
+                       "跑 `git log -p ledger/merge-audit.jsonl` 看这一行是谁什么时候改的。"),
         })
 
     for v in verdicts:
         n = v["pr"]
-        claim = claims.get(n)
+        pr_claims = claims.get(n) or []
+        in_scope = ts_at_or_after(v.get("merged_at"), starts_at)
 
         if v["decision"] == "HARD_STOP":
             ev = "；".join(e for r in v["hard_stop"] for e in r["evidence"][:3])
-            findings.append({
-                "level": "VIOLATION", "pr": n,
-                "summary": f"#{n} 命中硬停清单却已经合了（{', '.join(r['id'] for r in v['hard_stop'])}）",
-                "detail": ev,
-            })
+            ids = ", ".join(r["id"] for r in v["hard_stop"])
+            if in_scope:
+                findings.append({
+                    "level": "VIOLATION", "pr": n,
+                    "summary": f"#{n} 命中硬停清单却已经合了（{ids}）",
+                    "detail": ev,
+                })
+            else:
+                findings.append({
+                    "level": "PRE_EXISTING", "pr": n,
+                    "summary": f"#{n} 机制上线前就合了，按今天的清单属硬停（{ids}）",
+                    "detail": ev + "　——存量，不计进退出码；要清就单独立项。",
+                })
 
         if v["health"]["red"]:
             findings.append({
-                "level": "MERGED_RED", "pr": n,
-                "summary": f"#{n} 红着合了",
+                "level": "MERGED_RED" if in_scope else "PRE_EXISTING", "pr": n,
+                "summary": f"#{n} 红着合了" + ("" if in_scope else "（机制上线前，存量）"),
                 "detail": "；".join(v["health"]["reasons"]),
             })
 
-        in_scope = not starts_at or (v.get("merged_at") or "") >= starts_at
-
-        if claim is None and in_scope:
+        if not pr_claims and in_scope:
             findings.append({
                 "level": "UNRECORDED", "pr": n,
                 "summary": f"#{n} 合了，但账本里没有值守的记录",
                 "detail": "没记账的合并等于没发生过——事后谁都说不清当时是按什么判的。",
             })
-        elif claim and claim.get("claimed") and claim["claimed"] != v["decision"]:
-            findings.append({
-                "level": "MISMATCH", "pr": n,
-                "summary": f"#{n} 值守自称 {claim['claimed']}，独立重判是 {v['decision']}",
-                "detail": f"值守备注：{claim.get('note') or '（无）'}",
-            })
+        elif pr_claims:
+            # **拿第一条比对，不是最后一条。** 只认最后一条的话，被点名之后追加一条
+            # 「改口」记录就能把 MISMATCH 洗掉，而且改口本身完全不留痕。
+            first = pr_claims[0]
+            distinct = {c.get("claimed") for c in pr_claims if c.get("claimed")}
+            if len(distinct) > 1:
+                findings.append({
+                    "level": "CLAIM_REVISED", "pr": n,
+                    "summary": f"#{n} 被记了多个不同的档：{' → '.join(c.get('claimed', '?') for c in pr_claims)}",
+                    "detail": "同一单改口。第一条才是当时的判断，后面的都是事后追加。",
+                })
+            if first.get("claimed") and first["claimed"] != v["decision"] and in_scope:
+                findings.append({
+                    "level": "MISMATCH", "pr": n,
+                    "summary": f"#{n} 值守自称 {first['claimed']}，独立重判是 {v['decision']}",
+                    "detail": f"值守备注：{first.get('note') or '（无）'}",
+                })
 
-        if v["decision"] == "NOTABLE":
+        if v["decision"] == "NOTABLE" and in_scope:
             findings.append({
                 "level": "NOTABLE", "pr": n,
                 "summary": f"#{n} 属于需播报类（{', '.join(r['id'] for r in v['notable'])}）",
@@ -550,37 +714,70 @@ def collect_findings(verdicts: list[dict], claims: dict[int, dict],
     return findings
 
 
+def build_claims(recs: list[dict]) -> dict[int, list[dict]]:
+    """按 PR 收拢**全部**记账记录，保持写入顺序。
+
+    不做 last-write-wins：被点名之后追加一条「改口」记录就能洗掉 MISMATCH，
+    而追加本身完全合法、链也完整。留全部才看得见改口。
+    """
+    out: dict[int, list[dict]] = {}
+    for r in recs:
+        if r.get("kind") == "claim" and r.get("action") == "merged":
+            out.setdefault(r["pr"], []).append(r)
+    return out
+
+
 def cmd_report(args) -> int:
     policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
     repo = args.repo or policy["repo"]
     ledger = Path(args.ledger) if args.ledger else default_ledger()
 
     prs = load_prs(args, policy)
+    window_full = (not args.from_file) and len(prs) >= args.limit
     if args.since:
-        prs = [p for p in prs if (p.get("mergedAt") or "") >= args.since]
-    verdicts = [classify(p, policy, None) for p in prs]
+        prs = [p for p in prs if ts_at_or_after(p.get("mergedAt"), args.since)]
+
+    deep = getattr(args, "deep", False)
+    verdicts = []
+    for pr in prs:
+        diff = None
+        if deep and not args.from_file:
+            diff = fetch_diff(repo, pr["number"])
+        verdicts.append(classify(pr, policy, diff))
 
     recs, raw = read_ledger(ledger)
     chain_break = verify_chain(raw) if raw else None
-    claims = {r["pr"]: r for r in recs if r.get("kind") == "claim" and r.get("action") == "merged"}
+    claims = build_claims(recs)
 
     starts_at = args.since or policy.get("ledger_starts_at")
     findings = collect_findings(verdicts, claims, chain_break, starts_at)
 
+    covered = [v.get("merged_at") for v in verdicts if v.get("merged_at")]
+    window = (min(covered), max(covered)) if covered else None
+
     if args.json:
-        print(json.dumps({"findings": findings, "scanned": len(verdicts)},
-                         ensure_ascii=False, indent=2))
+        print(json.dumps({
+            "findings": findings, "scanned": len(verdicts), "deep": deep,
+            "window": window, "window_may_be_incomplete": window_full,
+        }, ensure_ascii=False, indent=2))
     else:
         print(f"merge-audit 报告 —— 仓 {repo}，覆盖 {len(verdicts)} 条已合并 PR"
               + (f"（{args.since} 之后）" if args.since else ""))
+        if window:
+            print(f"覆盖窗口：{window[0]} → {window[1]}")
         print(f"账本：{ledger}（{len(raw)} 行，链{'断了' if chain_break else '完整'}）")
         if starts_at:
             print(f"记账类发现只覆盖 {starts_at} 之后合入的单（之前没有账可对）；"
-                  f"越界类发现不受此限。\n")
-        else:
-            print()
+                  f"越界类发现不受此限，机制上线前的列为 PRE_EXISTING。")
+        # 两句「我没看什么」的自陈。缺了它们，报告会把「没查」说成「没发现」。
+        if not deep:
+            print("⚠ 本轮**没有**扫 diff 里的密钥模式（硬停第 2 类的 diff 那半）——加 --deep 才扫。")
+        if window_full:
+            print(f"⚠ 取到的条数正好等于 --limit（{args.limit}），"
+                  f"**窗口外可能还有没审到的单**；用 --limit 调大或 --since 指定起点。")
+        print()
         if not findings:
-            print("没有发现。全部已合并 PR 都落在自动合入面里，且都有记账。")
+            print("没有发现。窗口内全部已合并 PR 都落在自动合入面里，且都有记账。")
         else:
             for f in findings:
                 tag = f["level"].ljust(13)
@@ -594,8 +791,10 @@ def cmd_report(args) -> int:
             print("\n小计：" + "  ".join(f"{k}×{v}" for k, v in counts.items()))
 
     threshold = LEVELS[args.fail_on.upper()]
-    worst = max((LEVELS[f["level"]] for f in findings), default=0)
-    return 1 if worst >= threshold else 0
+    levels = [LEVELS[f["level"]] for f in findings]
+    if not levels:
+        return 0   # 零发现永远是 0，别让 --fail-on ok 把「干净」判成失败
+    return 1 if max(levels) >= threshold else 0
 
 
 # ---------------------------------------------------------------- 入口
@@ -630,7 +829,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_record)
 
     s = sub.add_parser("scan", help="事后从 GitHub 真相独立重判已合并的 PR")
-    s.add_argument("--limit", type=int, default=30)
+    s.add_argument("--limit", type=int, default=100)
     s.add_argument("--since", default=None, help="ISO 时间，只看这之后合的")
     s.add_argument("--deep", action="store_true", help="连 diff 一起扫密钥模式（慢）")
     s.add_argument("--write", action="store_true", help="把判决写进账本")
@@ -639,8 +838,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_scan)
 
     s = sub.add_parser("report", help="把值守的自述和独立重判对起来，点名对不上的")
-    s.add_argument("--limit", type=int, default=30)
+    s.add_argument("--limit", type=int, default=100,
+                   help="取最近多少条已合并 PR（默认 100）。取满 limit 会明确警告窗口可能不全")
     s.add_argument("--since", default=None)
+    s.add_argument("--deep", action="store_true",
+                   help="连 diff 一起扫密钥模式（慢；不加则报告会自陈这一轮没扫）")
     s.add_argument("--json", action="store_true")
     s.add_argument("--from-file", default=None)
     s.add_argument("--fail-on", default="MISMATCH",

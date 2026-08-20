@@ -31,7 +31,7 @@
 
 4. **追平服务端化**：落后 base 一律 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`，
    不碰任何本地 worktree；任何人不本地 checkout 别人的分支代推。
-5. **三条边界**：
+5. **四条边界**：
    ① 真冲突不代解——值守取证（run 指针 + 缺陷定位 + 修复选项）打回 PR 作者会话；
    ② **自动合入是默认，硬停清单是穷举的例外**（照 agent-on
       `kit/babysit/MERGE-POLICY.md` §3/§4 抄定，按实际 diff 判不按标题判）——
