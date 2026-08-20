@@ -570,6 +570,32 @@ fn first_overlap<'a>(owns: &'a [String], held: &'a [String]) -> Option<(&'a Stri
     })
 }
 
+/// Why the refusal carries an exit: a gate that names the blocker but not the
+/// way past it leaves the blocked session with no move of its own, so it
+/// escalates to a human for an answer the repo already has. The two exits are
+/// deliberately asymmetric — reading the repair one must not teach "I may edit
+/// anyone's lane", and reading the stay-out one must not teach "I may never
+/// touch another lane's registration".
+fn overlap_exit(existing: &LaneRecord, hold: GateHold) -> String {
+    match hold {
+        // Somebody is home. The boundary is a promise to a session that is
+        // coming back, so the move belongs to the blocked party's own scope.
+        GateHold::Contract => format!(
+            "; exit: lane {} is a live contract with a session behind it — narrow your own owns to paths it does not hold, or hand this work to it; do not edit its registration",
+            existing.id
+        ),
+        // Nobody is home: the registration outlived the work. Repairing it is a
+        // metadata edit, idempotent and reversible, and it is in the hands of
+        // whoever this refusal blocks. Deleting the boundary is the lookalike
+        // that turns "occupied" into "out of bounds", so it is named and fenced.
+        GateHold::Writing => format!(
+            "; exit: any lane this blocks may repair a stale registration itself — if that work already reached its base under another commit, re-pin it with `agent-on worktree edit --id {} --base <ref>`, which is registration repair, not deletion (never clear its owns or remove its worktree). If the work is genuinely unlanded, rescue it first: push, commit, or open a PR from that worktree",
+            existing.id
+        ),
+        _ => String::new(),
+    }
+}
+
 fn overlap_error(new_path: &str, existing: &LaneRecord, old_path: &str, hold: GateHold) -> String {
     let detail = if hold == GateHold::Writing {
         format!(
@@ -580,9 +606,10 @@ fn overlap_error(new_path: &str, existing: &LaneRecord, old_path: &str, hold: Ga
         String::new()
     };
     format!(
-        "owned path {new_path} overlaps {} lane {} boundary {old_path}{detail}",
+        "owned path {new_path} overlaps {} lane {} boundary {old_path}{detail}{}",
         hold.word(),
-        existing.id
+        existing.id,
+        overlap_exit(existing, hold)
     )
 }
 
@@ -1474,8 +1501,8 @@ fn render_text(report: &AuditReport) -> String {
         }
         if lane.writing && !ownership_live(&lane.status) && !lane.dormant {
             out.push_str(&format!(
-                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate holds the paths that work touches. Re-register with `agent-on worktree edit --status active --id {}`, or land the work.\n",
-                lane.status, lane.base, lane.id
+                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate holds the paths that work touches. Clearing this is a metadata edit, so it does not wait for the absent session: any lane this blocks may repair the registration itself — re-pin with `agent-on worktree edit --id {} --base <ref>` when the work already reached the base under another commit (a squash merge rewrites the hash), or `agent-on worktree edit --status active --id {}` when that session is coming back. Registration repair, not deletion — never clear its owns or remove its worktree. If the work really is unlanded, land or rescue it.\n",
+                lane.status, lane.base, lane.id, lane.id
             ));
         }
     }

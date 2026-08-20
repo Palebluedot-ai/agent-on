@@ -75,7 +75,7 @@ C 附写的是「定义齐全 ≠ 接线生效」(代码/配置实体)。本条�
 
 ## 附:第五类——偏好缺口(2026-07-05 官网 v1 返工后增补)
 
-前四类都在事实域(有客观对错)。第五类在**偏好域**:待拍板项被静默选边、范围靠推断、「建议未被反对」当「已同意」——错了不叫幻觉,叫「替用户做了他没做的决定」。封堵工具完全不同:追问/多变体/勾选/回显,按「偏好方差×返工成本」2×2 选用。全套见 [elicitation-protocol.md](elicitation-protocol.md);已烧进 [kit/explore-prompt-template.md](kit/explore-prompt-template.md)。
+前四类都在事实域(有客观对错)。第五类在**偏好域**:待拍板项被静默选边、范围靠推断、「建议未被反对」当「已同意」——错了不叫幻觉,叫「替用户做了他没做的决定」。封堵工具完全不同:追问/多变体/勾选/回显,按「偏好方差×返工成本」2×2 选用。全套见 [elicitation-protocol.md](elicitation-protocol.md);已烧进 [kit/explore-prompt-template.md](../kit/explore-prompt-template.md)。
 
 ## 附:第六型——取证幻觉(2026-07-14 Euan gitleaks 事故增补)
 
