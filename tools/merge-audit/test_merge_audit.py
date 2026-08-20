@@ -612,8 +612,6 @@ class TestReportDiscloseWhatItDidNotSee(unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 class TestGateEntitiesNotJustPointers(unittest.TestCase):
@@ -685,3 +683,22 @@ class TestPointerResolver(unittest.TestCase):
     def test_empty_is_not_ok(self):
         self.assertFalse(self.ok(""))
         self.assertFalse(self.ok(None))
+
+
+class TestNoClassesAfterMainBlock(unittest.TestCase):
+    """守住红队 #29 的坑：`if __name__` 之后再追加测试类，直接跑文件会静默跳过它们。
+    这个坑本轮踩了三次（每次都是 cat >> 追加，落到 __main__ 之后）——见 bench 案例 44。
+    给这个文件加测试类时用 Edit 插到本类之前，别 cat >>。"""
+
+    def test_main_guard_is_the_last_code_in_the_file(self):
+        import re
+        src = Path(__file__).read_text(encoding="utf-8")
+        m = list(re.finditer(r"(?m)^if __name__ == .__main__.:", src))
+        self.assertEqual(len(m), 1, "应当恰好一个 __main__ 守卫块")
+        after = src[m[0].start():]
+        self.assertFalse(re.search(r"(?m)^class Test", after),
+                         "有测试类排在 if __name__ 之后——直接跑文件会漏掉它们（红队 #29）")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
