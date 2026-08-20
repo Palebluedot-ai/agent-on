@@ -83,13 +83,11 @@
       "title": "外部作者 PR",
       "why": "供应链：作者不在受信名单里的 PR 永不自动合，哪怕它只动一个 typo。",
       "untrusted_author": true
-    }
-  ],
-  "notable_rules": [
+    },
     {
       "id": "breaking-or-migration",
       "title": "带 breaking / 迁移标注",
-      "why": "作者在喊「这单不普通」。可 revert，所以照样自动合——但值守当轮必须播报一行。认的是**结构化标记**（整行以 `BREAKING:` / `迁移注记:` 开头，或挂 breaking/migration 标签），不是正文里出现这个词：方法论仓的正文天天讨论这些词，自由搜索必然误报。",
+      "why": "作者在喊「这单不普通」。虽然可 git revert，但用户 2026-08-20 拍板要它硬停：本仓 breaking 标注的单极少，硬停几乎不花吞吐，而这个信号便宜、漏了贵。认的是**结构化标记**（整行以 `BREAKING:` / `迁移注记:` 开头，或挂 breaking/migration 标签），不是正文里出现这个词。",
       "labels": [
         "breaking",
         "migration"
@@ -99,7 +97,9 @@
         "^\\s*迁移注记\\s*[:：]",
         "^\\s*MIGRATION\\s*[:：]"
       ]
-    },
+    }
+  ],
+  "notable_rules": [
     {
       "id": "governance-surface",
       "title": "改的是规矩本身",

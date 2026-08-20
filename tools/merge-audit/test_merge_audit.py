@@ -101,10 +101,11 @@ class TestClassify(unittest.TestCase):
         v = ma.classify(pr(files=[".github/ISSUE_TEMPLATE/intake-card.md"]), POLICY)
         self.assertEqual(v["decision"], "HARD_STOP")
 
-    def test_breaking_marker_is_notable_not_hard_stop(self):
+    def test_breaking_marker_is_hard_stop(self):
+        """用户 2026-08-20 拍板：带 breaking 标注硬停（信号便宜，漏了贵）。"""
         v = ma.classify(pr(files=["playbook/sop.md"], body="正文\n\nBREAKING: 口令改名"), POLICY)
-        self.assertEqual(v["decision"], "NOTABLE")
-        self.assertIn("breaking-or-migration", [r["id"] for r in v["notable"]])
+        self.assertEqual(v["decision"], "HARD_STOP")
+        self.assertIn("breaking-or-migration", [r["id"] for r in v["hard_stop"]])
 
     def test_governance_doc_is_notable(self):
         v = ma.classify(pr(files=["AGENTS.md"]), POLICY)
@@ -314,17 +315,22 @@ class TestNoFalsePositivesOnProse(unittest.TestCase):
         v = ma.classify(pr(files=["snapshot/x.md"], body="清单里有一条是「带 BREAKING 标注的 PR」"), POLICY)
         self.assertEqual(v["decision"], "AUTO")
 
-    def test_structured_breaking_footer_is_notable(self):
+    def test_structured_breaking_footer_is_hard_stop(self):
         v = ma.classify(pr(files=["snapshot/x.md"], body="正文\n\nBREAKING: 口令改名了\n"), POLICY)
-        self.assertEqual(v["decision"], "NOTABLE")
+        self.assertEqual(v["decision"], "HARD_STOP")
 
-    def test_structured_migration_footer_is_notable(self):
+    def test_structured_migration_footer_is_hard_stop(self):
         v = ma.classify(pr(files=["snapshot/x.md"], body="迁移注记：先跑 setup 再升级"), POLICY)
-        self.assertEqual(v["decision"], "NOTABLE")
+        self.assertEqual(v["decision"], "HARD_STOP")
 
-    def test_breaking_label_is_notable(self):
+    def test_breaking_label_is_hard_stop(self):
         v = ma.classify(pr(files=["snapshot/x.md"], labels=["breaking"]), POLICY)
-        self.assertEqual(v["decision"], "NOTABLE")
+        self.assertEqual(v["decision"], "HARD_STOP")
+
+    def test_prose_mentioning_breaking_is_still_not_flagged(self):
+        """正文讨论这个词不算——只认整行前缀标记。方法论仓天天讨论 breaking。"""
+        v = ma.classify(pr(files=["snapshot/x.md"], body="清单里有一条是「带 BREAKING 标注的 PR」"), POLICY)
+        self.assertEqual(v["decision"], "AUTO")
 
 
 class TestLedgerStartPoint(unittest.TestCase):
