@@ -168,9 +168,15 @@
 
 | 情形 | 报告级别 | 是不是错 |
 |---|---|---|
-| 硬停单，`record --claimed HARD_STOP`（值守停了、用户批了、记了账） | `APPROVED_HARDSTOP` | 不是。硬停单的正确归宿 |
+| 硬停单，`record --claimed HARD_STOP` **且 `--pointer` git 可核** | `APPROVED_HARDSTOP` | 不是。硬停单的正确归宿 |
 | 硬停单，`record --claimed AUTO/NOTABLE`（值守没问就合了） | `VIOLATION` | 是。最重 |
-| 硬停单，合了但没 `record` | `UNVERIFIED_HARDSTOP` | 可能批过，但无法证明；补一条 record |
+| 硬停单，合了但没 `record`，或 claim 写了 HARD_STOP 但**指针核不到** | `UNVERIFIED_HARDSTOP` | 可能批过，但无法证明；补一条带可核指针的 record |
+
+**指针为什么必须 git 可核**：`claimed` 是值守自称，能伪造——把没问就合的越界写成
+`--claimed HARD_STOP` 就洗成合规了。要求指针指向一个 git 可核对象（快照 / decision commit /
+CHANGELOG 段），就把「打一个字」抬成「指向一件可审的东西」，与「授权必须挂在可核验的 git 对象上」
+同一条教义。**诚实边界**：指针核得到只证明凭据存在，不证明它授权了这个 diff——后者是人读账本
+时打开指针核对的一步，工具不替代它。
 
 **为什么这样分**：在「几乎每单都动 canonical」的仓里，硬停单是常态。若「合了硬停单」一律算 VIOLATION，
 每条经用户批准的合并都会常亮告警——而常亮的告警等于没有告警（本工具自己上线首跑就撞上这条，已修）。

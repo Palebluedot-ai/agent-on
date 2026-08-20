@@ -208,14 +208,25 @@ class TestFindings(unittest.TestCase):
         f = ma.collect_findings([v], {1: [claim(1, "AUTO")]}, None)
         self.assertIn("VIOLATION", [x["level"] for x in f])
 
-    def test_approved_hard_stop_is_not_a_violation(self):
-        """硬停单，值守判了硬停、记了 claimed=HARD_STOP = 正确流程，不是越界。
+    def test_approved_hard_stop_with_verifiable_pointer_is_not_a_violation(self):
+        """硬停单，claimed=HARD_STOP 且指针 git 可核 = 正确流程，不是越界。
         否则每条经用户批准的 canonical 合并都常亮 VIOLATION（本工具自己上线首跑就中）。"""
         v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP")]}, None)
+        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP", "snapshot/x.md")]}, None,
+                                pointer_ok=lambda _: True)
         levels = [x["level"] for x in f]
         self.assertNotIn("VIOLATION", levels)
         self.assertIn("APPROVED_HARDSTOP", levels)
+
+    def test_approved_claim_without_verifiable_pointer_is_unverified(self):
+        """claimed=HARD_STOP 但指针核不到 → 不认 APPROVED，降为 UNVERIFIED。
+        自称批准可以伪造；要求指针指向 git 可核对象，把「打一个字」抬成「指向可审的东西」。"""
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP", "")]}, None,
+                                pointer_ok=lambda _: False)
+        levels = [x["level"] for x in f]
+        self.assertIn("UNVERIFIED_HARDSTOP", levels)
+        self.assertNotIn("APPROVED_HARDSTOP", levels)
 
     def test_hard_stop_merged_with_no_record_is_unverified_not_violation(self):
         v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
@@ -641,3 +652,36 @@ class TestGateEntitiesNotJustPointers(unittest.TestCase):
         for path in ["playbook/sop.md", "bench/cases/9.md", "snapshot/x.md",
                      "intake/2026-07-16-IPONews.md", "ledger/merge-audit.jsonl"]:
             self.assertEqual(self._decide(path), "AUTO", path)
+
+
+class TestPointerResolver(unittest.TestCase):
+    """拍板指针必须指向 git 可核对象，不能是裸 URL 或空串。"""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.dir.name)
+        import subprocess
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / "snapshot").mkdir()
+        (self.root / "snapshot" / "x.md").write_text("决策", encoding="utf-8")
+        self.ok = ma.make_pointer_resolver(self.root)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_existing_repo_file_is_ok(self):
+        self.assertTrue(self.ok("snapshot/x.md"))
+
+    def test_path_with_anchor_is_ok(self):
+        self.assertTrue(self.ok("snapshot/x.md#拍板"))
+
+    def test_missing_file_is_not_ok(self):
+        self.assertFalse(self.ok("snapshot/does-not-exist.md"))
+
+    def test_bare_pr_url_is_not_ok(self):
+        """URL 不是 git 对象，核验不了——逼着指向 git 里那份快照/commit。"""
+        self.assertFalse(self.ok("https://github.com/x/y/pull/39"))
+
+    def test_empty_is_not_ok(self):
+        self.assertFalse(self.ok(""))
+        self.assertFalse(self.ok(None))
