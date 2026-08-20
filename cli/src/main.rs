@@ -1,6 +1,7 @@
 //! agent-on CLI — replaces former Python scripts.
 
 mod audit_lint;
+mod drift;
 mod guard;
 mod intake_lint;
 mod landing;
@@ -43,6 +44,18 @@ enum Commands {
     /// Lint audit_event jsonl state machine
     #[command(name = "audit-lint")]
     AuditLint { file: PathBuf },
+    /// Report projections that no longer match their source: lane records vs
+    /// git, and prose about machine behaviour vs the implementation it names.
+    /// Report-only; stale bookkeeping never blocks another session's commit.
+    Drift {
+        #[arg(long)]
+        json: bool,
+        /// Exit 1 when any drift row is present. For CI, not for a working session.
+        #[arg(long)]
+        strict: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
     /// Open-box skill routing / demotion checks
     Check {
         #[command(subcommand)]
@@ -365,6 +378,16 @@ fn main() {
             let (c, out) = intake_lint::lint_paths(&paths_v);
             print!("{out}");
             c
+        }
+        Commands::Drift { json, strict, repo } => {
+            let here = repo.unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            let (code, out) = drift::run(&here, json, strict);
+            if code == 0 {
+                print!("{out}");
+            } else {
+                eprint!("{out}");
+            }
+            code
         }
         Commands::AuditLint { file } => {
             let (c, out) = audit_lint::lint_file(&file);
