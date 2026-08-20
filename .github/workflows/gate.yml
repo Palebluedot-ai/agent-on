@@ -1,0 +1,96 @@
+# 本仓第一道 CI。职责边界：只跑**能机械判定**的不变量——CLI 测试、承接层校验、
+# 文档三闸、外部贡献只许碰 intake/。它不替代评审，不判断内容对错，也不碰 lane
+# 控制面（那是本机 common git dir 的事，CI 上没有那些 worktree）。
+#
+# 立这道闸的理由写在自己的案例集里：bench/cases/17-gen2-governance-drift.md
+# 「写治理文档前先问这条规则有没有对应的执行或验证」。本仓在 v0.19.0 之前
+# 一条 workflow 都没有，自举纪律六条全靠会话自觉——自己就是那张卡的标本。
+#
+# 逃生门（照 kit/ledger-ratchet-pattern.md「闸必带逃生门」）：
+#   - 仓库 variable `AGENT_ON_DOC_GATE_OFF=true` 一键关文档闸；
+#   - 职责边界棘轮补一行基线即绿，不逼任何人一次补完存量；
+#   - 取证失败（读不到文件 / git 不可用）与「真违规」分开退出码，不训练「红了当没看见」。
+
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli:
+    name: CLI 测试 + 承接层校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 缓存 cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            cli/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: cargo fmt
+        run: cargo fmt --manifest-path cli/Cargo.toml --check
+      - name: cargo clippy
+        run: cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings
+      - name: cargo test
+        run: cargo test --manifest-path cli/Cargo.toml
+      # 承接层是唯一对外收货口，六项不齐的卡进来就再也没人补。
+      - name: intake 六项齐
+        run: cargo run --manifest-path cli/Cargo.toml --quiet -- intake-lint
+
+  docs:
+    name: 文档三闸（职责边界棘轮 / 死链 / 推荐 pin）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 推荐 pin 那一闸要比对 git tag；浅克隆看不到 tag 会变成假红。
+          fetch-depth: 0
+      - name: 文档不变量
+        env:
+          AGENT_ON_DOC_GATE_OFF: ${{ vars.AGENT_ON_DOC_GATE_OFF }}
+        run: python3 .github/scripts/check_docs.py
+
+  intake-only:
+    name: 外部贡献只许碰 intake/
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 校验改动范围
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only "$BASE" "$HEAD")"
+          # boot/settlement.md「上游贡献形态」：社区只交 intake-only PR / Issue，
+          # 禁止直改 playbook/kit/bench 正文——canonical 只有本仓消化会话能动。
+          outside="$(printf '%s\n' "$changed" | grep -v '^intake/' || true)"
+          if [ -n "$outside" ]; then
+            echo "INTAKE-ONLY: FAIL —— 以下改动不在 intake/ 承接层："
+            printf '  - %s\n' $outside
+            echo ""
+            echo "出口：把素材写成 intake/<日期>-<项目>.md 一份卡，正文改动的诉求写进卡里，"
+            echo "由本仓的消化会话落进 playbook/kit/bench。这不是嫌弃你的改动，是 canonical"
+            echo "只能有一个写者（见 boot/settlement.md「上游贡献形态」）。"
+            exit 1
+          fi
+          echo "INTAKE-ONLY: PASS（$(printf '%s\n' "$changed" | grep -c . ) 个文件全在 intake/）"
