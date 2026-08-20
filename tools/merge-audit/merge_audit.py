@@ -41,14 +41,16 @@ DEFAULT_POLICY = TOOL_DIR / "policy.json"
 # 严重度：数字越大越严重。--fail-on 拿它做阈值。
 LEVELS = {
     "OK": 0,
+    "APPROVED_HARDSTOP": 3,  # 硬停单，值守停了、用户批了、记了账 —— 正确流程，列一行让人看见，不算失败
     "PRE_EXISTING": 5,   # 机制上线前就已存在的越界：列一次供人知情，不计进退出码
     "NOTABLE": 10,
     "MISMATCH": 20,
     "CLAIM_REVISED": 25,  # 同一单被记了两次不同的档 —— 「改口」的指纹
     "UNRECORDED": 30,
     "MERGED_RED": 35,
+    "UNVERIFIED_HARDSTOP": 37,  # 硬停单合了，但账本里没有「问过用户」的凭据 —— 可能批了，无法证明
     "LEDGER_BROKEN": 38,
-    "VIOLATION": 40,
+    "VIOLATION": 40,  # 硬停单被当成自动合处理了（claim 说 AUTO/NOTABLE）—— 真的没问就合了
 }
 
 # precheck 的退出码：值守脚本按它分流
@@ -659,17 +661,35 @@ def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
         if v["decision"] == "HARD_STOP":
             ev = "；".join(e for r in v["hard_stop"] for e in r["evidence"][:3])
             ids = ", ".join(r["id"] for r in v["hard_stop"])
-            if in_scope:
-                findings.append({
-                    "level": "VIOLATION", "pr": n,
-                    "summary": f"#{n} 命中硬停清单却已经合了（{ids}）",
-                    "detail": ev,
-                })
-            else:
+            first_claim = (claims.get(n) or [None])[0]
+            claimed = first_claim.get("claimed") if first_claim else None
+            if not in_scope:
                 findings.append({
                     "level": "PRE_EXISTING", "pr": n,
                     "summary": f"#{n} 机制上线前就合了，按今天的清单属硬停（{ids}）",
                     "detail": ev + "　——存量，不计进退出码；要清就单独立项。",
+                })
+            elif claimed == "HARD_STOP":
+                # **正确流程**：值守判了硬停 → 停下问用户 → 用户批了 → 合 → 记 claimed=HARD_STOP。
+                # 合并一个硬停单本身不是越界，「没问就合」才是。这一栏不计失败，只列一行留痕。
+                findings.append({
+                    "level": "APPROVED_HARDSTOP", "pr": n,
+                    "summary": f"#{n} 硬停单，已记为经用户批准后合入（{ids}）",
+                    "detail": f"指针：{first_claim.get('pointer') or '（无）'}",
+                })
+            elif claimed in ("AUTO", "NOTABLE"):
+                # 值守把一个该停下问的单当成自动合处理了 —— 这才是真越界。
+                findings.append({
+                    "level": "VIOLATION", "pr": n,
+                    "summary": f"#{n} 命中硬停清单，却被当成 {claimed} 自动合了（{ids}）",
+                    "detail": ev + "　——硬停 = 必须先问用户；claim 说没问就合了。",
+                })
+            else:
+                # 合了、命中硬停、但账本里没有任何「问过」的凭据。可能批了、无法证明。
+                findings.append({
+                    "level": "UNVERIFIED_HARDSTOP", "pr": n,
+                    "summary": f"#{n} 硬停单合了，但账本里没有经用户批准的记录（{ids}）",
+                    "detail": ev + "　——可能问过用户，但没有可核验的凭据；补一条 record 或说明。",
                 })
 
         if v["health"]["red"]:
@@ -679,7 +699,8 @@ def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
                 "detail": "；".join(v["health"]["reasons"]),
             })
 
-        if not pr_claims and in_scope:
+        if not pr_claims and in_scope and v["decision"] != "HARD_STOP":
+            # 硬停单的「没记账」已由 UNVERIFIED_HARDSTOP 更精确地覆盖，这里不重复报。
             findings.append({
                 "level": "UNRECORDED", "pr": n,
                 "summary": f"#{n} 合了，但账本里没有值守的记录",
@@ -847,7 +868,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--from-file", default=None)
     s.add_argument("--fail-on", default="MISMATCH",
                    choices=[k.lower() for k in LEVELS] + list(LEVELS),
-                   help="到这个严重度就退出码 1（默认 MISMATCH：NOTABLE 不算失败）")
+                   help=("到这个严重度就退出码 1（默认 MISMATCH）。"
+                         "APPROVED_HARDSTOP / PRE_EXISTING / NOTABLE 都在阈值之下，不算失败——"
+                         "它们分别是「正确流程」「存量」「说一声」"))
     s.set_defaults(func=cmd_report)
 
     return p

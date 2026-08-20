@@ -7,8 +7,8 @@
     "lipingtababa",
     "chao"
   ],
-  "ledger_starts_at": "2026-08-20T03:20:00Z",
-  "_ledger_starts_at_why": "记账类发现（UNRECORDED / MISMATCH）只对这个时刻之后合入的 PR 成立——机制上线之前的合并没有账可对，永久报它们只会训练人忽略这份报告。内容类发现（VIOLATION / MERGED_RED）不受此限：那是「合了不该合的」，什么时候合的都算数。",
+  "ledger_starts_at": "2026-08-20T13:56:00Z",
+  "_ledger_starts_at_why": "记账类发现（UNRECORDED / MISMATCH）只对这个时刻之后合入的 PR 成立——机制上线之前的合并没有账可对，永久报它们只会训练人忽略这份报告。内容类发现（VIOLATION / MERGED_RED）不受此限：那是「合了不该合的」，什么时候合的都算数。 2026-08-20 更新为 13:56Z = PR #39 合入 main、工具真正上线的时刻；此前的合并没有账可对，列为 PRE_EXISTING。",
   "hard_stop_rules": [
     {
       "id": "gate-and-permissions",

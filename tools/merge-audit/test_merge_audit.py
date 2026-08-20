@@ -202,10 +202,27 @@ class TestLedgerChain(unittest.TestCase):
 
 
 class TestFindings(unittest.TestCase):
-    def test_hard_stop_that_got_merged_is_a_violation(self):
+    def test_hard_stop_auto_merged_is_a_violation(self):
+        """硬停单被当成 AUTO 合了才是 VIOLATION——这才是「没问就合」。"""
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {1: [claim(1, "AUTO")]}, None)
+        self.assertIn("VIOLATION", [x["level"] for x in f])
+
+    def test_approved_hard_stop_is_not_a_violation(self):
+        """硬停单，值守判了硬停、记了 claimed=HARD_STOP = 正确流程，不是越界。
+        否则每条经用户批准的 canonical 合并都常亮 VIOLATION（本工具自己上线首跑就中）。"""
         v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
         f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP")]}, None)
-        self.assertIn("VIOLATION", [x["level"] for x in f])
+        levels = [x["level"] for x in f]
+        self.assertNotIn("VIOLATION", levels)
+        self.assertIn("APPROVED_HARDSTOP", levels)
+
+    def test_hard_stop_merged_with_no_record_is_unverified_not_violation(self):
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {}, None)
+        levels = [x["level"] for x in f]
+        self.assertIn("UNVERIFIED_HARDSTOP", levels)
+        self.assertNotIn("VIOLATION", levels)
 
     def test_merged_without_a_record_is_unrecorded(self):
         v = ma.classify(pr(2, files=["a.md"]), POLICY)
@@ -236,7 +253,7 @@ class TestFindings(unittest.TestCase):
     def test_findings_sorted_worst_first(self):
         v1 = ma.classify(pr(7, files=["AGENTS.md"]), POLICY)
         v2 = ma.classify(pr(8, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v1, v2], {7: [claim(7, "NOTABLE")], 8: [claim(8, "HARD_STOP")]}, None)
+        f = ma.collect_findings([v1, v2], {7: [claim(7, "NOTABLE")], 8: [claim(8, "AUTO")]}, None)
         self.assertEqual(f[0]["level"], "VIOLATION")
 
 
@@ -363,10 +380,15 @@ class TestLedgerStartPoint(unittest.TestCase):
         f = ma.collect_findings([v], {}, None, self.START)
         self.assertIn("PRE_EXISTING", [x["level"] for x in f])
 
-    def test_new_hard_stop_merge_is_a_real_violation(self):
+    def test_new_hard_stop_auto_merged_is_a_real_violation(self):
+        v = ma.classify(pr(5, files=["hooks/h.json"], merged_at="2026-08-21T00:00:00Z"), POLICY)
+        f = ma.collect_findings([v], {5: [claim(5, "AUTO")]}, None, self.START)
+        self.assertIn("VIOLATION", [x["level"] for x in f])
+
+    def test_new_hard_stop_no_record_is_unverified(self):
         v = ma.classify(pr(5, files=["hooks/h.json"], merged_at="2026-08-21T00:00:00Z"), POLICY)
         f = ma.collect_findings([v], {}, None, self.START)
-        self.assertIn("VIOLATION", [x["level"] for x in f])
+        self.assertIn("UNVERIFIED_HARDSTOP", [x["level"] for x in f])
 
 
 class TestDiffAttribution(unittest.TestCase):
