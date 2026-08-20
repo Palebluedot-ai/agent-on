@@ -202,10 +202,38 @@ class TestLedgerChain(unittest.TestCase):
 
 
 class TestFindings(unittest.TestCase):
-    def test_hard_stop_that_got_merged_is_a_violation(self):
+    def test_hard_stop_auto_merged_is_a_violation(self):
+        """硬停单被当成 AUTO 合了才是 VIOLATION——这才是「没问就合」。"""
         v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP")]}, None)
+        f = ma.collect_findings([v], {1: [claim(1, "AUTO")]}, None)
         self.assertIn("VIOLATION", [x["level"] for x in f])
+
+    def test_approved_hard_stop_with_verifiable_pointer_is_not_a_violation(self):
+        """硬停单，claimed=HARD_STOP 且指针 git 可核 = 正确流程，不是越界。
+        否则每条经用户批准的 canonical 合并都常亮 VIOLATION（本工具自己上线首跑就中）。"""
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP", "snapshot/x.md")]}, None,
+                                pointer_ok=lambda _: True)
+        levels = [x["level"] for x in f]
+        self.assertNotIn("VIOLATION", levels)
+        self.assertIn("APPROVED_HARDSTOP", levels)
+
+    def test_approved_claim_without_verifiable_pointer_is_unverified(self):
+        """claimed=HARD_STOP 但指针核不到 → 不认 APPROVED，降为 UNVERIFIED。
+        自称批准可以伪造；要求指针指向 git 可核对象，把「打一个字」抬成「指向可审的东西」。"""
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {1: [claim(1, "HARD_STOP", "")]}, None,
+                                pointer_ok=lambda _: False)
+        levels = [x["level"] for x in f]
+        self.assertIn("UNVERIFIED_HARDSTOP", levels)
+        self.assertNotIn("APPROVED_HARDSTOP", levels)
+
+    def test_hard_stop_merged_with_no_record_is_unverified_not_violation(self):
+        v = ma.classify(pr(1, files=["hooks/hooks.json"]), POLICY)
+        f = ma.collect_findings([v], {}, None)
+        levels = [x["level"] for x in f]
+        self.assertIn("UNVERIFIED_HARDSTOP", levels)
+        self.assertNotIn("VIOLATION", levels)
 
     def test_merged_without_a_record_is_unrecorded(self):
         v = ma.classify(pr(2, files=["a.md"]), POLICY)
@@ -236,7 +264,7 @@ class TestFindings(unittest.TestCase):
     def test_findings_sorted_worst_first(self):
         v1 = ma.classify(pr(7, files=["AGENTS.md"]), POLICY)
         v2 = ma.classify(pr(8, files=["hooks/hooks.json"]), POLICY)
-        f = ma.collect_findings([v1, v2], {7: [claim(7, "NOTABLE")], 8: [claim(8, "HARD_STOP")]}, None)
+        f = ma.collect_findings([v1, v2], {7: [claim(7, "NOTABLE")], 8: [claim(8, "AUTO")]}, None)
         self.assertEqual(f[0]["level"], "VIOLATION")
 
 
@@ -363,10 +391,15 @@ class TestLedgerStartPoint(unittest.TestCase):
         f = ma.collect_findings([v], {}, None, self.START)
         self.assertIn("PRE_EXISTING", [x["level"] for x in f])
 
-    def test_new_hard_stop_merge_is_a_real_violation(self):
+    def test_new_hard_stop_auto_merged_is_a_real_violation(self):
+        v = ma.classify(pr(5, files=["hooks/h.json"], merged_at="2026-08-21T00:00:00Z"), POLICY)
+        f = ma.collect_findings([v], {5: [claim(5, "AUTO")]}, None, self.START)
+        self.assertIn("VIOLATION", [x["level"] for x in f])
+
+    def test_new_hard_stop_no_record_is_unverified(self):
         v = ma.classify(pr(5, files=["hooks/h.json"], merged_at="2026-08-21T00:00:00Z"), POLICY)
         f = ma.collect_findings([v], {}, None, self.START)
-        self.assertIn("VIOLATION", [x["level"] for x in f])
+        self.assertIn("UNVERIFIED_HARDSTOP", [x["level"] for x in f])
 
 
 class TestDiffAttribution(unittest.TestCase):
@@ -579,8 +612,6 @@ class TestReportDiscloseWhatItDidNotSee(unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 class TestGateEntitiesNotJustPointers(unittest.TestCase):
@@ -619,3 +650,55 @@ class TestGateEntitiesNotJustPointers(unittest.TestCase):
         for path in ["playbook/sop.md", "bench/cases/9.md", "snapshot/x.md",
                      "intake/2026-07-16-IPONews.md", "ledger/merge-audit.jsonl"]:
             self.assertEqual(self._decide(path), "AUTO", path)
+
+
+class TestPointerResolver(unittest.TestCase):
+    """拍板指针必须指向 git 可核对象，不能是裸 URL 或空串。"""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.dir.name)
+        import subprocess
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / "snapshot").mkdir()
+        (self.root / "snapshot" / "x.md").write_text("决策", encoding="utf-8")
+        self.ok = ma.make_pointer_resolver(self.root)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_existing_repo_file_is_ok(self):
+        self.assertTrue(self.ok("snapshot/x.md"))
+
+    def test_path_with_anchor_is_ok(self):
+        self.assertTrue(self.ok("snapshot/x.md#拍板"))
+
+    def test_missing_file_is_not_ok(self):
+        self.assertFalse(self.ok("snapshot/does-not-exist.md"))
+
+    def test_bare_pr_url_is_not_ok(self):
+        """URL 不是 git 对象，核验不了——逼着指向 git 里那份快照/commit。"""
+        self.assertFalse(self.ok("https://github.com/x/y/pull/39"))
+
+    def test_empty_is_not_ok(self):
+        self.assertFalse(self.ok(""))
+        self.assertFalse(self.ok(None))
+
+
+class TestNoClassesAfterMainBlock(unittest.TestCase):
+    """守住红队 #29 的坑：`if __name__` 之后再追加测试类，直接跑文件会静默跳过它们。
+    这个坑本轮踩了三次（每次都是 cat >> 追加，落到 __main__ 之后）——见 bench 案例 44。
+    给这个文件加测试类时用 Edit 插到本类之前，别 cat >>。"""
+
+    def test_main_guard_is_the_last_code_in_the_file(self):
+        import re
+        src = Path(__file__).read_text(encoding="utf-8")
+        m = list(re.finditer(r"(?m)^if __name__ == .__main__.:", src))
+        self.assertEqual(len(m), 1, "应当恰好一个 __main__ 守卫块")
+        after = src[m[0].start():]
+        self.assertFalse(re.search(r"(?m)^class Test", after),
+                         "有测试类排在 if __name__ 之后——直接跑文件会漏掉它们（红队 #29）")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

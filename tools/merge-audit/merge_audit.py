@@ -41,14 +41,16 @@ DEFAULT_POLICY = TOOL_DIR / "policy.json"
 # 严重度：数字越大越严重。--fail-on 拿它做阈值。
 LEVELS = {
     "OK": 0,
+    "APPROVED_HARDSTOP": 3,  # 硬停单，值守停了、用户批了、记了账 —— 正确流程，列一行让人看见，不算失败
     "PRE_EXISTING": 5,   # 机制上线前就已存在的越界：列一次供人知情，不计进退出码
     "NOTABLE": 10,
     "MISMATCH": 20,
     "CLAIM_REVISED": 25,  # 同一单被记了两次不同的档 —— 「改口」的指纹
     "UNRECORDED": 30,
     "MERGED_RED": 35,
+    "UNVERIFIED_HARDSTOP": 37,  # 硬停单合了，但账本里没有「问过用户」的凭据 —— 可能批了，无法证明
     "LEDGER_BROKEN": 38,
-    "VIOLATION": 40,
+    "VIOLATION": 40,  # 硬停单被当成自动合处理了（claim 说 AUTO/NOTABLE）—— 真的没问就合了
 }
 
 # precheck 的退出码：值守脚本按它分流
@@ -634,12 +636,22 @@ def cmd_scan(args) -> int:
 
 
 def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
-                     chain_break: int | None, starts_at: str | None = None) -> list[dict]:
+                     chain_break: int | None, starts_at: str | None = None,
+                     pointer_ok=None) -> list[dict]:
     """starts_at 之前合的 PR 不产生**记账类**发现（那时还没有账可对）。
 
     内容类发现（合了不该合的）仍然产生，但机制上线**之前**的那些降级成 PRE_EXISTING：
     它们是存量债务，列一次让人知情就够了；每轮把退出码钉死在 1 只会训练人忽略这份报告。
+
+    pointer_ok(pointer) -> bool：判断一条「已批准」claim 的拍板指针是否**在 git 里核得到**。
+    这是关键的一道独立性防线——三态里的 APPROVED_HARDSTOP 靠值守自称 claimed=HARD_STOP，
+    而自称是可以伪造的（把一次没问就合的越界写成 HARD_STOP 就洗白了）。要求指针指向一个
+    git 可核对象（快照文件 / decision commit / CHANGELOG 段），就把「打一个字」抬高成
+    「指向一件可审的东西」——这正是本仓「指令能转投，授权不能，授权必须挂在可核验的 git 对象上」
+    那条教义。不传时退化成「指针非空即可」（弱，仅供离线测试）；cmd_report 一定传 git 版。
     """
+    if pointer_ok is None:
+        pointer_ok = lambda ptr: bool(ptr and ptr.strip())
     findings: list[dict] = []
 
     if chain_break is not None:
@@ -659,17 +671,46 @@ def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
         if v["decision"] == "HARD_STOP":
             ev = "；".join(e for r in v["hard_stop"] for e in r["evidence"][:3])
             ids = ", ".join(r["id"] for r in v["hard_stop"])
-            if in_scope:
-                findings.append({
-                    "level": "VIOLATION", "pr": n,
-                    "summary": f"#{n} 命中硬停清单却已经合了（{ids}）",
-                    "detail": ev,
-                })
-            else:
+            first_claim = (claims.get(n) or [None])[0]
+            claimed = first_claim.get("claimed") if first_claim else None
+            if not in_scope:
                 findings.append({
                     "level": "PRE_EXISTING", "pr": n,
                     "summary": f"#{n} 机制上线前就合了，按今天的清单属硬停（{ids}）",
                     "detail": ev + "　——存量，不计进退出码；要清就单独立项。",
+                })
+            elif claimed == "HARD_STOP":
+                # **正确流程**：值守判了硬停 → 停下问用户 → 用户批了 → 合 → 记 claimed=HARD_STOP。
+                # 合并一个硬停单本身不是越界，「没问就合」才是。
+                # 但 claimed 是自称，能伪造——所以要求拍板指针在 git 里核得到才认 APPROVED。
+                ptr = first_claim.get("pointer")
+                if pointer_ok(ptr):
+                    findings.append({
+                        "level": "APPROVED_HARDSTOP", "pr": n,
+                        "summary": f"#{n} 硬停单，已记为经用户批准后合入（{ids}）",
+                        "detail": f"拍板指针（git 可核）：{ptr}",
+                    })
+                else:
+                    findings.append({
+                        "level": "UNVERIFIED_HARDSTOP", "pr": n,
+                        "summary": f"#{n} 硬停单，claim 写了 HARD_STOP 但拍板指针核不到（{ids}）",
+                        "detail": (f"指针 {ptr!r} 在 git 里核不到（空 / 指向不存在的文件或 commit）。"
+                                   "自称批准不等于凭据——把指针指向快照文件 / decision commit / "
+                                   "CHANGELOG 未发布段，或据实改 claimed。"),
+                    })
+            elif claimed in ("AUTO", "NOTABLE"):
+                # 值守把一个该停下问的单当成自动合处理了 —— 这才是真越界。
+                findings.append({
+                    "level": "VIOLATION", "pr": n,
+                    "summary": f"#{n} 命中硬停清单，却被当成 {claimed} 自动合了（{ids}）",
+                    "detail": ev + "　——硬停 = 必须先问用户；claim 说没问就合了。",
+                })
+            else:
+                # 合了、命中硬停、但账本里没有任何「问过」的凭据。可能批了、无法证明。
+                findings.append({
+                    "level": "UNVERIFIED_HARDSTOP", "pr": n,
+                    "summary": f"#{n} 硬停单合了，但账本里没有经用户批准的记录（{ids}）",
+                    "detail": ev + "　——可能问过用户，但没有可核验的凭据；补一条 record 或说明。",
                 })
 
         if v["health"]["red"]:
@@ -679,7 +720,8 @@ def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
                 "detail": "；".join(v["health"]["reasons"]),
             })
 
-        if not pr_claims and in_scope:
+        if not pr_claims and in_scope and v["decision"] != "HARD_STOP":
+            # 硬停单的「没记账」已由 UNVERIFIED_HARDSTOP 更精确地覆盖，这里不重复报。
             findings.append({
                 "level": "UNRECORDED", "pr": n,
                 "summary": f"#{n} 合了，但账本里没有值守的记录",
@@ -712,6 +754,40 @@ def collect_findings(verdicts: list[dict], claims: dict[int, list[dict]],
 
     findings.sort(key=lambda f: -LEVELS[f["level"]])
     return findings
+
+
+def make_pointer_resolver(repo_root_path: Path):
+    """返回一个 pointer_ok(ptr)->bool，判断拍板指针是否在 git 里核得到。
+
+    认三种可核形态（对齐 MERGE-POLICY「拍板指针」四选一里落在 git 对象上的那几种）：
+      - 仓内存在的文件路径（快照 / CHANGELOG / bench 案例……）
+      - git 能 rev-parse 出来的对象（decision commit 的 sha / ref）
+      - 形如 `<path>#<anchor>` 的带锚点路径（取 # 前的路径判存在）
+
+    **不认**裸 PR-URL：它不是 git 对象，事后要联网才看得到，核验不了——
+    指向 git 里的那份快照/commit 才既松了噪音又留下可审凭据。
+    """
+    root = repo_root_path
+
+    def ok(ptr: str | None) -> bool:
+        if not ptr or not ptr.strip():
+            return False
+        p = ptr.strip()
+        if p.startswith("http://") or p.startswith("https://"):
+            return False  # URL 不是 git 对象
+        path_part = p.split("#", 1)[0]
+        if path_part and (root / path_part).exists():
+            return True
+        try:
+            r = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet", p + "^{object}"],
+                               capture_output=True, text=True)
+            if r.returncode == 0:
+                return True
+        except Exception:
+            pass
+        return False
+
+    return ok
 
 
 def build_claims(recs: list[dict]) -> dict[int, list[dict]]:
@@ -750,7 +826,8 @@ def cmd_report(args) -> int:
     claims = build_claims(recs)
 
     starts_at = args.since or policy.get("ledger_starts_at")
-    findings = collect_findings(verdicts, claims, chain_break, starts_at)
+    pointer_ok = make_pointer_resolver(repo_root())
+    findings = collect_findings(verdicts, claims, chain_break, starts_at, pointer_ok)
 
     covered = [v.get("merged_at") for v in verdicts if v.get("merged_at")]
     window = (min(covered), max(covered)) if covered else None
@@ -847,7 +924,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--from-file", default=None)
     s.add_argument("--fail-on", default="MISMATCH",
                    choices=[k.lower() for k in LEVELS] + list(LEVELS),
-                   help="到这个严重度就退出码 1（默认 MISMATCH：NOTABLE 不算失败）")
+                   help=("到这个严重度就退出码 1（默认 MISMATCH）。"
+                         "APPROVED_HARDSTOP / PRE_EXISTING / NOTABLE 都在阈值之下，不算失败——"
+                         "它们分别是「正确流程」「存量」「说一声」"))
     s.set_defaults(func=cmd_report)
 
     return p
