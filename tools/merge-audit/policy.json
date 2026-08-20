@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "_comment": "merge-audit 的规则真相源。改这个文件 = 改值守能自动合什么，所以它自己也在 hard_stop 清单里（gate-and-permissions 规则的 tools/merge-audit/** 那条）。散文版见 kit/babysit/MERGE-POLICY.md。",
+  "repo": "Palebluedot-ai/agent-on",
+  "trusted_authors": [
+    "Palebluedot-ai",
+    "lipingtababa",
+    "chao"
+  ],
+  "ledger_starts_at": "2026-08-20T03:20:00Z",
+  "_ledger_starts_at_why": "记账类发现（UNRECORDED / MISMATCH）只对这个时刻之后合入的 PR 成立——机制上线之前的合并没有账可对，永久报它们只会训练人忽略这份报告。内容类发现（VIOLATION / MERGED_RED）不受此限：那是「合了不该合的」，什么时候合的都算数。",
+  "hard_stop_rules": [
+    {
+      "id": "gate-and-permissions",
+      "title": "闸与权限自身",
+      "why": "被监控者不许改监控自己的东西。权限配置、PreToolUse 闸、路由闸、CI、以及本审计工具自己——改这些等于扩自己的权限，改完之后所有其它防线一起失效。\n\n**按目录整括，不按文件枚举。** 2026-08-20 红队实测两条：① `hooks/hooks.json` 在清单里，但它只是一张路条，内容是 `bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"`——**被指向的闸本体不在清单里**，往它开头加一行 `exit 0` 就能让全仓跨仓 git 闸失效，而判定是 AUTO。② `cli/src/guard.rs` 在清单里，但它的判据来自 `paths.rs`、`worktree.rs`，dispatch 在 `main.rs`，pre-commit/pre-push 模板在 `worktree_hooks.rs`——改哪个效果都一样，判定都是 AUTO。\n\n所以判据必须括住**配置文件指向的实体**，不能只括配置文件。整括 `cli/src/**` 的代价实测是最近 36 条已合并 PR 里的 8 条（22%）会停下来问；这不是新增摩擦——翻面前「功能代码 / CLI 行为改动」本来就在必须先问档。要更省事可以只枚举那 7 个闸文件，但那就把「下一个新文件」重新变成洞。",
+      "path_globs": [
+        "**/.claude-plugin/**",
+        "**/.claude/settings*.json",
+        "**/.codex-plugin/**",
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+        ".github/**",
+        "cli/src/**",
+        "hooks/**",
+        "kit/guard/**",
+        "tools/merge-audit/**"
+      ],
+      "_verified_2026_08_20": [
+        "cli/src/guard.rs:3 `use crate::paths::resolve_work_root;`",
+        "cli/src/guard.rs:4 `use crate::worktree;`",
+        "cli/src/main.rs:358 `Commands::Guard => guard::run_from_stdin()`",
+        ".github/workflows/gate.yml:68 `run: python3 .github/scripts/check_docs.py`",
+        ".github/scripts/check_docs.py:31 BASELINE = doc-boundary-baseline.txt（基线即判据）"
+      ]
+    },
+    {
+      "id": "secrets-and-credentials",
+      "title": "凭据与密钥",
+      "why": "凭据一旦进 git 历史就撤不干净——revert 只删当前状态，历史里那份永远在。",
+      "path_globs": [
+        "**/.env",
+        "**/.env.*",
+        "**/*.pem",
+        "**/*.p12",
+        "**/*.pfx",
+        "**/id_rsa*",
+        "**/id_ed25519*",
+        "**/*secret*",
+        "**/*credential*",
+        "**/*.env",
+        "**/*.key",
+        "**/*.keystore",
+        "**/*.jks",
+        "**/*token*"
+      ],
+      "diff_patterns": [
+        "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        "AKIA[0-9A-Z]{16}",
+        "gh[pousr]_[A-Za-z0-9]{36,}",
+        "sk-[A-Za-z0-9]{32,}",
+        "xox[baprs]-[A-Za-z0-9-]{12,}",
+        "AIza[0-9A-Za-z_-]{35}"
+      ],
+      "diff_exclude_globs": [
+        "tools/merge-audit/**"
+      ],
+      "_diff_exclude_why": "规则定义与它们的测试夹具必然包含模式本身。这些文件被硬停第 1 类（gate-and-permissions）拦着，不需要再被密钥规则误报一次。**只排这一个目录**——别往里加业务目录，那才是真会漏密钥的地方。",
+      "ignore_case": true
+    },
+    {
+      "id": "irreversible-or-not-ours",
+      "title": "不可逆的文件改动",
+      "why": "撤不回来。注意这条只管**PR 形状**的不可逆——迁移脚本、SQL。「删远端分支 / 关别人的 PR / force-push / 跨仓外向操作」不是 PR 能装下的东西，它们是值守在合并之外做的动作，本工具看不见；那些照旧归纪律清单，见 kit/babysit/MERGE-POLICY.md「工具看不见的那半」。",
+      "path_globs": [
+        "**/migrations/**",
+        "**/*.sql"
+      ],
+      "ignore_case": true
+    },
+    {
+      "id": "untrusted-author",
+      "title": "外部作者 PR",
+      "why": "供应链：作者不在受信名单里的 PR 永不自动合，哪怕它只动一个 typo。",
+      "untrusted_author": true
+    },
+    {
+      "id": "breaking-or-migration",
+      "title": "带 breaking / 迁移标注",
+      "why": "作者在喊「这单不普通」。虽然可 git revert，但用户 2026-08-20 拍板要它硬停：本仓 breaking 标注的单极少，硬停几乎不花吞吐，而这个信号便宜、漏了贵。认的是**结构化标记**（整行以 `BREAKING:` / `迁移注记:` 开头，或挂 breaking/migration 标签），不是正文里出现这个词。",
+      "labels": [
+        "breaking",
+        "migration"
+      ],
+      "body_line_patterns": [
+        "^\\s*(?:BREAKING(?:[ -]CHANGE)?)\\s*[:：]",
+        "^\\s*迁移注记\\s*[:：]",
+        "^\\s*MIGRATION\\s*[:：]"
+      ]
+    }
+  ],
+  "notable_rules": [
+    {
+      "id": "governance-surface",
+      "title": "改的是规矩本身",
+      "why": "治理文档与宪章类改动可 revert，自动合；但它改的是全场行为，值守播报一行让用户有机会当场喊停。",
+      "path_globs": [
+        "AGENTS.md",
+        "CHARTER.md",
+        "BOOTSTRAP.md",
+        "kit/babysit/**",
+        "playbook/multi-contributor-protocol.md"
+      ]
+    }
+  ],
+  "merge_health": {
+    "_comment": "合并当时的健康度。post-hoc 仍可核：review 结论与 check 结论都留在 PR 上。",
+    "block_on_changes_requested": true,
+    "block_on_failing_checks": true,
+    "check_conclusions_treated_as_red": [
+      "FAILURE",
+      "TIMED_OUT",
+      "CANCELLED",
+      "ACTION_REQUIRED",
+      "STARTUP_FAILURE",
+      "ERROR",
+      "STALE"
+    ],
+    "block_on_draft": true,
+    "block_on_not_mergeable": true
+  }
+}
