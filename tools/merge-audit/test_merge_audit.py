@@ -579,9 +579,6 @@ class TestReportDiscloseWhatItDidNotSee(unittest.TestCase):
         self.assertEqual(rc, 0)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
 
 class TestGateEntitiesNotJustPointers(unittest.TestCase):
     """红队实测：清单里放的是「配置文件」，而闸的真正行为由它**指向的实体**决定。
@@ -619,3 +616,22 @@ class TestGateEntitiesNotJustPointers(unittest.TestCase):
         for path in ["playbook/sop.md", "bench/cases/9.md", "snapshot/x.md",
                      "intake/2026-07-16-IPONews.md", "ledger/merge-audit.jsonl"]:
             self.assertEqual(self._decide(path), "AUTO", path)
+
+
+class TestNoClassesAfterMainBlock(unittest.TestCase):
+    """守住红队 #29 的坑：`if __name__` 之后再追加测试类，直接跑文件会静默跳过它们。
+    这个坑本轮踩了两次（第一次修完又用 `cat >>` 追加，把类加到了 __main__ 后面）。"""
+
+    def test_main_guard_is_the_last_code_in_the_file(self):
+        import re
+        src = Path(__file__).read_text(encoding="utf-8")
+        # 找**行首**的 __main__ 块（别用 index：本方法源码里就有这个字符串字面量）
+        m = list(re.finditer(r"(?m)^if __name__ == .__main__.:", src))
+        self.assertEqual(len(m), 1, "应当恰好一个 __main__ 守卫块")
+        after = src[m[0].start():]
+        self.assertFalse(re.search(r"(?m)^class Test", after),
+                         "有测试类排在 if __name__ 之后——直接跑文件会漏掉它们（红队 #29）")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
