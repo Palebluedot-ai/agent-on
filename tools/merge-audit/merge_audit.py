@@ -140,13 +140,48 @@ def text_markers_hit(text: str, markers: list[str]) -> list[str]:
     return [m for m in markers if m.lower() in low]
 
 
-def diff_patterns_hit(diff: str, patterns: list[str]) -> list[str]:
-    """只扫新增行——被删掉的密钥不是本 PR 引入的。"""
-    added = "\n".join(
-        ln for ln in (diff or "").splitlines()
-        if ln.startswith("+") and not ln.startswith("+++")
-    )
-    return [p for p in patterns if re.search(p, added)]
+def split_diff_by_file(diff: str) -> dict[str, str]:
+    """把 unified diff 拆成 {文件路径: 该文件的新增行}。
+
+    按文件归属有两个好处：证据能说清「哪个文件里」，以及能按文件排除。
+    """
+    out: dict[str, list[str]] = {}
+    cur = None
+    for ln in (diff or "").splitlines():
+        m = re.match(r"^diff --git a/(.+?) b/(.+)$", ln)
+        if m:
+            cur = m.group(2)
+            out.setdefault(cur, [])
+            continue
+        if cur and ln.startswith("+") and not ln.startswith("+++"):
+            out[cur].append(ln)
+    return {k: "\n".join(v) for k, v in out.items()}
+
+
+def diff_patterns_hit(diff: str, patterns: list[str],
+                      exclude_globs: list[str] | None = None) -> list[str]:
+    """只扫新增行——被删掉的密钥不是本 PR 引入的。
+
+    exclude_globs 里的文件跳过：规则定义与它们的测试夹具**必然**包含模式本身
+    （本工具的 policy.json 里写着 `AKIA[0-9A-Z]{16}`，测试里写着假的 PRIVATE KEY）。
+    这些文件本来就被硬停第 1 类拦着，不需要再被密钥规则误报一次。
+    """
+    per_file = split_diff_by_file(diff)
+    if not per_file and diff:
+        # 没有 diff --git 头（如 --from-file 造的简化夹具）→ 退回整体扫描
+        per_file = {"<diff>": "\n".join(
+            ln for ln in diff.splitlines()
+            if ln.startswith("+") and not ln.startswith("+++"))}
+
+    excluded = set(paths_matching(list(per_file), exclude_globs or []))
+    hits = []
+    for path, added in per_file.items():
+        if path in excluded:
+            continue
+        for pat in patterns:
+            if re.search(pat, added):
+                hits.append(f"{path} 新增行命中 /{pat}/")
+    return hits
 
 
 def pr_paths(pr: dict) -> list[str]:
@@ -184,7 +219,8 @@ def evaluate_rule(rule: dict, pr: dict, policy: dict, diff: str | None) -> list[
             ev.append(f"作者 {author} 不在受信名单")
 
     if diff is not None and rule.get("diff_patterns"):
-        ev += [f"diff 新增行命中密钥模式 /{p}/" for p in diff_patterns_hit(diff, rule["diff_patterns"])]
+        ev += [f"密钥模式：{h}" for h in
+               diff_patterns_hit(diff, rule["diff_patterns"], rule.get("diff_exclude_globs"))]
 
     return ev
 

@@ -48,7 +48,11 @@
         "sk-[A-Za-z0-9]{32,}",
         "xox[baprs]-[A-Za-z0-9-]{12,}",
         "AIza[0-9A-Za-z_-]{35}"
-      ]
+      ],
+      "diff_exclude_globs": [
+        "tools/merge-audit/**"
+      ],
+      "_diff_exclude_why": "规则定义与它们的测试夹具必然包含模式本身。这些文件被硬停第 1 类（gate-and-permissions）拦着，不需要再被密钥规则误报一次。**只排这一个目录**——别往里加业务目录，那才是真会漏密钥的地方。"
     },
     {
       "id": "irreversible-or-not-ours",

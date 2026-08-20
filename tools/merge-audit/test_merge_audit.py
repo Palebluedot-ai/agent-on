@@ -233,6 +233,12 @@ class TestCliOffline(unittest.TestCase):
         self.d = Path(self.dir.name)
         self.prs = self.d / "prs.json"
         self.ledger = self.d / "l.jsonl"
+        # 用一份去掉 ledger_starts_at 的 policy 副本：这一组测的是 report 的管道，
+        # 不该被线上 policy.json 里那个日期牵着走（改了日期不该让管道测试变红）。
+        pol = dict(POLICY)
+        pol.pop("ledger_starts_at", None)
+        self.policy = self.d / "policy.json"
+        self.policy.write_text(json.dumps(pol, ensure_ascii=False), encoding="utf-8")
 
     def tearDown(self):
         self.dir.cleanup()
@@ -240,18 +246,21 @@ class TestCliOffline(unittest.TestCase):
     def _write(self, prs):
         self.prs.write_text(json.dumps(prs, ensure_ascii=False), encoding="utf-8")
 
+    def _base(self):
+        return ["--ledger", str(self.ledger), "--policy", str(self.policy)]
+
     def test_precheck_exit_codes(self):
         self._write([pr(1, files=["a.md"]),
                      pr(2, files=["AGENTS.md"]),
                      pr(3, files=["hooks/h.json"])])
-        base = ["--ledger", str(self.ledger)]
+        base = self._base()
         self.assertEqual(ma.main(base + ["precheck", "--pr", "1", "--from-file", str(self.prs), "--json"]), ma.EXIT_AUTO)
         self.assertEqual(ma.main(base + ["precheck", "--pr", "2", "--from-file", str(self.prs), "--json"]), ma.EXIT_NOTABLE)
         self.assertEqual(ma.main(base + ["precheck", "--pr", "3", "--from-file", str(self.prs), "--json"]), ma.EXIT_HARD_STOP)
 
     def test_report_fails_on_unrecorded_then_passes_after_record(self):
         self._write([pr(1, files=["a.md"])])
-        base = ["--ledger", str(self.ledger)]
+        base = self._base()
         rc = ma.main(base + ["report", "--from-file", str(self.prs), "--json"])
         self.assertEqual(rc, 1, "没记账就该红")
         ma.main(base + ["record", "--pr", "1", "--action", "merged", "--claimed", "AUTO"])
@@ -260,7 +269,7 @@ class TestCliOffline(unittest.TestCase):
 
     def test_report_notable_alone_does_not_fail_by_default(self):
         self._write([pr(1, files=["AGENTS.md"])])
-        base = ["--ledger", str(self.ledger)]
+        base = self._base()
         ma.main(base + ["record", "--pr", "1", "--action", "merged", "--claimed", "NOTABLE"])
         self.assertEqual(ma.main(base + ["report", "--from-file", str(self.prs), "--json"]), 0)
         self.assertEqual(
@@ -268,7 +277,7 @@ class TestCliOffline(unittest.TestCase):
 
     def test_scan_write_then_report_reads_same_ledger(self):
         self._write([pr(1, files=["a.md"])])
-        base = ["--ledger", str(self.ledger)]
+        base = self._base()
         ma.main(base + ["scan", "--from-file", str(self.prs), "--write", "--json"])
         recs, raw = ma.read_ledger(self.ledger)
         self.assertEqual([r["kind"] for r in recs], ["verdict"])
@@ -332,3 +341,41 @@ class TestLedgerStartPoint(unittest.TestCase):
                            merged_at="2026-08-01T00:00:00Z"), POLICY)
         f = ma.collect_findings([v], {}, None, self.START)
         self.assertIn("MERGED_RED", [x["level"] for x in f])
+
+
+class TestDiffAttribution(unittest.TestCase):
+    """密钥证据要说清在哪个文件；审计工具自己的规则定义与夹具不该被自己的规则误报。"""
+
+    DIFF = (
+        "diff --git a/app/config.py b/app/config.py\n"
+        "--- a/app/config.py\n+++ b/app/config.py\n"
+        "+KEY = 'AKIAIOSFODNN7EXAMPLE'\n"
+        "diff --git a/tools/merge-audit/policy.json b/tools/merge-audit/policy.json\n"
+        "--- a/tools/merge-audit/policy.json\n+++ b/tools/merge-audit/policy.json\n"
+        "+    \"AKIA[0-9A-Z]{16}\",\n"
+    )
+
+    def test_split_attributes_added_lines_to_files(self):
+        per_file = ma.split_diff_by_file(self.DIFF)
+        self.assertEqual(sorted(per_file), ["app/config.py", "tools/merge-audit/policy.json"])
+        self.assertIn("AKIAIOSFODNN7EXAMPLE", per_file["app/config.py"])
+
+    def test_evidence_names_the_file(self):
+        hits = ma.diff_patterns_hit(self.DIFF, [r"AKIA[0-9A-Z]{16}"])
+        self.assertTrue(any(h.startswith("app/config.py ") for h in hits))
+
+    def test_auditors_own_files_are_excluded_from_secret_scan(self):
+        hits = ma.diff_patterns_hit(self.DIFF, [r"AKIA[0-9A-Z]{16}"],
+                                    ["tools/merge-audit/**"])
+        self.assertEqual(len(hits), 1)
+        self.assertTrue(hits[0].startswith("app/config.py "))
+
+    def test_business_secret_still_caught_with_exclusion_on(self):
+        v = ma.classify(pr(files=["app/config.py"]), POLICY, self.DIFF)
+        self.assertEqual(v["decision"], "HARD_STOP")
+        ids = [r["id"] for r in v["hard_stop"]]
+        self.assertIn("secrets-and-credentials", ids)
+
+    def test_headerless_diff_falls_back_to_whole_scan(self):
+        hits = ma.diff_patterns_hit("+AKIAIOSFODNN7EXAMPLE\n", [r"AKIA[0-9A-Z]{16}"])
+        self.assertEqual(len(hits), 1)

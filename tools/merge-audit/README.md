@@ -95,6 +95,10 @@ python3 tools/merge-audit/merge_audit.py report              # 事后，独立�
   写了一句危险的话」这种语义级越界。它降低风险，不消灭风险。
 - **`--deep` 才扫 diff 里的密钥模式**，`scan` 默认不扫（一条 PR 一次 `gh pr diff`，慢）。
   没扫的那一轮会在输出里自己说明，不假装扫过。
+- **密钥扫描按文件归属**，证据会说清在哪个文件；`policy.json` 的 `diff_exclude_globs`
+  只排掉 `tools/merge-audit/**`——规则定义与它们的测试夹具必然包含模式本身
+  （`policy.json` 里就写着 `AKIA[0-9A-Z]{16}`）。这个目录本来就被硬停第 1 类拦着。
+  **别往这个排除清单里加业务目录**，那才是真会漏密钥的地方。
 
 ## 跑测试
 
