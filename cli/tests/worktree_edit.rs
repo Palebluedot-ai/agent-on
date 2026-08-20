@@ -48,13 +48,28 @@ fn fixture() -> (TempDir, PathBuf, PathBuf) {
     must_run(
         &root,
         "git",
-        &["worktree", "add", "-b", "lane/a", lane.to_str().unwrap(), "main"],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "lane/a",
+            lane.to_str().unwrap(),
+            "main",
+        ],
     );
     let claimed = agent_on(
         &lane,
         &[
-            "worktree", "claim", "--id", "lane-a", "--goal", "initial goal", "--base", "main",
-            "--owns", "app",
+            "worktree",
+            "claim",
+            "--id",
+            "lane-a",
+            "--goal",
+            "initial goal",
+            "--base",
+            "main",
+            "--owns",
+            "app",
         ],
     );
     assert!(claimed.status.success(), "{}", combined(&claimed));
@@ -79,7 +94,10 @@ fn edit_cli_splits_comma_owns_and_keeps_quoted_octal_comma_path() {
     let text = combined(&edited);
     assert!(edited.status.success(), "{text}");
     assert!(text.contains("EDITED lane-a"), "{text}");
-    assert!(text.contains("owns: docs/a.md, docs/b.md, x,y.md"), "{text}");
+    assert!(
+        text.contains("owns: docs/a.md, docs/b.md, x,y.md"),
+        "{text}"
+    );
     let record = fs::read_to_string(root.join(".git/agent-on/lanes/lane-a.json")).unwrap();
     for boundary in ["\"docs/a.md\"", "\"docs/b.md\"", "\"x,y.md\""] {
         assert!(record.contains(boundary), "{record}");

@@ -74,15 +74,18 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 3. 未登记树占位 park 登记类的 lane 卫生 PR
 4. **纯格式修复**:typo、死链、Markdown 格式——**不改任何语义**；一旦同一个 PR 里夹带语义改动，整单降级进下一栏
 5. **用户已拍板过的同类**：用户明确说过「这类以后不用问」的类目。口头一次即可，但值守要在 §5 记一行——哪一类、哪天拍的；记不下来就当没授权
+6. **内容已拍板的单**（2026-08-20 用户拍板激活）：PR 改什么、怎么改，**用户本人在作者会话已拍过板**，且那次拍板**在 git 里核得到**——本仓认四种指针：PR 描述的「拍板」段 · `decision(...)` commit · CHANGELOG 未发布条目 · `snapshot/` 决策快照；且**实际 diff 不超出拍板范围**。核不到 / 超范围 → 整单降级进「必须先问」。**本仓的 canonical 语义 PR 走这一类**（`kit/` `playbook/` `bench/` `boot/` `cli/` `skill/` `hooks/` `AGENTS.md` 都算）——它们进「必须先问」的理由是「用户要知道」，而拍板指针恰恰证明用户已经知道了。合完那一行必须带指针：「已合 #N（内容已拍板：`<指针>`）」；**记不下指针 = 等于没核过**，那就退回先问。
 
-**前置条件（四条全中才算「三查全过」）**:`mergeable=MERGEABLE` 且 `mergeStateStatus=CLEAN` · GitGuardian pass · **实际文件清单**确实落在上面五类里 · PR 描述无 breaking / 迁移 / 需先做某事的标注。
+**前置条件（四条全中才算「三查全过」）**:`mergeable=MERGEABLE` 且 `mergeStateStatus=CLEAN` · GitGuardian pass · **实际文件清单**确实落在上面六类里（第 6 类另加一条：拍板指针核得到，且 diff 不超范围） · PR 描述无 breaking / 迁移 / 需先做某事的标注。
 
 **必须先问用户**（fail-closed,**清单外一切都归这栏**）：
 
-- 合并一切 canonical PR:`kit/` `playbook/` `bench/` `boot/` `cli/` `skill/` `hooks/` `AGENTS.md` `BOOTSTRAP.md` `README.md` `CHARTER.md` 的**语义**改动（本仓绝大多数 PR 在此）
+- 合并 canonical PR（`kit/` `playbook/` `bench/` `boot/` `cli/` `skill/` `hooks/` `AGENTS.md` `BOOTSTRAP.md` `README.md` `CHARTER.md` 的**语义**改动）**且核不到拍板指针**——核得到就走默认合入档第 6 类
 - intake-only PR（上游贡献，须维护者分诊）· `CHANGELOG.md` 的版本语义 · 新版本号与档位
 - 删远端分支 · 关闭别人的 PR · 数据库/凭据/权限配置类 · 跨仓外向操作
 - 带 breaking / 迁移标注的 PR,**哪怕它只动文档**
+
+**永不被第 6 类覆盖**（理由不是「用户要知道」而是「撤不回来 / 动的是别人的东西」，拍过板也不改变这一点）：权限配置与 `.claude/settings*.json`（值守连自己的权限都不许改）· 数据库迁移与一切**不可逆**动作 · 删远端分支或关闭别人的 PR · 跨仓跨账号外向操作 · **带 breaking / 迁移标注的 PR**。
 
 **与合并无关的自主动作**（不受上面两张清单约束）：只读检查 · 本 worktree 操作 · 服务端 `update-branch` 追平 · 值守自身的状态同步 · 经用户拍板 PR 的全流程（追平→核对→合→记账→回执）
 
@@ -112,6 +115,8 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 - **值守写文件前先确认自己在哪棵树**（2026-08-19 实测踩到）：`cd /Users/chao/Projects/Agent-On` 是**主仓 worktree（main 分支）**，不是值守自己的树；在那里编辑等于往 main 的工作区写。写之前 `cd` 到值守 worktree 绝对路径，或所有 git 命令带 `-C <值守树>`。误写了就 `cp` 到自己树 + 主仓 `git checkout -- <file>` 复原，复原前先 `git status --porcelain` 确认那棵树只有你这一笔改动
 
 ## §5 已知遗留（交接清单；提醒用，值守不抢活）
+
+- **常驻预授权已激活（2026-08-20 用户拍板「选A」）**：类目 = 「内容已拍板的单」。条款落 `kit/babysit/MERGE-POLICY.md` §3 第 5 类 + 本文档 §3 第 6 类；快照 `snapshot/2026-08-20-standing-preauthorization.md`。**撤销方式 = 改这两处条款**（不是在聊天里说一句）。
 
 > 2026-08-19 首班核对：上一版四条**全部过期**，已逐条结清（PR #1 已关闭；output-contract 轨 #9/#10 已合含 kit/README 索引；CLI 两件 #6/#7 已合；settings.local.json 已建且规则与 SETUP §1 逐字一致）。下面是本班新开的清单。
 

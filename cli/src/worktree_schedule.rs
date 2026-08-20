@@ -1713,7 +1713,7 @@ mod tests {
 
     #[test]
     fn persisted_state_survives_path_and_executable_environment_changes() {
-        let (_temp, spec) = fixture(SchedulerKind::Launchd);
+        let (_temp, spec) = fixture(current_scheduler());
         let (state_root, installed) = persist_without_activation(&spec);
 
         let replacement_executable = spec.home.join("new bin").join("agent-on-v2");
@@ -1760,7 +1760,7 @@ mod tests {
 
     #[test]
     fn persisted_state_finds_moved_repo_by_identity_and_deleted_repo_by_old_path() {
-        let (temp, spec) = fixture(SchedulerKind::Launchd);
+        let (temp, spec) = fixture(current_scheduler());
         let old_repo = spec.repo.clone();
         let (state_root, installed) = persist_without_activation(&spec);
         let moved_repo = temp.path().join("Moved Demo Repo");
@@ -1782,9 +1782,27 @@ mod tests {
         assert!(report.detail.contains("moved or was deleted"));
     }
 
+    /// The three tests above used to hard-code `Launchd`, so on a Linux host the
+    /// platform check below was what made them fail — coverage by accident, and
+    /// only on the platform nobody ran. Now that they follow the host, this test
+    /// owns that behaviour on purpose: state written by the other platform's
+    /// scheduler must refuse to load rather than be acted on.
+    #[test]
+    fn persisted_state_from_another_platform_fails_closed() {
+        let foreign = match current_scheduler() {
+            SchedulerKind::Launchd => SchedulerKind::SystemdUser,
+            _ => SchedulerKind::Launchd,
+        };
+        let (_temp, spec) = fixture(foreign);
+        let (state_root, _installed) = persist_without_activation(&spec);
+
+        let error = find_install_state_in_root(&spec.repo, &state_root).unwrap_err();
+        assert!(error.contains("does not match current platform"), "{error}");
+    }
+
     #[test]
     fn persisted_state_drift_fails_closed_before_scheduler_access() {
-        let (_temp, spec) = fixture(SchedulerKind::Launchd);
+        let (_temp, spec) = fixture(current_scheduler());
         let (state_root, installed) = persist_without_activation(&spec);
         let mut raw = fs::read_to_string(installed.state_file()).unwrap();
         raw.push(' ');
