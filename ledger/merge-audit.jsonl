@@ -1,0 +1,1 @@
+{"kind": "genesis", "note": "merge-audit 账本起点。2026-08-20 用户全权授权，值守合并授权从 fail-closed 翻成 fail-open；本账本是配套的事后检测面。决策：snapshot/2026-08-20-full-auto-merge-and-audit.md", "policy_version": 1, "prev": "GENESIS", "ts": "2026-08-20T03:00:00+00:00"}

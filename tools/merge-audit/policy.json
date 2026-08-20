@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "_comment": "merge-audit 的规则真相源。改这个文件 = 改值守能自动合什么，所以它自己也在 hard_stop 清单里（gate-and-permissions 规则的 tools/merge-audit/** 那条）。散文版见 kit/babysit/MERGE-POLICY.md。",
+  "repo": "Palebluedot-ai/agent-on",
+  "trusted_authors": [
+    "Palebluedot-ai",
+    "lipingtababa",
+    "chao"
+  ],
+  "ledger_starts_at": "2026-08-20T03:20:00Z",
+  "_ledger_starts_at_why": "记账类发现（UNRECORDED / MISMATCH）只对这个时刻之后合入的 PR 成立——机制上线之前的合并没有账可对，永久报它们只会训练人忽略这份报告。内容类发现（VIOLATION / MERGED_RED）不受此限：那是「合了不该合的」，什么时候合的都算数。",
+  "hard_stop_rules": [
+    {
+      "id": "gate-and-permissions",
+      "title": "闸与权限自身",
+      "why": "被监控者不许改监控自己的东西。权限配置、PreToolUse 闸、路由闸、CI 权限、以及本审计工具自己——改这些等于扩自己的权限，改完之后所有其它防线一起失效。",
+      "path_globs": [
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+        "**/.claude/settings*.json",
+        "hooks/**",
+        ".github/workflows/**",
+        "cli/src/guard.rs",
+        "cli/src/oncall.rs",
+        "cli/src/routing.rs",
+        "tools/merge-audit/**"
+      ]
+    },
+    {
+      "id": "secrets-and-credentials",
+      "title": "凭据与密钥",
+      "why": "凭据一旦进 git 历史就撤不干净——revert 只删当前状态，历史里那份永远在。",
+      "path_globs": [
+        "**/.env",
+        "**/.env.*",
+        "**/*.pem",
+        "**/*.p12",
+        "**/*.pfx",
+        "**/id_rsa*",
+        "**/id_ed25519*",
+        "**/*secret*",
+        "**/*credential*"
+      ],
+      "diff_patterns": [
+        "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        "AKIA[0-9A-Z]{16}",
+        "gh[pousr]_[A-Za-z0-9]{36,}",
+        "sk-[A-Za-z0-9]{32,}",
+        "xox[baprs]-[A-Za-z0-9-]{12,}",
+        "AIza[0-9A-Za-z_-]{35}"
+      ]
+    },
+    {
+      "id": "irreversible-or-not-ours",
+      "title": "不可逆的文件改动",
+      "why": "撤不回来。注意这条只管**PR 形状**的不可逆——迁移脚本、SQL。「删远端分支 / 关别人的 PR / force-push / 跨仓外向操作」不是 PR 能装下的东西，它们是值守在合并之外做的动作，本工具看不见；那些照旧归纪律清单，见 kit/babysit/MERGE-POLICY.md「工具看不见的那半」。",
+      "path_globs": [
+        "**/migrations/**",
+        "**/*.sql"
+      ]
+    },
+    {
+      "id": "untrusted-author",
+      "title": "外部作者 PR",
+      "why": "供应链：作者不在受信名单里的 PR 永不自动合，哪怕它只动一个 typo。",
+      "untrusted_author": true
+    }
+  ],
+  "notable_rules": [
+    {
+      "id": "breaking-or-migration",
+      "title": "带 breaking / 迁移标注",
+      "why": "作者在喊「这单不普通」。可 revert，所以照样自动合——但值守当轮必须播报一行。认的是**结构化标记**（整行以 `BREAKING:` / `迁移注记:` 开头，或挂 breaking/migration 标签），不是正文里出现这个词：方法论仓的正文天天讨论这些词，自由搜索必然误报。",
+      "labels": [
+        "breaking",
+        "migration"
+      ],
+      "body_line_patterns": [
+        "^\\s*(?:BREAKING(?:[ -]CHANGE)?)\\s*[:：]",
+        "^\\s*迁移注记\\s*[:：]",
+        "^\\s*MIGRATION\\s*[:：]"
+      ]
+    },
+    {
+      "id": "governance-surface",
+      "title": "改的是规矩本身",
+      "why": "治理文档与宪章类改动可 revert，自动合；但它改的是全场行为，值守播报一行让用户有机会当场喊停。",
+      "path_globs": [
+        "AGENTS.md",
+        "CHARTER.md",
+        "BOOTSTRAP.md",
+        "kit/babysit/**",
+        "playbook/multi-contributor-protocol.md"
+      ]
+    }
+  ],
+  "merge_health": {
+    "_comment": "合并当时的健康度。post-hoc 仍可核：review 结论与 check 结论都留在 PR 上。",
+    "block_on_changes_requested": true,
+    "block_on_failing_checks": true,
+    "check_conclusions_treated_as_red": [
+      "FAILURE",
+      "TIMED_OUT",
+      "CANCELLED",
+      "ACTION_REQUIRED",
+      "STARTUP_FAILURE"
+    ]
+  }
+}
