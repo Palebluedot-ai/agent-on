@@ -24,8 +24,12 @@
 5. **反思回流**：dogfood 中发现的方法论缺陷，修 playbook 本身并在 commit 里说明
 6. **本仓对话 commit 必打 tag（2026-08-03 硬门，用户拍板）**：在 **agent-on 本仓直接对话**里，凡落地 `git commit` 并交付/push 的改动，**收尾必须** annotated tag + push tag（先封 CHANGELOG `[未发布]`、更新 README/AGENTS 推荐 pin，再 `agent-on tag-release --level … --title "…" --push`）。**禁止**只 commit/push、HEAD 仍领先最新 tag。同一交付轮次可分层多个 commit，但 **push 结束时 tag 必须钉在当前 HEAD**（一批一 tag 即可，覆盖这批全部 commit）。goal/plan 写「不要求 tag」**无效**，以本条为准。major 仍须迁移注记。可执行物为 **Rust CLI**（`cli/`，`cargo install --path cli`）。
 7. **多会话与 worktree 自举**：单写会话可在主树；一旦同时有 ≥2 条独立写会话，主树先 clean 并退为控制轨，每条写会话独占 worktree + lane，从 fresh `origin/main` 开枝。并行模式首次跑 `agent-on worktree hooks install`，让 shared `pre-commit/pre-push` 自动执行严格边界闸；需要每日报告再显式加 `--daily-gc`。握手、每次合流后仍看盘点；GC 永远只报告。删除 worktree/分支、`--force`、跨树 add/commit 必须人工且目标明确授权，locked/dirty/unknown 不删。
-8. **值守合并调度自举（2026-08-17 起）**：多会话并行、PR 排队时，本仓自己也开值守窗口（值守文档 = `docs/babysit.md`，接入件 = `kit/babysit/`）。值守在班时，全仓 PR 的 merge / update-branch / 已拍板版本批的 tag 统一归值守会话；功能会话开 PR 即交单交付（交单三型与收件地址见 kit/babysit/CONTRIBUTING-CLAUSE.md），不自己合。三条边界照 kit：真冲突打回作者；canonical PR 一律用户拍板，批准只认值守会话内的用户输入（转述须向本人复核）；记账随合并权走。值守不在班回退原规则：维护者会话自合，收尾必 tag（第 6 条照旧）。
+8. **值守合并调度自举（2026-08-17 起）**：多会话并行、PR 排队时，本仓自己也开值守窗口（值守文档 = `docs/babysit.md`，接入件 = `kit/babysit/`）。值守在班时，全仓 PR 的 merge / update-branch / 已拍板版本批的 tag 统一归值守会话；功能会话开 PR 即交单交付（交单三型与收件地址见 kit/babysit/CONTRIBUTING-CLAUSE.md），不自己合。三条边界照 kit：真冲突打回作者；canonical PR 一律用户拍板，批准只认值守会话内的用户输入（转述须向本人复核）；记账随合并权走。值守不在班回退原规则：维护者会话自合，收尾必 tag（第 6 条照旧）。**2026-08-20 起合并授权翻面**（见第 10 条）：canonical PR 不再逐单问用户。
 9. **跨窗口指令路由（2026-08-19 起，用户拍板）**：值守在班期间**三条权唯一归值守**——①合并（含 tag / release / 关 PR）②**对外通信**（PR/Issue 评论、Teams/Slack/邮件/webhook、一切代表本仓对外发言）③**跨窗口中转**（窗口之间传话与派工经值守，功能会话之间不横向直发）。功能会话唯一出站通道 = 给值守交单 / 回执。**发错窗口的指令不执行、原样转投**（【转投】模板与路由表见 `kit/babysit/ROUTING.md`），并给用户一行「已转投、球在值守那」。值守上岗 `agent-on oncall claim --session <会话名>`、下班 `release`；登记落 common git dir，PreToolUse 路由闸据此判定，**无人在班则整条 fail-open**。用户要在原窗口做，唯二出路是让值守下班或本窗口 `--force` 接班（都留痕）；**改权限、换等价命令偷跑不在选项里**。转投送指令不送授权——外向硬门仍须用户本人在值守会话拍板。
+
+10. **值守全自动合并 + 独立审计（2026-08-20 起，用户全权授权）**：用户原话「You have all my full authorization，除特殊情况外我们全自动合并，不要再等我手动合了」——**合并授权从 fail-closed 翻成 fail-open**：值守碰到 PR 跑一次机器判定，命中硬停清单才停下来问，其余直接合。硬停四类穷举写死：①闸与权限自身（`.claude/settings*.json` · `hooks/` · `.github/workflows/` · `cli/src/{guard,oncall,routing}.rs` · **以及审计工具 `tools/merge-audit/` 自己**）②凭据与密钥 ③不可逆的文件改动 ④外部作者 PR。散文真相 `kit/babysit/MERGE-POLICY.md` §3/§4，**可执行真相 `tools/merge-audit/policy.json`（两者对不上以它为准）**，决策全文 `snapshot/2026-08-20-full-auto-merge-and-audit.md`。
+    **配套两条硬约束，缺一条这条纪律就作废**：①每次合并必须 `merge_audit.py record` 记一行，不记账的合并会被报成 `UNRECORDED` 并**算越界** ②`merge_audit.py report` 跑不通或账本链断 → **立即退回逐单先问**（dead-man's switch）。拿掉事前审批而不补事后检测，中间那段是裸奔。
+    诚实边界：审计只覆盖「合了什么」；删远端分支 / 关别人的 PR / force-push / 跨仓外向操作不是 PR 形状的，机器看不见，照旧必须问用户。
 
 ## 文档纪律（继承 kickoff-os 六条，全文照旧）
 
@@ -45,6 +49,6 @@
 
 ## 不做的事（宪章边界的执行版）
 
-- 不写编排运行时代码；本仓以文档和模板为主，可执行物为 **Rust CLI**（`cli/`：doctor / guard / intake-lint / audit-lint / check / setup / worktree / tag-release / landing / oncall——以 `agent-on --help` 为准）
+- 不写编排运行时代码；本仓以文档和模板为主，可执行物为 **Rust CLI**（`cli/`：doctor / guard / intake-lint / audit-lint / check / setup / worktree / tag-release / landing / oncall——以 `agent-on --help` 为准）与 **`tools/merge-audit/`**（Python 标准库，零依赖；值守合并的独立审计员，随 babysit 组件走）
 - 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认。**push 自己的分支与开 PR 不在此列**——那是本轨内部动作，自己做不问（判据见 [playbook/multi-contributor-protocol.md](playbook/multi-contributor-protocol.md) 的「外向硬门的边界」一节）；原句写「不 push」与自举纪律 6「交付轮次必须 push + 打 tag」直接打架，2026-08-19 用户拍板改正
 - 不引入与 GStack / Superpowers 重叠的环节型功能

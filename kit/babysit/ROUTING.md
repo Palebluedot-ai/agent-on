@@ -126,7 +126,7 @@ agent-on oncall release --cwd "$ONCALL_WT"
 
 转投进来的单**不自动变成值守的活**，先分三路：
 
-1. **本来就归值守**（合并、对外通信）→ 按 [MERGE-POLICY](MERGE-POLICY.md) 走：默认合入档全绿即合；其余先问用户。
+1. **本来就归值守**（合并、对外通信）→ 按 [MERGE-POLICY](MERGE-POLICY.md) 走：先跑 `merge-audit precheck` 判档，没命中硬停清单就自动合；命中的带证据先问用户。
 2. **归另一条功能轨** → 值守用横向通信权 `SendMessage` 派给那条轨，并给原窗口回一条「已派给 X」。找归属别用眼睛扫 lane 表：
 
    ```bash
