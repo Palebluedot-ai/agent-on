@@ -2,13 +2,19 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.19.0 起攒）
+## [未发布]（自 v0.20.0 起攒）
+
+（空）
+
+## v0.20.0（2026-09-14）——闸只拦一件事 + 值守心跳 + 边界闸分层 + 出口面 + 常驻预授权 + 全自动合并审计
+
+> **minor**（用户 2026-09-14 拍板：v0.20.0 / minor）：放松了多条硬约束——边界闸不再连坐、值守登记会过期、合并授权 fail-open——下游行为会变，「不用知道」不成立；CLI 既有命令行为不删只改判定语义，`check` JSON 只增字段，无 breaking，不需要迁移注记。本版覆盖 v0.19.0 之后的全部 PR（#29–#40）与 2026-09-14 直落 main 的四个 commit。
 
 - **边界闸只拦一件事：本树未提交改动进了别的活轨的 owns（2026-09-14，`cli/`，用户拍板推翻 2026-08-17「连坐维持」）**——用户原话「一个类没有注册，流程就卡住了，无法 commit，全变红了。我并不想制造太多限制」。旧闸的失败条件是全场性的：任一未登记树 / 任一越界 / 任一 OVERLAP / 任一幽灵登记 → 所有 worktree 的 commit 与 push 全拦；而桌面宿主每开一个会话就自建一棵不登记的树，于是多窗口仓大部分时间是红的，红的还不是肇事者。改法：`check` 与 guard 只认一种红——`CONFLICT`（本树 **staged / unstaged / untracked** 的改动落在另一条 `active|blocked|ready` 且树还在的 lane 的 `owns` 里），且只拦当事那棵树（新 `gate_for`，PreToolUse 与 Git hook 同一把尺子）；`UNREGISTERED` / 无人持有的 `OUT-OF-BOUNDS` / 纸面 `OVERLAP` / 新增的 `MISSING`（活登记指向已删的树，出口 `worktree forget`，现在任何状态都能 forget）全部降为提示行；主树不再按身份当控制轨，只在它碰活轨地盘时拦；休眠的写者不参与冲突；只看未提交改动、不看相对 base 的已提交发散（顺手消掉「squash 后永远 changed N」与「主树本地 merge 完 push 被自己刚合的 lane 拦住」两类假红）。JSON 新增 `conflicts[]` / `missing[]` / `primary_worktree`。留下的正是闸存在的唯一理由——两个会话别同时写一个文件——`check_fails_when_two_writing_lanes_share_a_boundary`、`two_live_writers_on_one_path_still_fail` 原样通过。新增 `cli/tests/gate_scope.rs` 8 条。真仓对照：Orbit（两棵宿主自建树）旧版 FAIL → PASS；Dartify（一条登记指向已删树）旧版 FAIL → PASS。
 - **值守登记带心跳，窗口关了自动失效（2026-09-14，`cli/`）**——用户原话「值守的窗口有时候没开又会卡住」。旧判据只看登记的 worktree 目录在不在；窗口关了目录当然还在，于是全仓其他窗口的合并被一个不存在的窗口锁着（本仓实测一条登记停在 08-19，26 天后旧版仍报「在班」）。改法：登记多 `heartbeat_at`，值守窗口每一次经 guard 的工具调用自动续（一分钟内最多写一次），`agent-on oncall heartbeat` 可显式续；超过 `oncall_stale_after_minutes`（默认 90，`agent-on/config.json` 可配，`0` 关）没心跳 → 登记失效、闸 fail-open、`claim` 不用 `--force`；值守窗口安静很久但人还在，下一条命令自己续活；功能窗口被拦的文案带「值守最近心跳 N 分钟前；M 分钟没心跳自动失效」。新增 `cli/tests/oncall_liveness.rs` 7 条。
 - 档位（这两条单独看）：**minor**。放松了两条硬约束，下游行为会变，「不用知道」不成立；`check` 的 JSON 只增字段不删，无 breaking，不需要迁移注记。旧文档里的「占位 park」「回填 owns」「死锁三解」全部改口，标为 ≤ v0.19.0 考古。决策快照 `snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md`，bench 案 45。
 
-> 语义预判 **minor**（版本号与档位归用户拍板）：不动手不坏——CLI 既有命令行为不变，文档为新增与更正。但边界闸的判定语义变了（`#29`：从「有没有未落地改动」改成「有没有人在写」，分 Contract / Writing / Dormant 三档），既有 lane 的 `check` 结果可能从「跳过」变成「拦住」或反之；`#31` 又给拍板加了新的必答项（默认值的触发条件）。无 breaking，不需要迁移注记。
+> 以下为 v0.19.0 之后经 PR 合入、封版前攒下的条目（原「未发布」节，语义预判 minor）：不动手不坏——CLI 既有命令行为不变，文档为新增与更正。但边界闸的判定语义变了（`#29`：从「有没有未落地改动」改成「有没有人在写」，分 Contract / Writing / Dormant 三档），既有 lane 的 `check` 结果可能从「跳过」变成「拦住」或反之；`#31` 又给拍板加了新的必答项（默认值的触发条件）。无 breaking，不需要迁移注记。
 
 - **边界闸分层：互斥闸只在真有人在写的轨之间成立（#29，`cli/`）**——`#23` 给闸补的事实维度落在「有没有未落地的改动」，那条判据同时是**另一个问题**的正确答案：它回答的是「有东西没救走吗」（`gc` 的 `rescue` 该管的），不是「有人正在写这里吗」（互斥闸该管的）。`rescue` 库存天然长期存在、天然互相重叠，拿它驱动互斥闸会让闸随废弃树数量单向劣化。改为三档 `GateHold`：`Contract`（登记活跃 → 持全量 owns，可预留还没写的地盘，不设时效）/ `Writing`（登记完结但仍在写且窗口内被碰过 → **只持有它实际有改动的那些路径**）/ `Dormant`（超窗口没人碰 → **不持有边界**，改挂 `RESCUE-DEBT`）。休眠判据取「未落地改动所涉文件的最新 mtime」与「base 未收的最新 commit 时间」的大者——**工作本身的年龄，不是目录的年龄**，只读盘点不会把化石树刷新。窗口默认 7 天，`agent-on/config.json` 的 `dormant_after_days` 可配，`0` 关掉休眠（配错只会让闸更紧）。**闸没有被放松**：两条真在写同一路径的轨照红、登记过期但正在写的轨对它真在改的路径照拦、活轨契约不过期、git 描述不了的树按在写处理（fail-closed）。
 - **闸的出口面升级：出口必须走得通（#30）**——连坐闸把人锁死时，文档写的三条逃生路**实测有三处硬错**：①「`check` 容忍 parked 轨与活跃轨重叠」只对**干净**的 parked 轨成立，脏 parked 轨被拉回互斥集，OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉 ②第 2 解「回填 OUT-OF-BOUNDS 清单进 owns」在多棵脏树场景下**必然**造出 OVERLAP，是把一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空 ③生命周期转移图里**根本没有 `parked→ready` 这条边**（`set-status` 实测 `invalid lane transition`），合法链是 `parked→active→ready→landed`。落点：`playbook/multi-contributor-protocol.md` 新增出口面一节、`kit/worktree-gc-pattern.md`「陈年树是债务」、`kit/merge-checklist.md`、`kit/babysit/BABYSIT-TEMPLATE.md` 死锁节改写、`bench/cases/40-gate-exit-unreachable.md` 入册。
@@ -19,9 +25,7 @@
 - 档位（这两条单独看）：**minor**。放松了一条硬约束，下游照抄 MERGE-POLICY 后值守行为会变，「不用知道」不成立；无 breaking，不需要迁移注记。
 - 证据：`#29` 的测试由值守独立复跑（scratchpad 里 clone 出 PR 分支，非采信作者声称），全套退出码 0，新增 `cli/tests/worktree_dormant_gate.rs` **9 passed / 0 failed**；`transition_allowed` 的转移图由值守直接读源码核对，`parked→ready` 确不存在，且该函数全仓只在 `set_status` 一处被调用——`edit --status` 不经过它
 
-## [未发布]（自 v0.19.0 起攒）
-
-> 语义预判 **minor**（版本号与档位归用户拍板）：不动手不坏——CLI 既有命令行为不变，新增的是闸、工具与规则；但**值守的合并授权整节翻面**（从「预授权清单 + 其余先问」改为「硬停清单 + 其余默认合」），下游照抄 `kit/babysit/` 后值守行为会变，所以不是 patch。无 breaking，不需要迁移注记。
+> 以下为 PR #37–#41 的条目（原「未发布」节的第二段，同样封进 v0.20.0；合并授权整节翻面见各条）：
 
 - **本仓装上第一道 CI（#37）** —— `.github/workflows/gate.yml` 四个 job（CLI 测试 + 承接层校验 / 文档三闸 / 外部贡献只许碰 intake / GitGuardian）。**第一次跑就照出存量问题**：三条 `worktree_schedule` 测试写死 macOS 的 `Launchd` 而 runner 是 Linux——**测试套件一直是 macOS-only，只是此前没有 CI 所以没人知道**。同批还立了「闸必须自带出口」：报错只说「谁挡你」不说「你怎么过」，被拦的人就会去问用户，那是**人肉版的恒红闸**。
 - **全自动合并 + 独立审计（#39 / #40）** —— 起因是用户实测原话「除特殊情况外我们全自动合并，不要再等我手动合了……晚上开发时如果没合，其他人的程序就没法进行」。判据翻面：**需要列举的是不许自动合的那几类，其余一切默认合**——理由是损失形状变了，未合的 PR 不是「等一等」，是别人的活被堵住。硬停五类（闸与权限自身 · 凭据密钥 · 不可逆文件 · 外部作者 · 带 breaking 标注）+ 需播报一类（改的是规矩本身）。补偿控制从「事前问」换成**事后独立复判 + 记账 + 越界告警**，配 dead-man's switch：`report` 跑不通就立即退回逐单先问，**没有审计就没有自动合**。
