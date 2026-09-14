@@ -219,17 +219,47 @@ struct LaneAudit {
     gate_boundary: Vec<String>,
 }
 
+/// The one thing the gate is for: a worktree's *uncommitted* change sitting
+/// inside ground a live lane has reserved. It is charged to the writer, and
+/// only the writer's own commit/push is stopped by it.
+#[derive(Debug, Clone, Serialize)]
+struct Conflict {
+    /// Canonical path of the worktree whose change enters the reserved ground.
+    worktree: String,
+    /// Lane registered for that worktree, if any.
+    writer: Option<String>,
+    path: String,
+    /// The live lane whose `owns` the path falls in.
+    lane: String,
+    boundary: String,
+}
+
 #[derive(Debug, Serialize)]
 struct AuditReport {
     repo: String,
+    /// Canonical path of the primary worktree (`git worktree list` first row).
+    primary_worktree: String,
     lanes: Vec<LaneAudit>,
+    /// Worktrees nobody registered. Advisory: they hold no boundary, and a
+    /// commit from one is judged by the same single rule as everyone else's.
     unregistered_worktrees: Vec<String>,
+    /// Declared boundaries that collide between two enforced lanes. Advisory:
+    /// the gate stops actual writes, not overlapping declarations.
     overlaps: Vec<String>,
     dependency_blocks: Vec<String>,
     /// Unlanded work in lanes nobody is writing any more. Reported every run,
     /// never fatal: no registry edit can clear it, only rescuing the work can.
     rescue_debt: Vec<String>,
+    /// Live registrations whose worktree is gone. Advisory with a one-command
+    /// exit (`forget`); a vanished tree reserves nothing.
+    missing: Vec<String>,
+    /// The only red condition besides an audit that could not run.
+    conflicts: Vec<Conflict>,
     errors: Vec<String>,
+    /// Worktrees whose own audit failed; the scoped gate fails closed for
+    /// exactly these and stays open for everyone else.
+    #[serde(skip)]
+    error_trees: Vec<String>,
 }
 
 pub(crate) fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
@@ -655,7 +685,7 @@ pub(crate) const DEFAULT_DORMANT_AFTER_DAYS: u64 = 7;
 
 /// One `u64` knob out of `<common git dir>/agent-on/config.json`. Missing or
 /// malformed config falls back to the default.
-fn config_u64(cwd: &Path, key: &str, default: u64) -> u64 {
+pub(crate) fn config_u64(cwd: &Path, key: &str, default: u64) -> u64 {
     let Ok(common) = common_git_dir(cwd) else {
         return default;
     };
@@ -1078,12 +1108,9 @@ pub fn forget_lane(cwd: &Path, id: &str) -> (i32, String) {
             .iter()
             .find(|r| r.id == id)
             .ok_or_else(|| format!("lane does not exist: {id}"))?;
-        if !matches!(record.status.as_str(), "landed" | "parked") {
-            return Err(format!(
-                "refuse to forget {} while status is {}; mark landed or parked first",
-                id, record.status
-            ));
-        }
+        // A registration whose worktree is gone protects nothing, whatever its
+        // status says: there is no tree left to write in. Forgetting it is
+        // metadata cleanup, so it needs no lifecycle detour first.
         if Path::new(&record.worktree).exists() {
             return Err(format!(
                 "refuse to forget {} while worktree still exists: {}",
@@ -1156,10 +1183,14 @@ fn nul_paths(cwd: &Path, args: &[&str]) -> Result<Vec<String>, String> {
         .collect())
 }
 
-fn changed_files(path: &Path, base: &str) -> Result<Vec<String>, String> {
+/// Everything the working tree holds that no commit holds yet: unstaged,
+/// staged, and untracked. This is what a `git commit` is about to write, so it
+/// is the only input the blocking rule reads — committed divergence from base
+/// was gated when it was committed (or deliberately bypassed), and a dead
+/// branch's old divergence must not follow every later commit around.
+fn uncommitted_files(path: &Path) -> Result<Vec<String>, String> {
     let mut files = BTreeSet::new();
     for args in [
-        vec!["diff", "--name-only", "-z", &format!("{base}...HEAD")],
         vec!["diff", "--name-only", "-z"],
         vec!["diff", "--cached", "--name-only", "-z"],
         vec!["ls-files", "--others", "--exclude-standard", "-z"],
@@ -1167,6 +1198,17 @@ fn changed_files(path: &Path, base: &str) -> Result<Vec<String>, String> {
         for file in nul_paths(path, &args)? {
             files.insert(file);
         }
+    }
+    Ok(files.into_iter().collect())
+}
+
+fn changed_files(path: &Path, base: &str) -> Result<Vec<String>, String> {
+    let mut files: BTreeSet<String> = uncommitted_files(path)?.into_iter().collect();
+    for file in nul_paths(
+        path,
+        &["diff", "--name-only", "-z", &format!("{base}...HEAD")],
+    )? {
+        files.insert(file);
     }
     Ok(files.into_iter().collect())
 }
@@ -1222,13 +1264,38 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             .to_string()
     });
     let mut unregistered = Vec::new();
+    let mut errors = Vec::new();
+    let mut error_trees = Vec::new();
+    // Every present worktree is a potential writer: (path, lane id, the
+    // uncommitted files it holds). Registered or not, primary or linked, the
+    // same single rule judges what it is about to commit.
+    // The `bool` is dormancy: work nobody has touched inside the window is
+    // rescue debt, not a writer, so it never makes a conflict.
+    let mut writers: Vec<(String, Option<String>, Vec<String>, bool)> = Vec::new();
     let inferred_base = default_base(&root).ok();
-    for wt in worktrees.iter().skip(1) {
+    let dormant_after = dormant_after_days(&root);
+    for (index, wt) in worktrees.iter().enumerate() {
         let path = fs::canonicalize(&wt.path)
             .unwrap_or_else(|_| wt.path.clone())
             .display()
             .to_string();
-        if !record_by_path.contains_key(&path) {
+        if record_by_path.contains_key(&path) {
+            continue;
+        }
+        match uncommitted_files(&wt.path) {
+            Ok(files) => {
+                let dormant = inferred_base
+                    .as_deref()
+                    .map(|base| work_is_dormant(&wt.path, base, dormant_after))
+                    .unwrap_or(false);
+                writers.push((path.clone(), None, files, dormant));
+            }
+            Err(e) => {
+                errors.push(format!("{path}: cannot read working tree: {e}"));
+                error_trees.push(path.clone());
+            }
+        }
+        if index > 0 {
             let dirty = git(&wt.path, &["status", "--porcelain"])
                 .map(|v| !v.is_empty())
                 .unwrap_or(true);
@@ -1306,9 +1373,8 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
         }
     }
 
-    let dormant_after = dormant_after_days(&root);
     let mut audits = Vec::new();
-    let mut errors = Vec::new();
+    let mut missing = Vec::new();
     for record in &records {
         let path = PathBuf::from(&record.worktree);
         let present = present_paths.contains(&record.worktree);
@@ -1327,11 +1393,24 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
                         "{}: cannot compare with {}: {}",
                         record.id, record.base, e
                     ));
+                    error_trees.push(record.worktree.clone());
                     Vec::new()
                 }
             }
         } else {
             Vec::new()
+        };
+        let uncommitted = if present {
+            match uncommitted_files(&path) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    errors.push(format!("{}: cannot read working tree: {e}", record.id));
+                    error_trees.push(record.worktree.clone());
+                    None
+                }
+            }
+        } else {
+            None
         };
         let out_of_bounds = files
             .iter()
@@ -1370,11 +1449,13 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             "review".to_string()
         };
         if !present && ownership_live(&record.status) {
-            errors.push(format!(
-                "{} is {} but its worktree is missing",
-                record.id, record.status
+            missing.push(format!(
+                "{} [{}] worktree gone: {}; exit: `agent-on worktree forget --id {}` (metadata only — the tree is already gone, nothing else is deleted)",
+                record.id, record.status, record.worktree, record.id
             ));
         }
+        // A vanished worktree has no session behind it, so it reserves
+        // nothing — whatever its registration still says.
         let hold = if present {
             hold_from_facts(
                 &record.status,
@@ -1385,8 +1466,6 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
                 &record.base,
                 dormant_after,
             )
-        } else if ownership_live(&record.status) {
-            GateHold::Contract
         } else {
             GateHold::Released
         };
@@ -1395,6 +1474,14 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             GateHold::Writing => files.clone(),
             GateHold::Dormant | GateHold::Released => Vec::new(),
         };
+        if let Some(uncommitted) = uncommitted {
+            writers.push((
+                record.worktree.clone(),
+                Some(record.id.clone()),
+                uncommitted,
+                hold == GateHold::Dormant,
+            ));
+        }
         audits.push(LaneAudit {
             id: record.id.clone(),
             goal: record.goal.clone(),
@@ -1449,27 +1536,169 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
             )
         })
         .collect();
+
+    // The red condition. A live lane with a worktree behind it holds its
+    // declared owns as a contract; any *other* worktree whose uncommitted
+    // change lands inside that contract is writing on reserved ground.
+    let contracts: Vec<&LaneAudit> = audits
+        .iter()
+        .filter(|lane| lane.present && ownership_live(&lane.status))
+        .collect();
+    let mut conflicts = Vec::new();
+    for (worktree, writer, files, dormant) in &writers {
+        if *dormant {
+            continue;
+        }
+        for file in files {
+            for lane in &contracts {
+                if &lane.worktree == worktree {
+                    continue;
+                }
+                if let Some(boundary) = lane.owns.iter().find(|b| boundary_contains(b, file)) {
+                    conflicts.push(Conflict {
+                        worktree: worktree.clone(),
+                        writer: writer.clone(),
+                        path: file.clone(),
+                        lane: lane.id.clone(),
+                        boundary: boundary.clone(),
+                    });
+                }
+            }
+        }
+    }
+
     Ok(AuditReport {
         repo: root.display().to_string(),
+        primary_worktree: primary_path.clone().unwrap_or_default(),
         lanes: audits,
         unregistered_worktrees: unregistered,
         overlaps,
         dependency_blocks,
         rescue_debt,
+        missing,
+        conflicts,
         errors,
+        error_trees,
     })
 }
 
+/// Field-wide verdict, for `check`: red only for a real conflict, or for an
+/// audit that could not run. Unregistered trees, overlapping declarations,
+/// out-of-bounds edits nobody else holds, vanished worktrees and dormant debt
+/// are all reported and none of them is fatal — a gate that is red for things
+/// no registry edit can clear carries no signal.
 fn report_has_failures(report: &AuditReport) -> bool {
-    !report.unregistered_worktrees.is_empty()
-        || !report.overlaps.is_empty()
-        || !report.errors.is_empty()
-        // A boundary violation is a live-lane fact. In a dormant lane it is
-        // history nobody can edit away, so it rides with the rescue debt.
-        || report
-            .lanes
-            .iter()
-            .any(|lane| lane.enforced && !lane.out_of_bounds.is_empty())
+    !report.conflicts.is_empty() || !report.errors.is_empty()
+}
+
+fn writer_label(worktree: &str, writer: Option<&str>, primary: bool) -> String {
+    match writer {
+        Some(id) => format!("lane {id}"),
+        None if primary => format!("primary worktree {worktree}"),
+        None => format!("unregistered worktree {worktree}"),
+    }
+}
+
+fn conflict_exit(conflict: &Conflict) -> String {
+    format!(
+        "exit: keep this change out of lane {lane}'s ground — commit only paths inside your own owns, or make the change from lane {lane}'s worktree. If lane {lane} is yours or its session is gone, release the ground: `agent-on worktree set-status parked --id {lane}` (a clean tree loses nothing; `--status active` brings it back) or narrow it: `agent-on worktree edit --id {lane} --owns <paths it still needs>`. Registration repair, never deletion. Unsure who owns it: `agent-on oncall route --path {path}`",
+        lane = conflict.lane,
+        path = conflict.path
+    )
+}
+
+/// One worktree's verdict, for commit/push hooks and the PreToolUse guard.
+///
+/// Only two things stop *this* tree: its own uncommitted change entering
+/// another live lane's owns, or its own audit failing. What other worktrees
+/// look like — unregistered, out of bounds, vanished, overlapping on paper —
+/// is their report, not this tree's blocker. A control operation in progress
+/// (merge, rebase, cherry-pick …) is never judged: its index is the other
+/// side's work arriving, not this tree writing.
+pub fn gate_for(repo: &Path) -> (i32, String) {
+    let here = match repo_root(repo) {
+        Ok(root) => fs::canonicalize(&root).unwrap_or(root),
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    match control_operation_in_progress(&here) {
+        Ok(Some(_)) => return (0, String::new()),
+        Ok(None) => {}
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    }
+    let report = match build_report(&here) {
+        Ok(report) => report,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let here_s = here.display().to_string();
+    let mine: Vec<&Conflict> = report
+        .conflicts
+        .iter()
+        .filter(|c| c.worktree == here_s)
+        .collect();
+    let my_errors: Vec<&String> = report
+        .error_trees
+        .iter()
+        .zip(report.errors.iter())
+        .filter(|(tree, _)| **tree == here_s)
+        .map(|(_, message)| message)
+        .collect();
+    if mine.is_empty() && my_errors.is_empty() {
+        return (0, String::new());
+    }
+    let primary = report.primary_worktree == here_s;
+    let mut out = String::new();
+    if let Some(first) = mine.first() {
+        out.push_str(&format!(
+            "CONFLICT: {} has uncommitted changes inside another live lane's owns\n",
+            writer_label(&first.worktree, first.writer.as_deref(), primary)
+        ));
+        for c in &mine {
+            out.push_str(&format!(
+                "  {} → live lane {} (owns {})\n",
+                c.path, c.lane, c.boundary
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for c in &mine {
+            if seen.insert(c.lane.clone()) {
+                out.push_str(&format!("  {}\n", conflict_exit(c)));
+            }
+        }
+    }
+    for message in my_errors {
+        out.push_str(&format!("ERROR: {message}\n"));
+    }
+    out.push_str(
+        "Other worktrees' state (unregistered, out of bounds, vanished) never blocks this tree; `agent-on worktree status` shows the whole field.\n",
+    );
+    (1, out)
+}
+
+fn git_path(cwd: &Path, name: &str) -> Result<PathBuf, String> {
+    let raw = PathBuf::from(git(cwd, &["rev-parse", "--git-path", name])?);
+    Ok(if raw.is_absolute() {
+        raw
+    } else {
+        cwd.join(raw)
+    })
+}
+
+/// Which git control operation, if any, is mid-flight in this worktree.
+pub(crate) fn control_operation_in_progress(cwd: &Path) -> Result<Option<&'static str>, String> {
+    for (name, label) in [
+        ("MERGE_HEAD", "merge"),
+        ("SQUASH_MSG", "squash merge"),
+        ("CHERRY_PICK_HEAD", "cherry-pick"),
+        ("REVERT_HEAD", "revert"),
+        ("rebase-merge", "rebase"),
+        ("rebase-apply", "rebase/am"),
+        ("sequencer", "sequencer"),
+    ] {
+        if git_path(cwd, name)?.exists() {
+            return Ok(Some(label));
+        }
+    }
+    Ok(None)
 }
 
 fn render_text(report: &AuditReport) -> String {
@@ -1495,8 +1724,9 @@ fn render_text(report: &AuditReport) -> String {
         ));
         if !lane.out_of_bounds.is_empty() {
             out.push_str(&format!(
-                "  OUT-OF-BOUNDS: {}\n",
-                lane.out_of_bounds.join(", ")
+                "  OUT-OF-BOUNDS: {}\n    advisory: outside this lane's declared owns; it only blocks a commit when the path is inside another live lane's owns (see CONFLICT). Widen with `agent-on worktree edit --id {} --owns <full list>`\n",
+                lane.out_of_bounds.join(", "),
+                lane.id
             ));
         }
         if lane.writing && !ownership_live(&lane.status) && !lane.dormant {
@@ -1509,14 +1739,38 @@ fn render_text(report: &AuditReport) -> String {
     for path in &report.unregistered_worktrees {
         out.push_str(&format!("UNREGISTERED: {path}\n"));
     }
+    if !report.unregistered_worktrees.is_empty() {
+        out.push_str(
+            "  advisory: an unregistered worktree holds no boundary and blocks nobody; register it only when it needs to reserve ground: `agent-on worktree claim --cwd <path> --id <id> --goal <goal> --owns <paths>`\n",
+        );
+    }
     for item in &report.overlaps {
         out.push_str(&format!("OVERLAP: {item}\n"));
+    }
+    if !report.overlaps.is_empty() {
+        out.push_str(
+            "  advisory: declared boundaries collide; the gate stops actual writes (CONFLICT), not declarations. Tidy with `agent-on worktree edit --id <lane> --owns …`\n",
+        );
     }
     for item in &report.dependency_blocks {
         out.push_str(&format!("WAIT: {item}\n"));
     }
     for item in &report.rescue_debt {
         out.push_str(&format!("RESCUE-DEBT: {item}\n"));
+    }
+    for item in &report.missing {
+        out.push_str(&format!("MISSING: {item}\n"));
+    }
+    for conflict in &report.conflicts {
+        let is_primary = report.primary_worktree == conflict.worktree;
+        out.push_str(&format!(
+            "CONFLICT: {} writes {} inside live lane {}'s owns ({})\n  {}\n",
+            writer_label(&conflict.worktree, conflict.writer.as_deref(), is_primary),
+            conflict.path,
+            conflict.lane,
+            conflict.boundary,
+            conflict_exit(conflict)
+        ));
     }
     for item in &report.errors {
         out.push_str(&format!("ERROR: {item}\n"));
@@ -2521,9 +2775,59 @@ mod tests {
         );
         assert_eq!(code, 0, "{out}");
         fs::write(wt.join("README.md"), "escaped\n").unwrap();
+        // Drift outside its own owns is reported; with nobody else holding
+        // README.md it is not a failure.
+        let (code, out) = run_audit(&root, false, true);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("OUT-OF-BOUNDS: README.md"), "{out}");
+        assert!(out.contains("RESULT: PASS"), "{out}");
+    }
+
+    #[test]
+    fn check_fails_only_for_a_write_inside_another_live_lanes_owns() {
+        let (tmp, root, wt) = fixture();
+        let (code, out) = claim_lane(
+            &wt,
+            &ClaimOpts {
+                parked: false,
+                id: "lane-a".to_string(),
+                goal: "change app".to_string(),
+                base: Some("main".to_string()),
+                owns: vec!["app".to_string()],
+                depends_on: Vec::new(),
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+        let intruder = tmp.path().join("intruder");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "session/intruder",
+                intruder.to_str().unwrap(),
+                "main",
+            ],
+        );
+        // Unregistered and clean: reported, not fatal.
+        let (code, out) = run_audit(&root, false, true);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("UNREGISTERED:"), "{out}");
+        // Writing inside lane-a's ground: the one real failure.
+        fs::write(intruder.join("app/base.txt"), "intrude\n").unwrap();
         let (code, out) = run_audit(&root, false, true);
         assert_eq!(code, 1, "{out}");
-        assert!(out.contains("OUT-OF-BOUNDS: README.md"), "{out}");
+        assert!(out.contains("CONFLICT:"), "{out}");
+        assert!(out.contains("app/base.txt"), "{out}");
+        let (code, out) = gate_for(&intruder);
+        assert_eq!(code, 1, "{out}");
+        let (code, out) = gate_for(&wt);
+        assert_eq!(
+            code, 0,
+            "the lane whose ground was entered is not blocked: {out}"
+        );
     }
 
     #[test]
