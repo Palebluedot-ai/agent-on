@@ -56,7 +56,7 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
    - **审计闭环**：`python3 tools/merge-audit/merge_audit.py report --limit 20`。出现 `VIOLATION`（没问就合了硬停单）或 `UNVERIFIED_HARDSTOP`（合了但指针核不到）**立即在面板播报并停手**；`report` 本身跑不通 / 报 `LEDGER_BROKEN` / 账本不可写 → **按 §3 的 dead-man's switch 退回逐单先问**
    - **发版硬门**：`git log --oneline $(git tag --sort=-v:refname | head -1)..origin/main` 非空 = tag 债务（AGENTS 自举纪律 6：push 结束 tag 必须钉 HEAD）——播报提醒，值守不代定版本语义
    - **intake 积压**：`ls intake/` 数未标去向文件，≥3 播报「该开消化会话」（目录即仪表盘）
-   - **lane 卫生**：`agent-on worktree check`；新未登记树按 kit/worktree-control-plane「重划与死锁三解」第 3 条占位 park（claim + set-status parked，与 git commit 拆两条命令）
+   - **lane 卫生**：`agent-on worktree check`；只盯 `CONFLICT` 与 `ERROR`（那才是红），`UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 是提示——2026-09-14 起不再替未登记树占位 park；`MISSING` 一行照文案 `worktree forget` 即可
    - 两条铁则照旧：台账只记自己的号（字面匹配盲区）；元动作自涵盖
 5. **低频（每天一次）**：`agent-on worktree gc --dry-run` + 磁盘余量。
 6. **节奏**：CI 中位约 45 秒，不构成等待瓶颈——有单快循环（5–10 分钟），无单 noop 20–30 分钟；事故推一条通知 + 每轮最小探针。
@@ -126,8 +126,8 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 - **分类器间歇拦合并命令**（本仓 2026-08-17 实测）：`gh pr merge` 与 `gh api -X PUT` 时好时坏——settings.local.json（SETUP §1）未建则必撞；按 anti-hallucination #17 两步不过即停，贴命令给用户手跑
 - **PreToolUse guard 先评估整条命令**：占位 claim 与 `git commit` 必须拆成两条命令——合在一条里 claim 永远跑不到（2026-08-17 实测）
 - **GitHub GraphQL 与 REST 可分层故障**：`gh pr create` 503 时换 `gh api repos/…/pulls` REST 直建（2026-08-17 实测两侧恢复时间不同）
-- 未登记 worktree 连坐全场 FAIL → 占位 park 逃生门；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
-  **三条实测更正（2026-08-20，别照 `kit/worktree-control-plane.md` 那节的旧口径操作——那节尚未改，改它的 PR 归 `multi-lane-docs-conflict` 轨）**：
+- **2026-09-14 起未登记 worktree 不再连坐**（`kit/worktree-control-plane.md`「闸只拦真冲突」）：被拦只会是 `CONFLICT`，按文案出口走；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
+  **三条实测更正（2026-08-20，旧版 ≤ v0.19.0 才会撞到；留作考古）**：
   - **占位 park 只对干净树是完解**。脏树 / 有独有 commit 的树 park 完边界照占（互斥闸判事实不判登记，报 `STATUS-DRIFT: …the boundary gate keeps its owns`），OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉——「check 容忍 parked 轨重叠」只对**干净** parked 轨成立。
   - **回填 OUT-OF-BOUNDS 清单进 owns 不是通解**：多棵脏树同时回填必然撞出 OVERLAP，一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空。别改账换绿灯，按债务口径交单。
   - 生命周期**没有 `parked→ready` 这条边**（`set-status` 实测 `invalid lane transition`；转移图只给了 `parked→active`）。合法链是 `parked→active→ready→landed`。**注意 `worktree edit --status` 绕过转移图**（只守不变量，不守边），所以同一件事两条命令行为不同——`set-status` 守图，`edit --status` 不守。
@@ -172,7 +172,7 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 
 ## §7 交接与下班
 
-- **下班四件**（关窗口之前）：①`agent-on oncall release`——**先跑这条**，闸随即 fail-open，回退「值守不在班」规则；忘了跑等于把全场功能窗口的合并/对外通信一直锁着 ②更新 §1 交接快照（含清掉「在班值守地址」）③更新 §5 遗留清单 ④本班新踩的坑写进 §4 → commit 本文档（走值守自己的轨；合入按本仓规则拍板）。
-- **换班**：接班窗口 `oncall claim` 会被在班登记拒绝——正常顺序是旧班先 `release` 再交接。旧班窗口已经关掉、`release` 没人跑时，新班用 `oncall claim --force` 接管（**会留痕**），并在 §5 记一行「上一班未 release」。
+- **下班四件**（关窗口之前）：①`agent-on oncall release`——**先跑这条**，闸随即 fail-open，回退「值守不在班」规则；忘了跑，功能窗口会被挡到登记过期为止（2026-09-14 起默认 90 分钟没心跳自动失效，本仓实测此前一条登记锁了 26 天） ②更新 §1 交接快照（含清掉「在班值守地址」）③更新 §5 遗留清单 ④本班新踩的坑写进 §4 → commit 本文档（走值守自己的轨；合入按本仓规则拍板）。
+- **换班**：接班窗口 `oncall claim` 会被在班登记拒绝——正常顺序是旧班先 `release` 再交接。旧班窗口已经关掉、`release` 没人跑时，登记会在 90 分钟没心跳后自动失效，新班直接 `oncall claim` 即可；等不及就 `oncall claim --force` 接管（**会留痕**），并在 §5 记一行「上一班未 release」。
 - **在途后台链必须写进快照**：链随会话死，接班不知道就会漏单。
 - **接班** = 新会话重新 `/loop` 本文档；下一班按 §1 核对坐标，而非信任本文档的任何声称。

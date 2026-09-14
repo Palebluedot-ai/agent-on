@@ -79,8 +79,8 @@ open PR：<#号 一句话状态，逐条>
 - `gh pr checks --watch` 在 push 后数秒视图滞后，只见外部 app check 就误判全绿 → 改 `gh run list --branch <br>` 拿 run id，盯 `gh run watch <id> --exit-status`
 - CI 全 job 数秒死、step 零执行、日志不存在 → org 级 Actions billing 问题；查 job annotation 取证（实证文案 "recent account payments have failed or your spending limit needs to be increased"），推通知等用户修，每轮最小探针测恢复；别按测试红分诊、别反复 Re-run
 - 状态闸脚本拉 GitHub API 抖动（RemoteDisconnected / 连败）→ Re-run 即绿，非业务违规
-- lane 控制面死锁：①claim 拒绝重划 → `agent-on worktree edit`（旧版无此命令才 fallback 直改 `.git/agent-on/lanes/<id>.json`），改完 `worktree check` 验证 ②未登记 worktree 连坐全场 FAIL → 替它们占位登记（claim + park，goal 写明「占位 park，复活时重划」）
-  **三条实测更正（2026-08-20，别照旧口径操作）**：
+- lane 控制面：①claim 拒绝重划 → `agent-on worktree edit`（旧版无此命令才 fallback 直改 `.git/agent-on/lanes/<id>.json`），改完 `worktree check` 验证 ②**2026-09-14 起未登记 worktree 不再连坐、OUT-OF-BOUNDS 无人持有时不再拦**——`check` 里的 `UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 是提示行，别再替它们占位 park 或回填 owns；只有 `CONFLICT`（本树未提交改动进了别的活轨 owns）才拦，且只拦当事那棵树，出口写在文案里
+  **三条实测更正（2026-08-20，旧版 ≤ v0.19.0 才会撞到；留作考古）**：
   - 占位 park **只对干净树是完解**。脏树 / 有独有 commit 的树 park 完边界照占（互斥闸判事实不判登记，`STATUS-DRIFT: ...the boundary gate keeps its owns`），OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉——「check 容忍 parked 轨重叠」只对**干净** parked 轨成立。
   - **回填 OUT-OF-BOUNDS 清单进 owns 不是通解**：多棵脏树同时回填必然撞出 OVERLAP，一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空。别改账换绿灯，按上面 §2.5 的债务口径交单。
   - 生命周期**没有 `parked→ready` 这条边**（实测 `invalid lane transition`）。合法链是 `parked→active→ready→landed`。
@@ -105,6 +105,6 @@ open PR：<#号 一句话状态，逐条>
 
 ## §7 交接与下班
 
-- **下班四件**（关窗口之前）：①更新 §1 交接快照（main SHA + open PR + 在途后台链，并清掉「在班值守地址」）②更新 §5 遗留清单 ③本班新踩的坑写进 §4 → commit 本文档（走值守自己的轨与项目合入规则）④`agent-on oncall release`——**忘了这步，功能窗口会被路由闸继续挡着**（任何窗口可 `release --force` 清理残留）。
+- **下班四件**（关窗口之前）：①更新 §1 交接快照（main SHA + open PR + 在途后台链，并清掉「在班值守地址」）②更新 §5 遗留清单 ③本班新踩的坑写进 §4 → commit 本文档（走值守自己的轨与项目合入规则）④`agent-on oncall release`——忘了这步，功能窗口会被路由闸挡到登记过期为止（默认 90 分钟没心跳自动失效；任何窗口也可 `release --force` 立即清理）。
 - **在途后台链必须写进快照**：watch+merge 链随会话死，接班不知道就会漏单。
 - **接班** = 新会话重新 `/loop` 本文档；下一班按 §1 核对坐标，而非信任本文档的任何声称。

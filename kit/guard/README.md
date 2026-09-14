@@ -1,6 +1,6 @@
 # kit/guard — 跨仓、worktree 与跨窗口边界（机械闸）
 
-> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前执行 lane/owns 严格检查；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
+> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前判**本树**有没有把未提交改动写进别的活轨的 `owns`（2026-09-14 起只拦这一条，不连坐；对照表见 [kit/worktree-control-plane.md](../worktree-control-plane.md)「闸只拦真冲突」）；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
 > **实现**：逻辑在 Rust CLI 的 `agent-on guard`；本目录 extensionless 文件是 canonical Bash shim，`.sh` 仅为旧个人 hook 的 Bash/Python 双兼容入口。
 
 ## 路径 / doctor
@@ -21,7 +21,7 @@ Claude（`hooks/hooks.json`）：
 { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"" }
 ```
 
-Codex plugin manifest 指向**同一份** `hooks/hooks.json`，不另养副本。guard 对非 git、git 读命令立即放行；完整 `agent-on worktree check` 只在 `commit/push` 前运行。
+Codex plugin manifest 指向**同一份** `hooks/hooks.json`，不另养副本。guard 对非 git、git 读命令立即放行；只在 `commit/push` 前跑本树的边界判定（`gate_for`，与 Git hook 同一把尺子）。值守在班时，值守窗口每一次经 guard 的调用还会顺手续一次在班心跳（见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md) §4）。
 
 先保证：
 
@@ -47,12 +47,12 @@ echo '{"tool_input":{"command":"git commit -m x"},"cwd":"'"$AGENT_ON_ROOT"'"}' \
 echo '{"tool_input":{"command":"git -C '"$AGENT_ON_ROOT"' status"},"cwd":"/tmp"}' \
   | CLAUDE_PROJECT_DIR=/tmp agent-on guard; echo "expect 0"
 
-# 当前 repo 的 commit/push → 自动跑 lane/owns strict check
+# 当前 repo 的 commit/push → 只判本树
 echo '{"tool_input":{"command":"git commit -m probe"},"cwd":"'"$PWD"'"}' \
-  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0, or 2 with actionable audit"
+  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0, or 2 only if this tree writes inside another live lane's owns"
 ```
 
-若 stderr 含 `OUT-OF-BOUNDS`，把文件移回所属 lane，或由控制轨重新划分 `owns`；若是 `ERROR/unknown`，先修检查器，不以跳过 hook 当修复。
+若 stderr 含 `CONFLICT`，按文案里的三条出口走（只提交自己 owns 内的路径 / park 或收窄那条轨 / `oncall route` 问归属）；若是 `ERROR`，先修检查器，不以跳过 hook 当修复。别的树的 `UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 不会拦你，也不需要你去替它们登记。
 
 ```bash
 # 跨窗口路由：值守在班 + 功能窗口发合并命令 → 2
@@ -63,7 +63,7 @@ echo '{"tool_name":"Bash","cwd":"'"$FEATURE_WORKTREE"'","tool_input":{"command":
 # 同一条命令在值守窗口 → 0；`agent-on oncall release` 之后任何窗口 → 0
 ```
 
-若 stderr 含 `跨窗口指令路由拦截`，**别找等价命令偷跑**：按提示三选一（转投 / 让值守下班 / 本窗口接班），后两条都会改在班登记因而留痕。
+若 stderr 含 `跨窗口指令路由拦截`，**别找等价命令偷跑**：按提示三选一（转投 / 让值守下班 / 本窗口接班），后两条都会改在班登记因而留痕。文案里还有一行「值守最近心跳 N 分钟前；M 分钟没心跳自动失效」——值守窗口已经关掉时，等它过期即可，不必 `release --force`。
 
 ### v0.6 Codex 旧注册
 
