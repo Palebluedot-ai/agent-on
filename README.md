@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.20.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.21.0`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.20.0`** |
+| **推荐 pin** | **`v0.21.0`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -278,6 +278,7 @@ Claude / Codex guard 都随 plugin 挂并共用一份 hook；Codex 非 managed h
 - **v0.18 ✅**：**`v0.18.0`** 跨窗口指令路由（三权唯一：合并 / 对外通信 / 跨窗口中转；`agent-on oncall` 五命令在班登记 + PreToolUse 路由闸，无人在班 fail-open；误投一律【转投】不执行）+ `kit/babysit/ROUTING.md` 与 AGENTS 自举纪律 9。
 - **v0.19 ✅**：**`v0.19.0`** 输出契约三轮加固（不许有第三个筐 / 拍板六件含「在哪拍」/ 一句话全批 / 指路报窗口标题）+ Gen-1 角色体系归档进 `legacy/` 与元原则第七条「角色不是架构原语」+ 互斥 owns 闸按事实判（复用旧树的 landed 轨不再关掉边界检查）+ 外向硬门重划（push 自己的分支与开 PR 不在内）。
 - **v0.20 ✅**：**`v0.20.0`** 边界闸只拦一件事（本树未提交改动进别人活轨 owns 才拦，不连坐；UNREGISTERED / OUT-OF-BOUNDS / MISSING 降为提示）+ 值守登记带心跳（90 分钟没心跳自动失效，窗口关了不锁全场）+ 边界闸三档分层 + 出口面可达性 + 常驻预授权 + 值守全自动合并与独立审计（`tools/merge-audit/`）。
+- **v0.21 ✅**：**`v0.21.0`** 投影漂移：「原件 / 投影」立成真相源治理的第一类区分 + `agent-on drift` 一条命令对账台账与文档两条介质上的投影（默认只报不拦）+ bench 案 43。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

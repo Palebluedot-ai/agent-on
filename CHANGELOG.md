@@ -2,7 +2,13 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.20.0 起攒）
+## [未发布]（自 v0.21.0 起攒）
+
+（空）
+
+## v0.21.0（2026-09-17）——投影漂移对账命令 `agent-on drift` + 记账 #41/#42
+
+> **minor**（用户 2026-09-17 拍板）：不动手不坏——新增 `agent-on drift` 子命令与「原件 / 投影」治理原则，默认只报不拦；既有命令行为不变，无 breaking，不需要迁移注记。
 
 - **投影漂移：「原件 / 投影」立成第一类区分 + `agent-on drift` 对账命令（#38，`cli/` + `playbook/truth-hierarchy.md` + bench 案 43 + 快照）**——PR 开于 2026-08-20，落后 main 21 个提交、CI 只红在 `cargo fmt` 一处。2026-09-17 用户在本仓维护者会话原话「所有都已经ok了哈，需要PR 合一下可以」，即硬停第 1 类（`cli/src/**`）的拍板指针；合前把 main 合进分支、补 fmt，本地 224 测试 / clippy / fmt / 文档闸全绿后再合。`drift` 默认只报不拦（本仓当前 35 行），CI 接 `--strict` 仍待办。
 - **记账 #41 并保留一条 `MISMATCH` 作为政策缺口证据（#42）**——`docs/babysit.md` 是本仓值守真正生效的那份，却不在 `policy.json` 的 `governance-surface` 里；改账换绿被拒，缺口留给另一轨补。
