@@ -98,10 +98,8 @@ pub fn ghost_exit(id: &str, status: &str) -> String {
 
 fn scan_ledger(cwd: &Path) -> Result<(usize, Vec<DriftRow>), String> {
     let records = worktree::load_records(cwd)?;
-    let live_trees = worktree::parse_worktrees(&worktree::git(
-        cwd,
-        &["worktree", "list", "--porcelain"],
-    )?);
+    let live_trees =
+        worktree::parse_worktrees(&worktree::git(cwd, &["worktree", "list", "--porcelain"])?);
     let mut rows = Vec::new();
 
     for record in &records {
@@ -157,7 +155,13 @@ fn scan_ledger(cwd: &Path) -> Result<(usize, Vec<DriftRow>), String> {
 
         let full = worktree::git(
             &path,
-            &["rev-parse", "--symbolic-full-name", "--verify", "--quiet", &record.base],
+            &[
+                "rev-parse",
+                "--symbolic-full-name",
+                "--verify",
+                "--quiet",
+                &record.base,
+            ],
         )
         .ok()
         .filter(|s| !s.is_empty());
@@ -230,12 +234,7 @@ fn impl_ref_re() -> Regex {
 pub fn parse_anchors(text: &str) -> Vec<(String, Option<String>)> {
     anchor_re()
         .captures_iter(text)
-        .map(|c| {
-            (
-                c[1].to_string(),
-                c.get(2).map(|m| m.as_str().to_string()),
-            )
-        })
+        .map(|c| (c[1].to_string(), c.get(2).map(|m| m.as_str().to_string())))
         .collect()
 }
 
@@ -497,7 +496,10 @@ mod tests {
         // `forget` refuses a live lane and `set-status` has no edge out of
         // `landed`, so the exit has to go through `edit --status`.
         let exit = ghost_exit("auth-api", "active");
-        assert!(exit.contains("edit --id auth-api --status parked"), "{exit}");
+        assert!(
+            exit.contains("edit --id auth-api --status parked"),
+            "{exit}"
+        );
         assert!(exit.contains("forget --id auth-api"), "{exit}");
     }
 
@@ -519,7 +521,8 @@ mod tests {
 
     #[test]
     fn prose_mentions_of_implementation_files_are_collected() {
-        let text = "实现在 cli/src/oncall.rs + cli/src/guard.rs，回归在 cli/tests/oncall_routing.rs";
+        let text =
+            "实现在 cli/src/oncall.rs + cli/src/guard.rs，回归在 cli/tests/oncall_routing.rs";
         let got = named_impl_files(text);
         assert!(got.contains("cli/src/oncall.rs"), "{got:?}");
         assert!(got.contains("cli/src/guard.rs"), "{got:?}");
@@ -540,8 +543,14 @@ mod tests {
 
     #[test]
     fn a_symbol_is_matched_across_punctuation_but_not_inside_a_longer_word() {
-        assert!(contains_symbol("fn base_verdict(full: Option<&str>)", "base_verdict"));
-        assert!(contains_symbol("crate::drift::base_verdict;", "base_verdict"));
+        assert!(contains_symbol(
+            "fn base_verdict(full: Option<&str>)",
+            "base_verdict"
+        ));
+        assert!(contains_symbol(
+            "crate::drift::base_verdict;",
+            "base_verdict"
+        ));
         assert!(!contains_symbol("fn xbase_verdict()", "base_verdict"));
     }
 
@@ -551,6 +560,8 @@ mod tests {
         assert!(anchor_exempt("legacy/gen1-role-model/README.md"));
         assert!(anchor_exempt("CHANGELOG.md"));
         assert!(!anchor_exempt("kit/worktree-gc-pattern.md"));
-        assert!(!anchor_exempt("snapshot/2026-08-20-gate-exit-reachability.md"));
+        assert!(!anchor_exempt(
+            "snapshot/2026-08-20-gate-exit-reachability.md"
+        ));
     }
 }

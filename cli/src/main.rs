@@ -385,7 +385,8 @@ fn main() {
             c
         }
         Commands::Drift { json, strict, repo } => {
-            let here = repo.unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            let here =
+                repo.unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
             let (code, out) = drift::run(&here, json, strict);
             if code == 0 {
                 print!("{out}");
