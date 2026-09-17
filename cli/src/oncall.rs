@@ -10,13 +10,24 @@
 //! carries its own stale copy of it).
 
 use crate::worktree;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const RECORD_VERSION: u8 = 1;
+
+/// How long an on-call window may stay silent before its registration expires
+/// and the routing gate fails open. A babysit loop idles 20–30 minutes between
+/// rounds and every round runs guarded commands, so 90 minutes is three missed
+/// rounds — a closed window, not a slow one. `oncall_stale_after_minutes` in
+/// `<common git dir>/agent-on/config.json` overrides it; `0` disables expiry.
+pub(crate) const DEFAULT_ONCALL_STALE_AFTER_MINUTES: u64 = 90;
+
+/// Activity refreshes the heartbeat at most this often, so a busy on-call
+/// window does not rewrite the registry on every tool call.
+const HEARTBEAT_MIN_INTERVAL_SECS: i64 = 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct OncallRecord {
@@ -29,6 +40,11 @@ pub(crate) struct OncallRecord {
     /// Absolute worktree root of the on-call window — the identity key.
     pub(crate) worktree: String,
     pub(crate) started_at: String,
+    /// Last moment the on-call window proved it was there: a guarded tool
+    /// call from its worktree, or `agent-on oncall heartbeat`. Empty on
+    /// records written before heartbeats existed; `started_at` stands in.
+    #[serde(default)]
+    pub(crate) heartbeat_at: String,
     #[serde(default)]
     pub(crate) note: String,
 }
@@ -107,17 +123,101 @@ fn save(cwd: &Path, record: &OncallRecord) -> Result<(), String> {
     fs::write(&path, format!("{raw}\n")).map_err(|e| format!("write {}: {e}", path.display()))
 }
 
-/// A registered worktree that no longer exists is not evidence of anyone being
-/// on call — treat it as nobody so the gate cannot deadlock the whole repo.
-fn is_stale(record: &OncallRecord) -> bool {
-    !Path::new(&record.worktree).exists()
+pub(crate) fn stale_after_minutes(cwd: &Path) -> u64 {
+    worktree::config_u64(
+        cwd,
+        "oncall_stale_after_minutes",
+        DEFAULT_ONCALL_STALE_AFTER_MINUTES,
+    )
+}
+
+fn last_seen(record: &OncallRecord) -> Option<DateTime<Utc>> {
+    for stamp in [&record.heartbeat_at, &record.started_at] {
+        if let Ok(parsed) = DateTime::parse_from_rfc3339(stamp) {
+            return Some(parsed.with_timezone(&Utc));
+        }
+    }
+    None
+}
+
+/// Minutes since the on-call window was last seen; `None` when the record
+/// carries no parsable timestamp (read as "just now" so a garbled record
+/// tightens the gate rather than opening it).
+pub(crate) fn silence_minutes(record: &OncallRecord) -> Option<i64> {
+    last_seen(record).map(|seen| (Utc::now() - seen).num_minutes().max(0))
+}
+
+/// Has the window been silent past the configured window? `0` never expires.
+fn is_expired(record: &OncallRecord, stale_after_minutes: u64) -> bool {
+    if stale_after_minutes == 0 {
+        return false;
+    }
+    silence_minutes(record)
+        .map(|minutes| minutes as u64 > stale_after_minutes)
+        .unwrap_or(false)
+}
+
+/// A registration is evidence of somebody being on call only while the window
+/// behind it can be shown to exist: its worktree is still there, and it has
+/// been heard from inside the expiry window. Otherwise it is nobody, so a
+/// closed window can never keep the repo's merges locked.
+fn is_stale(cwd: &Path, record: &OncallRecord) -> bool {
+    !Path::new(&record.worktree).exists() || is_expired(record, stale_after_minutes(cwd))
+}
+
+/// Why the registration no longer counts, for messages.
+fn stale_reason(cwd: &Path, record: &OncallRecord) -> String {
+    if !Path::new(&record.worktree).exists() {
+        return "worktree 不存在".to_string();
+    }
+    format!(
+        "值守窗口 {} 分钟没有心跳，超过 {} 分钟的失效窗口（config `oncall_stale_after_minutes`，0 = 不失效）",
+        silence_minutes(record).unwrap_or(0),
+        stale_after_minutes(cwd)
+    )
+}
+
+/// Record that the on-call window is alive right now. Rate-limited so routine
+/// activity costs at most one registry write per minute; `force` bypasses the
+/// limit for the explicit `oncall heartbeat` command.
+fn touch_heartbeat(cwd: &Path, record: &mut OncallRecord, force: bool) -> Result<bool, String> {
+    let now = Utc::now();
+    if !force {
+        if let Some(seen) = last_seen(record) {
+            if (now - seen).num_seconds() < HEARTBEAT_MIN_INTERVAL_SECS {
+                return Ok(false);
+            }
+        }
+    }
+    record.heartbeat_at = now.to_rfc3339();
+    save(cwd, record)?;
+    Ok(true)
+}
+
+/// Any guarded tool call from the on-call worktree proves the window is there.
+/// Matched on the raw record, not on [`role_at`], so a live window whose
+/// registration lapsed during a long silence re-arms itself with its next
+/// command instead of staying expired while someone is plainly at the keyboard.
+/// A record another window has since overwritten does not match and is left
+/// alone. Errors are swallowed: a heartbeat must never block a tool call.
+fn refresh_if_oncall(cwd: &Path) {
+    let Ok(Some(mut record)) = load(cwd) else {
+        return;
+    };
+    let Ok(here) = worktree::repo_root(cwd).map(|p| canon(&p)) else {
+        return;
+    };
+    if canon(Path::new(&record.worktree)) != here {
+        return;
+    }
+    let _ = touch_heartbeat(cwd, &mut record, false);
 }
 
 pub(crate) fn role_at(cwd: &Path) -> Role {
     let Ok(Some(record)) = load(cwd) else {
         return Role::Nobody;
     };
-    if is_stale(&record) {
+    if is_stale(cwd, &record) {
         return Role::Nobody;
     }
     let here = worktree::repo_root(cwd)
@@ -414,11 +514,15 @@ pub fn claim(
         let here_canon = canon(&here);
         if let Some(existing) = load(cwd)? {
             let same = canon(Path::new(&existing.worktree)) == here_canon;
-            if !same && !is_stale(&existing) && !force {
+            if !same && !is_stale(cwd, &existing) && !force {
                 return Err(format!(
-                    "已有值守在班：{} (worktree {}，自 {})；同一时间至多一个值守。\n\
-交接请用 --force，或让在班窗口先跑 `agent-on oncall release`",
-                    existing.session, existing.worktree, existing.started_at
+                    "已有值守在班：{} (worktree {}，自 {}，最近心跳 {} 分钟前)；同一时间至多一个值守。\n\
+交接请用 --force，或让在班窗口先跑 `agent-on oncall release`；它的窗口若已关闭，{} 分钟没心跳后登记会自动失效",
+                    existing.session,
+                    existing.worktree,
+                    existing.started_at,
+                    silence_minutes(&existing).unwrap_or(0),
+                    stale_after_minutes(cwd)
                 ));
             }
         }
@@ -426,18 +530,21 @@ pub fn claim(
             Some(v) => v.to_string(),
             None => worktree::lane_id_for_worktree(cwd).unwrap_or_default(),
         };
+        let now = Utc::now().to_rfc3339();
         let record = OncallRecord {
             version: RECORD_VERSION,
             session: session.trim().to_string(),
             lane: lane_id,
             worktree: here_canon.display().to_string(),
-            started_at: Utc::now().to_rfc3339(),
+            started_at: now.clone(),
+            heartbeat_at: now,
             note: note.to_string(),
         };
         save(cwd, &record)?;
         Ok(format!(
             "ONCALL CLAIMED\nsession: {}\nlane: {}\nworktree: {}\nsince: {}\n\
-功能窗口从此可用 `agent-on oncall status` 读到交单地址；合并 / 对外通信 / 跨窗口消息归本窗口。\n",
+功能窗口从此可用 `agent-on oncall status` 读到交单地址；合并 / 对外通信 / 跨窗口消息归本窗口。\n\
+心跳：本窗口每次经 guard 的工具调用自动续；{} 分钟没动静登记自动失效、闸 fail-open（`agent-on oncall heartbeat` 可手动续）。\n",
             record.session,
             if record.lane.is_empty() {
                 "-"
@@ -445,7 +552,37 @@ pub fn claim(
                 &record.lane
             },
             record.worktree,
-            record.started_at
+            record.started_at,
+            stale_after_minutes(cwd)
+        ))
+    })();
+    match result {
+        Ok(text) => (0, text),
+        Err(e) => (1, format!("ERROR: {e}\n")),
+    }
+}
+
+/// Explicit liveness proof from the on-call window (a belt for loops that
+/// might go a round without a guarded tool call). Any other window is refused:
+/// only the window itself can vouch for being there.
+pub fn heartbeat(cwd: &Path) -> (i32, String) {
+    let result = (|| -> Result<String, String> {
+        let Some(mut record) = load(cwd)? else {
+            return Err("无人在班，没有可续的心跳；上岗用 `agent-on oncall claim`".to_string());
+        };
+        let here = canon(&worktree::repo_root(cwd)?);
+        if canon(Path::new(&record.worktree)) != here {
+            return Err(format!(
+                "本窗口不是值守（在班登记是 {}，worktree {}）；心跳只能由值守窗口自己续",
+                record.session, record.worktree
+            ));
+        }
+        touch_heartbeat(cwd, &mut record, true)?;
+        Ok(format!(
+            "ONCALL HEARTBEAT: {} @ {}（失效窗口 {} 分钟）\n",
+            record.session,
+            record.heartbeat_at,
+            stale_after_minutes(cwd)
         ))
     })();
     match result {
@@ -461,7 +598,7 @@ pub fn release(cwd: &Path, force: bool) -> (i32, String) {
         };
         let here = canon(&worktree::repo_root(cwd)?);
         let same = canon(Path::new(&existing.worktree)) == here;
-        if !same && !is_stale(&existing) && !force {
+        if !same && !is_stale(cwd, &existing) && !force {
             return Err(format!(
                 "在班值守是 {}（worktree {}），本窗口不是它。\n\
 确实要替它下班（窗口已关 / 交接）请加 --force——这一步会留痕在班登记，不要静默绕过",
@@ -490,12 +627,17 @@ pub fn status(cwd: &Path, json: bool) -> (i32, String) {
     if json {
         let value = match (&record, &role) {
             (Some(r), _) => serde_json::json!({
-                "present": !is_stale(r),
-                "stale": is_stale(r),
+                "present": !is_stale(cwd, r),
+                "stale": is_stale(cwd, r),
+                "worktree_missing": !Path::new(&r.worktree).exists(),
+                "expired": is_expired(r, stale_after_minutes(cwd)),
                 "session": r.session,
                 "lane": r.lane,
                 "worktree": r.worktree,
                 "since": r.started_at,
+                "heartbeat_at": r.heartbeat_at,
+                "silence_minutes": silence_minutes(r),
+                "stale_after_minutes": stale_after_minutes(cwd),
                 "note": r.note,
                 "self_is_oncall": matches!(role, Role::Oncall(_)),
             }),
@@ -514,12 +656,14 @@ pub fn status(cwd: &Path, json: bool) -> (i32, String) {
 上岗：agent-on oncall claim --session <本窗口会话名>\n"
                 .to_string(),
         ),
-        Some(r) if is_stale(&r) => (
+        Some(r) if is_stale(cwd, &r) => (
             0,
             format!(
-                "ONCALL: 登记已失效（worktree 不存在）：{} → {}\n\
-闸按无人在班处理；清理登记：agent-on oncall release --force\n",
-                r.session, r.worktree
+                "ONCALL: 登记已失效（{}）：{} → {}\n\
+闸按无人在班处理；直接 `agent-on oncall claim` 即可接班（不需要 --force），或清理登记：agent-on oncall release --force\n",
+                stale_reason(cwd, &r),
+                r.session,
+                r.worktree
             ),
         ),
         Some(r) => {
@@ -527,13 +671,15 @@ pub fn status(cwd: &Path, json: bool) -> (i32, String) {
             (
                 0,
                 format!(
-                    "ONCALL: {}{}\nlane: {}\nworktree: {}\nsince: {}{}\n\
+                    "ONCALL: {}{}\nlane: {}\nworktree: {}\nsince: {}\nheartbeat: {} 分钟前（{} 分钟没心跳自动失效）{}\n\
 交单地址 = 上面的 session；合并 / 对外通信 / 跨窗口消息统一归它。\n",
                     r.session,
                     if mine { "（就是本窗口）" } else { "" },
                     if r.lane.is_empty() { "-" } else { &r.lane },
                     r.worktree,
                     r.started_at,
+                    silence_minutes(&r).unwrap_or(0),
+                    stale_after_minutes(cwd),
                     if r.note.is_empty() {
                         String::new()
                     } else {
@@ -563,7 +709,7 @@ pub fn route(cwd: &Path, path: &str, json: bool) -> (i32, String) {
         .iter()
         .filter(|r| worktree::owns_path(&r.owns, &rel))
         .collect();
-    let oncall = load(cwd).ok().flatten().filter(|r| !is_stale(r));
+    let oncall = load(cwd).ok().flatten().filter(|r| !is_stale(cwd, r));
 
     if json {
         let value = serde_json::json!({
@@ -736,11 +882,12 @@ fn message_recipient(data: &Value) -> String {
 /// on-call address, hands over a fill-in reroute template, and lists the two
 /// legitimate escape hatches (both of which change the registry, so they leave
 /// a trace).
-fn block_text(action: Action, record: &OncallRecord, what: &str) -> String {
+fn block_text(cwd: &Path, action: Action, record: &OncallRecord, what: &str) -> String {
     format!(
         "⛔ 跨窗口指令路由拦截（值守专属动作：{}）\n\
 本窗口不是值守窗口。合并 / 对外通信 / 跨窗口消息在值守在班期间唯一归值守（kit/babysit/ROUTING.md）。\n\
 在班值守：{}（worktree {}，自 {}）\n\
+值守最近心跳：{} 分钟前；{} 分钟没心跳登记自动失效、本闸随即 fail-open（值守窗口已关时等它过期即可，或走下面的 2）。\n\
 被拦内容：{}\n\
 \n\
 下一步三选一：\n\
@@ -755,6 +902,8 @@ fn block_text(action: Action, record: &OncallRecord, what: &str) -> String {
         record.session,
         record.worktree,
         record.started_at,
+        silence_minutes(record).unwrap_or(0),
+        stale_after_minutes(cwd),
         what,
         record.session
     )
@@ -765,6 +914,9 @@ fn block_text(action: Action, record: &OncallRecord, what: &str) -> String {
 pub(crate) fn route_decision(data: &Value) -> i32 {
     let name = tool_name(data);
     let cwd = tool_cwd(data);
+
+    // Every guarded call from the on-call window is proof of life.
+    refresh_if_oncall(&cwd);
 
     // SendMessage-style tools: only the recipient matters.
     if name.contains("SendMessage") || name.contains("send_message") {
@@ -787,6 +939,7 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
         eprintln!(
             "{}",
             block_text(
+                &cwd,
                 Action::CrossWindow,
                 &record,
                 &format!("SendMessage → {to}（该地址对应另一条轨：{peer}）")
@@ -813,7 +966,7 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
     let Role::Feature(record) = role_at(&cwd) else {
         return 0;
     };
-    eprintln!("{}", block_text(action, &record, cmd));
+    eprintln!("{}", block_text(&cwd, action, &record, cmd));
     2
 }
 

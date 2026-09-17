@@ -150,6 +150,11 @@ enum OncallCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
+    /// Prove the on-call window is still there (activity through the guard does this automatically)
+    Heartbeat {
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
     /// Go off call; the routing gate fails open again
     Release {
         /// Release someone else's registration (closed window / handover)
@@ -675,6 +680,7 @@ fn main() {
                 OncallCmd::Route { path, json, cwd } => {
                     oncall::route(&cwd.unwrap_or_else(default_cwd), &path, json)
                 }
+                OncallCmd::Heartbeat { cwd } => oncall::heartbeat(&cwd.unwrap_or_else(default_cwd)),
                 OncallCmd::Release { force, cwd } => {
                     oncall::release(&cwd.unwrap_or_else(default_cwd), force)
                 }

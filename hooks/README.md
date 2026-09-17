@@ -12,10 +12,10 @@
 
 | matcher | 判什么 | 拦什么 |
 |---|---|---|
-| `Bash` | ①跨仓 git 边界 ②lane/owns 边界（只在 `commit`/`push`）③**跨窗口指令路由**（值守在班时的合并 / 对外通信命令） | 越界 git 写；非值守窗口的 `gh pr merge`、`update-branch`、tag push、PR/Issue 评论、chat webhook |
+| `Bash` | ①跨仓 git 边界 ②lane/owns 边界（只在 `commit`/`push`，**只判本树**：本树未提交改动进了别的活轨 owns 才拦；别的树没登记 / 越界不拦，2026-09-14 起）③**跨窗口指令路由**（值守在班时的合并 / 对外通信命令；值守窗口的每次调用顺手续在班心跳） | 越界 git 写；本树的 `CONFLICT`；非值守窗口的 `gh pr merge`、`update-branch`、tag push、PR/Issue 评论、chat webhook |
 | `SendMessage` | **跨窗口沟通归属**：收件人是不是**另一个已登记窗口**（地址前缀匹配某条 lane 的 worktree 目录名） | 非值守窗口发给另一个窗口的横向消息；交单 / 回执发给值守、以及 `main` / 子代理等会话内部地址照旧放行 |
 
-路由闸只在**有人 `agent-on oncall claim`** 时生效，无人在班一律 fail-open；协议全文见 [`kit/babysit/ROUTING.md`](../kit/babysit/ROUTING.md)。
+路由闸只在**有人 `agent-on oncall claim` 且登记还活着**（默认 90 分钟内有心跳）时生效，无人在班或登记过期一律 fail-open；协议全文见 [`kit/babysit/ROUTING.md`](../kit/babysit/ROUTING.md)。
 **MCP 外发工具不在这两个 matcher 内**（Telegram / Slack MCP 等按各自工具名注册）——要机械兜住，自己加一条 matcher 指向同一 shim；否则那条通道只有纪律层兜着。
 
 ## 路径约定（可移植）
