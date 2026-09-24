@@ -49,10 +49,10 @@ echo '{"tool_input":{"command":"git -C '"$AGENT_ON_ROOT"' status"},"cwd":"/tmp"}
 
 # 当前 repo 的 commit/push → 只判本树
 echo '{"tool_input":{"command":"git commit -m probe"},"cwd":"'"$PWD"'"}' \
-  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0, or 2 only if this tree writes inside another live lane's owns"
+  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0, or 2 only if another worktree has the same uncommitted file touched within 7 days"
 ```
 
-若 stderr 含 `CONFLICT`，按文案里的三条出口走（只提交自己 owns 内的路径 / park 或收窄那条轨 / `oncall route` 问归属）；若是 `ERROR`，先修检查器，不以跳过 hook 当修复。别的树的 `UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 不会拦你，也不需要你去替它们登记。
+若 stderr 含 `blocked:`，那一行写了路径和另一棵树。把该文件在其中一棵树里提交或还原即可；超过 7 天没人碰的那一份不会拦。`error:` 是这棵树的审计没跑起来，先修检查器，不以跳过 hook 当修复。
 
 ```bash
 # 跨窗口路由：值守在班 + 功能窗口发合并命令 → 2

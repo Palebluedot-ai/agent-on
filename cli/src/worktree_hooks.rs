@@ -640,7 +640,7 @@ fn install_inner(repo: &Path) -> Result<String, String> {
     }
 
     Ok(format!(
-        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: blocks only this worktree's uncommitted change entering another live lane's owns\npre-push: same one-tree rule\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
+        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: blocks only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days\npre-push: same one-tree rule\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
         root.display()
     ))
 }
@@ -871,10 +871,7 @@ pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
 
     let (code, detail) = crate::worktree::gate_for(repo);
     if code != 0 {
-        return (
-            1,
-            format!("BLOCKED by Agent-On {hook}: this worktree's change enters another live lane's owns, or its audit could not run\n{detail}"),
-        );
+        return (1, format!("BLOCKED by Agent-On {hook}:\n{detail}"));
     }
     (0, String::new())
 }
@@ -1155,17 +1152,26 @@ mod tests {
         };
         assert_eq!(crate::worktree::claim_lane(&lane, &claim).0, 0);
 
-        // Ordinary primary work outside the lane's ground is not a control
-        // violation any more; only entering the lane's owns is.
+        // A file only the primary has dirty is not a block, owns or not.
         fs::write(root.join("README.md"), "note\n").unwrap();
         let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(root.join("app")).unwrap();
         fs::write(root.join("app/x.txt"), "intrude\n").unwrap();
         let (code, out) = run_hook(&root, "pre-commit");
+        assert_eq!(code, 0, "{out}");
+        fs::create_dir_all(lane.join("app")).unwrap();
+        fs::write(lane.join("app/x.txt"), "lane also\n").unwrap();
+        let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 1, "{out}");
-        assert!(out.contains("CONFLICT"), "{out}");
-        assert!(out.contains("lane-a"), "{out}");
+        assert!(
+            out.contains("blocked: app/x.txt is also uncommitted in"),
+            "{out}"
+        );
+        assert!(
+            out.contains(&fs::canonicalize(&lane).unwrap().display().to_string()),
+            "{out}"
+        );
 
         // A squash merge in flight is the lane's work arriving, never judged.
         let marker = PathBuf::from(git(&root, &["rev-parse", "--git-path", "SQUASH_MSG"]).unwrap());

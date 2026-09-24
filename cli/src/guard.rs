@@ -359,10 +359,10 @@ pub fn guard_decision(data: &Value) -> i32 {
         }
     }
 
-    // Commit/push are the only PreToolUse points that pay for a lane audit,
-    // and the audit judges *this* worktree only: its own uncommitted change
-    // entering another live lane's owns. Other git writes keep the
-    // cross-repo check only.
+    // Commit/push are the only PreToolUse points that pay for a worktree
+    // audit, and the audit judges *this* worktree only: an uncommitted path
+    // that another worktree also has uncommitted, touched within 7 days.
+    // Other git writes keep the cross-repo check only.
     let mut audit_repos = BTreeSet::new();
     for dir in &parsed.commit_push_dirs {
         if let Some(root) = existing_repo_root(dir) {
@@ -374,10 +374,9 @@ pub fn guard_decision(data: &Value) -> i32 {
         let (code, detail) = worktree::gate_for(repo);
         if code != 0 {
             eprintln!(
-                "⛔ 边界闸拦截：本树未提交的改动进入了别的活轨的 owns（或本树审计跑不起来），已拦截 git commit/push。\n\
+                "⛔ 边界闸：本树有未提交文件，另一棵工作树 7 天内也改过同一文件。\n\
 本树: {}\n\
 {}\n\
-上面每条出口都在本窗口权限内、不删任何东西；别的 worktree 没登记 / 越界 / 幽灵登记都不影响本次提交。\n\
 被拦命令: {cmd}\n",
                 repo.display(),
                 detail.trim_end()
@@ -591,8 +590,7 @@ mod tests {
 
     #[test]
     fn allows_codex_commit_escaping_own_owns_when_nobody_holds_the_path() {
-        // README.md is outside lane-a's owns, but no other live lane reserves
-        // it: that is drift to report, not a conflict to stop.
+        // A file only this tree has dirty is not a conflict.
         let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let (_tmp, _root, wt) = lane_fixture();
         fs::write(wt.join("README.md"), "escaped\n").unwrap();
@@ -612,11 +610,9 @@ mod tests {
     }
 
     #[test]
-    fn blocks_codex_commit_entering_another_live_lanes_owns() {
+    fn blocks_codex_commit_only_when_another_tree_has_the_same_fresh_file() {
         let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
-        let (tmp, root, _wt) = lane_fixture();
-        // A second, unregistered worktree (what a desktop host opens per
-        // session) writes inside lane-a's `app` ground.
+        let (tmp, root, wt) = lane_fixture();
         let intruder = tmp.path().join("intruder");
         run(
             &root,
@@ -641,6 +637,9 @@ mod tests {
                 "workdir": intruder
             }
         });
+        // The lane owns `app` but has not touched this file. That is not a block.
+        assert_eq!(guard_decision(&data), 0);
+        fs::write(wt.join("app/base.txt"), "lane also\n").unwrap();
         assert_eq!(guard_decision(&data), 2);
         env::remove_var("AGENT_ON_ROOT");
         env::remove_var("CODEX_PROJECT_DIR");

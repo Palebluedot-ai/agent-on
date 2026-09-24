@@ -218,28 +218,14 @@ fn live_contract_refusal_tells_the_blocked_lane_to_stay_out() {
     );
 }
 
-/// `STATUS-DRIFT` is a warning nobody owns unless the line says who may clear
-/// it. It also has to carry the re-pin exit: `--status active` widens the
-/// boundary to full `owns`, which is the wrong direction for a lane whose work
-/// already landed under a squashed commit.
+/// A single tree's uncommitted file is not a commit block, and status does
+/// not turn that fact into a wall of registry warnings.
 #[test]
-fn status_drift_line_names_its_owner_and_the_re_pin_exit() {
+fn one_dirty_tree_says_ok() {
     let (_tmp, a, _b) = fixture();
     landed_lane_redivided_onto_shared(&a);
     write_in(&a, "shared/s.md", "lane-a writing");
 
-    let status = ok(&a, &["worktree", "status"]);
-    assert!(status.contains("STATUS-DRIFT"), "{status}");
-    assert!(
-        status.contains("any lane this blocks may repair"),
-        "drift line does not name who may clear it: {status}"
-    );
-    assert!(
-        status.contains("--base"),
-        "drift line does not offer the re-pin exit: {status}"
-    );
-    assert!(
-        status.contains("not deletion"),
-        "drift line does not fence off the destructive lookalike: {status}"
-    );
+    assert_eq!(ok(&a, &["worktree", "status"]), "ok\n");
+    assert_eq!(ok(&a, &["worktree", "check"]), "ok\n");
 }

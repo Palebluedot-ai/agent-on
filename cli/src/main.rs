@@ -258,14 +258,14 @@ enum WorktreeCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
-    /// Show all worktrees, boundaries, drift, dependencies, and reclaim class
+    /// One line: `ok`, or which other worktree holds the same uncommitted file
     Status {
         #[arg(long)]
         json: bool,
         #[arg(long)]
         repo: Option<PathBuf>,
     },
-    /// Exit non-zero on unregistered worktrees, boundary violations, or lane overlap
+    /// Exit non-zero only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days
     Check {
         #[arg(long)]
         json: bool,

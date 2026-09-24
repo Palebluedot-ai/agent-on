@@ -246,13 +246,23 @@ fn real_pre_commit_blocks_only_writes_into_a_live_lane_and_allows_squash_merge()
         combined(&linked_status)
     );
 
-    // Primary work outside the lane's ground goes through: the primary is
-    // not a control track by decree, only by what it touches.
+    // A file only the primary has dirty goes through. The lane's owns do not
+    // reserve ground the lane is not actually editing.
     fs::write(fixture.root.join("NOTES.md"), "ordinary main edit\n").unwrap();
     must_run(&fixture.root, "git", &["add", "NOTES.md"]);
     must_run(&fixture.root, "git", &["commit", "-m", "allowed main edit"]);
 
-    // Primary work inside lane-a's owns is the one thing the hook stops.
+    fs::write(fixture.root.join("app/base.txt"), "primary only\n").unwrap();
+    must_run(&fixture.root, "git", &["add", "app/base.txt"]);
+    must_run(
+        &fixture.root,
+        "git",
+        &["commit", "-m", "lane is not editing this"],
+    );
+    must_run(&fixture.root, "git", &["reset", "--hard", "HEAD~1"]);
+
+    // The same fresh file in both trees is the one thing the hook stops.
+    fs::write(lane.join("app/base.txt"), "lane also\n").unwrap();
     fs::write(fixture.root.join("app/base.txt"), "primary intrudes\n").unwrap();
     must_run(&fixture.root, "git", &["add", "app/base.txt"]);
     let blocked = run(&fixture.root, "git", &["commit", "-m", "must be blocked"]);
@@ -262,22 +272,24 @@ fn real_pre_commit_blocks_only_writes_into_a_live_lane_and_allows_squash_merge()
         blocked_text.contains("BLOCKED by Agent-On pre-commit"),
         "{blocked_text}"
     );
-    assert!(blocked_text.contains("CONFLICT"), "{blocked_text}");
-    assert!(blocked_text.contains("lane-a"), "{blocked_text}");
+    assert!(
+        blocked_text.contains("blocked: app/base.txt is also uncommitted in"),
+        "{blocked_text}"
+    );
     must_run(
         &fixture.root,
         "git",
         &["restore", "--staged", "app/base.txt"],
     );
     must_run(&fixture.root, "git", &["restore", "app/base.txt"]);
+    must_run(&lane, "git", &["checkout", "--", "app/base.txt"]);
 
-    // The lane drifting outside its own owns, onto a path nobody holds, is
-    // reported by `check` but does not stop its commit.
+    // A file only the lane has dirty does not stop its commit.
     fs::write(lane.join("README.md"), "escaped lane edit\n").unwrap();
     must_run(&lane, "git", &["add", "README.md"]);
     must_run(&lane, "git", &["commit", "-m", "drift, not conflict"]);
     let status = combined(&fixture.must_agent_on(&lane, &["worktree", "status"]));
-    assert!(status.contains("OUT-OF-BOUNDS: README.md"), "{status}");
+    assert_eq!(status, "ok\n");
 
     fs::write(lane.join("app/feature.txt"), "feature\n").unwrap();
     must_run(&lane, "git", &["add", "app/feature.txt"]);
@@ -346,9 +358,10 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
     );
     must_run(&fixture.root, "git", &["push", "origin", "main"]);
 
-    // The orphan itself is stopped only when it writes inside lane-a's owns:
-    // at commit, and — if it bypassed that — at push while the intrusion is
-    // still uncommitted in its tree.
+    // The orphan is stopped only when the lane also has that same file dirty:
+    // at commit, and — if it bypassed that — at push while both copies are
+    // still uncommitted.
+    fs::write(lane.join("app/base.txt"), "lane also\n").unwrap();
     fs::write(orphan.join("app/base.txt"), "orphan intrudes\n").unwrap();
     must_run(&orphan, "git", &["add", "app/base.txt"]);
     let commit = run(&orphan, "git", &["commit", "-m", "must stop"]);
@@ -358,7 +371,10 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
         commit_text.contains("BLOCKED by Agent-On pre-commit"),
         "{commit_text}"
     );
-    assert!(commit_text.contains("CONFLICT"), "{commit_text}");
+    assert!(
+        commit_text.contains("blocked: app/base.txt is also uncommitted in"),
+        "{commit_text}"
+    );
     must_run(&orphan, "git", &["restore", "--staged", "app/base.txt"]);
     must_run(&orphan, "git", &["restore", "app/base.txt"]);
     fs::write(orphan.join("notes.md"), "orphan notes\n").unwrap();
@@ -373,7 +389,10 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
         pushed_text.contains("BLOCKED by Agent-On pre-push"),
         "{pushed_text}"
     );
-    assert!(pushed_text.contains("CONFLICT"), "{pushed_text}");
+    assert!(
+        pushed_text.contains("blocked: app/base.txt is also uncommitted in"),
+        "{pushed_text}"
+    );
     let remote_orphan = run(
         &fixture.root,
         "git",
@@ -845,8 +864,7 @@ fn claim_splits_comma_separated_owns_into_separate_boundaries() {
     fs::write(lane.join("a.md"), "in-bounds change\n").unwrap();
     let check = fixture.must_agent_on(&lane, &["worktree", "check"]);
     let check_text = combined(&check);
-    assert!(!check_text.contains("OUT-OF-BOUNDS"), "{check_text}");
-    assert!(check_text.contains("RESULT: PASS"), "{check_text}");
+    assert_eq!(check_text, "ok\n");
 }
 
 #[test]

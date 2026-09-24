@@ -101,15 +101,15 @@ agent-on worktree claim \
 
 **`0` 表示关掉休眠**（在写的轨永远保留事实边界）——配错只会让闸更紧，不会更松。同理，工作区脏但 git 描述不了的树按「在写」处理，闸 fail-closed。
 
-**活轨永不休眠**：`active` 的意思就是有人说了「我还回来」，契约不因为放了几天就过期。要释放文件域，用 `parked`。
+**活轨的登记不过期**：`active` 仍表示「claim 时说了还回来」。这只约束 `claim` / `edit` 拒不拒重叠的 owns，**不约束 commit**。commit 不读这份登记。
 
-## 闸只拦真冲突（2026-09-14 起；连坐作废）
+## 闸只拦真冲突（2026-09-24 起；不读 lane 登记）
 
-上面三档回答的是「谁持有边界」；**闸真正会亮红、会拦 commit / push 的只有一条**：
+上面三档仍给 `claim` / `edit` 用。**commit / push 不读它们。** 会拦提交的只有一条：
 
-> **本 worktree 未提交的改动（staged / unstaged / untracked），落进了另一条活轨（`active` / `blocked` / `ready`，且 worktree 还在）的 `owns`。** 报 `CONFLICT`，只拦**这棵树**。
+> **本 worktree 的某个未提交文件（staged / unstaged / untracked），在另一棵 worktree 里也是未提交的，而且那一份在 7 天内被人碰过。** 人读输出一行 `blocked: <路径> is also uncommitted in <另一棵树>`。没撞上，hook 静默，`status` / `check` 打 `ok`。
 
-其余全部是**提示行**，不红、不拦任何人：
+人读的 `status` / `check` 不再打印下面这些行。它们还在 `--json` 里，不挡 commit：
 
 | 行 | 含义 | 出口（都在被拦者权限内、零删除） |
 |---|---|---|
@@ -119,15 +119,15 @@ agent-on worktree claim \
 | `MISSING` | 活登记指向的 worktree 已经不在 | `worktree forget --id X`（任何状态都能 forget——树都没了，守不住任何东西） |
 | `RESCUE-DEBT` | 休眠的未落地改动 | 救走它（push / commit / 开 PR）；改登记清不掉 |
 
-`RESULT: FAIL` 只剩两种成因：某处有 `CONFLICT`，或审计跑不起来（`ERROR`）。
+`check` 非零只剩两种成因：本树有上面那条 `blocked`，或本树审计跑不起来（`error`）。别的树互相撞，不记到这棵树上。`--json` 仍带全场登记，那些字段不挡 commit。窗口与 `claim` 休眠共用 `dormant_after_days`（默认 7；`0` 表示同一路径一律算新鲜）。
 
 三条设计约束，改判据时别动：
 
 1. **只看未提交改动，不看相对 base 的已提交发散。** 已提交的东西在它提交那一刻已经过过闸（或被人有意 `--no-verify` 跳过）；死分支落后一百多个提交的旧发散不该跟着每一次新提交跑。这一条同时消掉「squash 后永远 changed N」与「主树本地 merge 完 push 被自己刚合的 lane 拦住」两类假红。
-2. **只算到当事那棵树头上。** 别的树没登记、越界、幽灵登记，是它们的报告，不是你的阻塞。PreToolUse guard 与 Git hook 都走 `gate_for(<本树>)`，`check` 才看全场。
-3. **休眠的写者不参与冲突。** 超过休眠窗口没人碰的脏文件是债，不是第二个写者——这条对未登记树同样成立。
+2. **只算到当事那棵树头上。** PreToolUse、Git hook、`status`、`check` 都只回答「这棵树能不能提交」。别的树互相撞，不记到这棵树上。
+3. **超过窗口没人碰的那一份不参与。** 判据是那个文件的 mtime，不是 lane 状态，登记了没有也不看。
 
-**主树也不再「按身份」是控制轨**：并行期主树能不能 commit，看它碰没碰活轨的地盘，不看有没有活轨存在；merge / squash / cherry-pick / rebase 进行中照旧一律放行。
+merge / squash / cherry-pick / rebase 进行中照旧一律放行。
 
 为什么推翻 2026-08-17「连坐维持」：桌面宿主每开一个会话就自建一棵不登记的树，「全场有一棵没登记的树」是常态，连坐把常态变成常红——而**恒红的闸等于没有闸**。账实一致由 `status` / `check` 的报告面继续保证（该报的一行不少），只是不再拿别人的 commit 当抵押品。决策全文见 [snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md](../snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md)。
 
@@ -142,8 +142,8 @@ agent-on worktree hooks status
 
 安装器把 `pre-commit` / `pre-push` 放在 common git dir 的 Agent-On 专属目录，并设置仓库级 shared `core.hooksPath`，所以 primary 与所有 linked worktree 同时生效：
 
-- 两个 hook 都只判**本树**：本树未提交改动进了别的活轨的 `owns` → 拦；本树审计跑不起来 → 拦（fail-closed 只对本树）；别的树没登记 / 越界 / 幽灵登记 → 不拦（见上节「闸只拦真冲突」）；
-- 主树不再按身份被拦，只在它碰活轨地盘时拦；merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
+- 两个 hook 都只判**本树**：本树未提交文件与另一棵树 7 天内改过的同一未提交文件相撞 → 拦；本树审计跑不起来 → 拦；没撞上 → 静默；
+- merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
 - 成功时静默；失败时打印原因与下一条修复命令；
 - 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；
 - `status` 会验配置与内容漂移；`uninstall` 只移除仍与安装指纹一致的 Agent-On 资产，漂移时整组不动。
@@ -343,9 +343,15 @@ lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管*
 
 **重划入口 = `agent-on worktree edit`**(`--id` 定位,缺省当前 worktree 的 lane;可改 goal / owns / branch / base,`--base` 会重钉 base_sha;改 owns 走与 claim 相同的活跃轨重叠闸,parked 轨重叠容忍),`claim` 仍拒绝已存在 lane 与撞活跃轨的重划。无 CLI(装机版 ≤0.12.1)或被重叠闸拦住时,fallback = 直接编辑 common git dir 的 `agent-on/lanes/<id>.json`(goal / owns / branch / base_sha 写真值),改完 `agent-on worktree check` 验证——这是文档化的运维姿势,不是绕闸(lane 记录本身写着「复活时重划」)。
 
-**2026-09-14 起,「死锁三解」里的第 2、3 条已经没有对应的病**:OUT-OF-BOUNDS 不再拦(无人持有时是提示),未登记树不再连坐。被拦时只会看到 `CONFLICT`,报错文案自带三条出口:①只提交自己 owns 内的路径 / 到那条轨的 worktree 里改 ②那条轨是你的或它的会话已经不在:`set-status parked --id X`(干净树 park 不丢东西,`--status active` 随时复活)或 `edit --id X --owns …` 收窄 ③拿不准归谁:`oncall route --path <文件>`。**别回填 owns 换绿灯**——那是把互斥保护也一起拆了。
+**2026-09-24 起，commit 被拦只说明另一棵树里有同一份新鲜的未提交文件。** 出口是到那棵树里把这个文件提交、还原，或它已经超过 7 天没人碰（闸自己放开）。`set-status parked` 和改 `owns` 不再是提交的出口。登记还在，给 `claim` / `edit` 用，不挡 commit。
 
 仍然成立的一条:**claim 拒绝重划已存在 lane** → `worktree edit` 改真值,再 check 验证(无 CLI 时直改该 lane JSON)。PreToolUse guard 在命令执行**前**评估——任何登记修复与 `git commit` 必须拆成两条命令,合在一条里修复永远跑不到。
+
+**陈年树与带独有提交的树(2026-09-05 inbox-radar 实测三条)**:
+
+- **detached HEAD 的树不能直接 claim**:`claim --parked` 会报「detached HEAD cannot claim a lane; create a branch first」。先 `git checkout -b stale/<lane-id>` 打个分支标签,再 `claim --cwd <path> --parked` 即过——标签只是给它一个可以被引用的名字,不是新工作。
+- **带独有提交的树把 base 重钉自身 HEAD**:`--base <自身 HEAD>` 之后 `check` PASS。这是**完解不是绕闸**:它让「相对 base 落后」这个判据指向它真实的起点,而不是指向一条它从未从那里长出过的线(12 / 72 个独有提交的树均按此通过)。
+- **批量删除会被分类器拦**:把 4 个 `worktree remove --force` 与 `branch -d` 合在一条命令里,分类器按「一条命令只做一件有状态的事」整条拦下——**一树一条命令**逐条执行才通过。与上面「修复与提交分两条」是同一条纪律的两个面;删除本身仍只归人。
 
 **已知雷**:0.12.x 装机版的 `claim --owns "a,b,c"` 逗号串会被整串存成单个 glob,所有改动文件全判 OUT-OF-BOUNDS——旧版多路径必须**重复 `--owns` 传参**。现已修复为逗号自动分列(claim 侧 PR #6,edit 侧同款;字面逗号路径用 git 引号八进制 `"a\054b.md"`);owns 写错用 `worktree edit --owns` 改,不再只有 JSON 直改一条路。生命周期转移有向:`parked→landed` 与 `active→landed` 均非法,合法链 `active→ready→landed` / `parked→ready→landed`。
 

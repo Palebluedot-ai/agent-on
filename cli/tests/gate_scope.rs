@@ -1,17 +1,13 @@
-//! The boundary gate blocks one thing only: *this* worktree's uncommitted
-//! change landing inside another live lane's `owns`. Everything else the audit
-//! sees — an unregistered worktree, a lane whose worktree vanished, a change
-//! outside your own owns that nobody else holds — is reported, never fatal, and
-//! never charged to a different worktree's commit.
-//!
-//! Before 2026-09-14 a single unregistered worktree failed every commit in the
-//! repo (连坐). Desktop hosts create worktrees per session without claiming
-//! them, so in practice every multi-window repo was red most of the time.
+//! The commit gate blocks one thing only: this worktree has an uncommitted
+//! path that another worktree also has uncommitted, and that other copy was
+//! touched within 7 days. Lane registration is not an input. A clean pass is
+//! the single line `ok`.
 
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
 fn must_run(cwd: &Path, program: &str, args: &[&str]) {
@@ -154,8 +150,17 @@ fn write_in(worktree: &Path, rel: &str, line: &str) {
     fs::write(path, format!("{line}\n")).unwrap();
 }
 
+fn age_file(worktree: &Path, rel: &str, days: u64) {
+    let file = fs::File::options()
+        .write(true)
+        .open(worktree.join(rel))
+        .unwrap();
+    file.set_modified(SystemTime::now() - Duration::from_secs(days * 86_400))
+        .unwrap();
+}
+
 #[test]
-fn unregistered_worktree_is_reported_but_blocks_nobody() {
+fn different_files_and_an_unregistered_tree_do_not_block() {
     let f = field();
     write_in(&f.extra, "notes.md", "scratch");
     write_in(&f.lane_a, "app/a.md", "lane-a work");
@@ -165,39 +170,35 @@ fn unregistered_worktree_is_reported_but_blocks_nobody() {
     assert_allowed(&f.root);
 
     let text = ok(&f.root, &["worktree", "check"]);
-    assert!(text.contains("UNREGISTERED:"), "{text}");
-    assert!(text.contains("RESULT: PASS"), "{text}");
+    assert_eq!(text, "ok\n");
 }
 
 #[test]
-fn commit_is_blocked_only_when_it_writes_inside_another_live_lanes_owns() {
+fn commit_is_blocked_only_when_another_tree_has_the_same_fresh_file() {
     let f = field();
+    // The lane's owns cover `app`, but it has not touched this file.
     write_in(&f.extra, "app/a.md", "extra intrudes");
+    assert_allowed(&f.extra);
 
-    let text = assert_blocked(&f.extra);
-    assert!(text.contains("CONFLICT"), "{text}");
-    assert!(text.contains("app/a.md"), "{text}");
-    assert!(text.contains("lane-a"), "{text}");
-    // The exits must be commands the blocked window can run, and none of
-    // them may be "delete something".
-    assert!(text.contains("set-status parked"), "{text}");
-    assert!(text.contains("--owns"), "{text}");
-    assert!(!text.contains("worktree remove"), "{text}");
-
-    // The lane whose ground was entered is not punished for the intruder.
     write_in(&f.lane_a, "app/a.md", "lane-a own work");
-    assert_allowed(&f.lane_a);
+    let text = assert_blocked(&f.extra);
+    assert!(
+        text.contains("blocked: app/a.md is also uncommitted in"),
+        "{text}"
+    );
+    assert!(!text.contains("worktree remove"), "{text}");
+    assert!(!text.contains("set-status parked"), "{text}");
+    assert_blocked(&f.lane_a);
 }
 
 #[test]
-fn change_outside_own_owns_is_advisory_when_nobody_holds_the_path() {
+fn a_file_nobody_else_has_dirty_is_ok() {
     let f = field();
     write_in(&f.lane_a, "README.md", "escaped but unclaimed");
 
     assert_allowed(&f.lane_a);
-    let text = ok(&f.root, &["worktree", "check"]);
-    assert!(text.contains("OUT-OF-BOUNDS: README.md"), "{text}");
-    assert!(text.contains("RESULT: PASS"), "{text}");
+    let text = ok(&f.lane_a, &["worktree", "check"]);
+    assert_eq!(text, "ok\n");
 }
 
 #[test]
@@ -231,45 +232,45 @@ fn live_lane_whose_worktree_vanished_blocks_nobody_and_can_be_forgotten() {
 
     write_in(&f.lane_a, "app/a.md", "still working");
     assert_allowed(&f.lane_a);
-
-    let text = ok(&f.root, &["worktree", "check"]);
-    assert!(text.contains("MISSING: lane-b"), "{text}");
-    assert!(text.contains("forget --id lane-b"), "{text}");
-    assert!(text.contains("RESULT: PASS"), "{text}");
+    assert_eq!(ok(&f.lane_a, &["worktree", "check"]), "ok\n");
 
     // A lane whose worktree is gone can be forgotten whatever its status says.
     ok(&f.root, &["worktree", "forget", "--id", "lane-b"]);
-    let text = ok(&f.root, &["worktree", "check"]);
-    assert!(!text.contains("lane-b"), "{text}");
+    assert!(!f.root.join(".git/agent-on/lanes/lane-b.json").exists());
+    assert_eq!(ok(&f.root, &["worktree", "check"]), "ok\n");
 }
 
 #[test]
-fn primary_worktree_is_blocked_only_when_it_enters_a_live_lane() {
+fn primary_is_blocked_only_when_another_tree_has_the_same_file() {
     let f = field();
     write_in(&f.root, "README.md", "control-track note");
     assert_allowed(&f.root);
 
     write_in(&f.root, "app/a.md", "primary intrudes");
+    assert_allowed(&f.root);
+
+    write_in(&f.lane_a, "app/a.md", "lane also");
     let text = assert_blocked(&f.root);
-    assert!(text.contains("CONFLICT"), "{text}");
-    assert!(text.contains("lane-a"), "{text}");
+    assert!(
+        text.contains("blocked: app/a.md is also uncommitted in"),
+        "{text}"
+    );
 }
 
 #[test]
-fn parking_the_live_lane_is_a_reachable_exit() {
+fn a_copy_untouched_for_over_seven_days_does_not_block() {
     let f = field();
     write_in(&f.extra, "app/a.md", "extra intrudes");
-    assert_blocked(&f.extra);
-
-    ok(
-        &f.lane_a,
-        &["worktree", "set-status", "parked", "--id", "lane-a"],
-    );
+    write_in(&f.lane_a, "app/a.md", "old lane work");
+    age_file(&f.lane_a, "app/a.md", 30);
     assert_allowed(&f.extra);
+
+    write_in(&f.lane_a, "app/a.md", "touched again");
+    assert_blocked(&f.extra);
 }
 
 #[test]
-fn two_unregistered_trees_on_one_file_are_not_blocked() {
+fn two_unregistered_trees_on_one_fresh_file_block_each_other() {
     let f = field();
     let extra2 = f._tmp.path().join("extra2");
     must_run(
@@ -286,21 +287,27 @@ fn two_unregistered_trees_on_one_file_are_not_blocked() {
     );
     write_in(&f.extra, "README.md", "one");
     write_in(&extra2, "README.md", "two");
-    assert_allowed(&f.extra);
-    assert_allowed(&extra2);
+    assert_blocked(&f.extra);
+    assert_blocked(&extra2);
 }
 
 #[test]
-fn check_json_exposes_conflicts_and_missing_lanes() {
+fn check_json_lists_the_other_worktree_for_a_same_path_overlap() {
     let f = field();
     write_in(&f.extra, "app/a.md", "extra intrudes");
-    let out = agent_on(&f.root, &["worktree", "check", "--json"]);
+    write_in(&f.lane_a, "app/a.md", "lane also");
+    let out = agent_on(&f.extra, &["worktree", "check", "--json"]);
     let text = combined(&out);
     let value: serde_json::Value = serde_json::from_str(text.trim()).expect(&text);
     let conflicts = value["conflicts"].as_array().expect(&text);
-    assert_eq!(conflicts.len(), 1, "{text}");
-    assert_eq!(conflicts[0]["path"], "app/a.md");
-    assert_eq!(conflicts[0]["lane"], "lane-a");
+    let mine: Vec<_> = conflicts
+        .iter()
+        .filter(|c| c["path"] == "app/a.md" && c["other"].as_str().unwrap().contains("lane-a"))
+        .collect();
+    assert_eq!(mine.len(), 1, "{text}");
     assert!(value["missing"].is_array(), "{text}");
-    assert!(!out.status.success(), "a conflict is the one real failure");
+    assert!(
+        !out.status.success(),
+        "a same-path overlap is the one real failure"
+    );
 }

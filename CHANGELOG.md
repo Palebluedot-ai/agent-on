@@ -2,9 +2,15 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.21.0 起攒）
+## [未发布]（自 v0.22.0 起攒）
 
 （空）
+
+## v0.22.0（2026-09-24）——commit 闸只看同一份未提交文件
+
+> **minor**（用户 2026-09-24 拍板）：放松了 commit / push 闸——不再用 lane 的 `owns` 挡提交。装了这个 pin 之后，过期的 `active` 不再锁住别的会话；`worktree status` / `check` 的人读输出从整面盘点改成一行。无 breaking，不需要迁移注记。`check --json` 的 `conflicts[]` 去掉 `lane` / `boundary`，改为 `other`（另一棵工作树的路径）。
+
+- **commit 闸不再读 lane 登记（`cli/` + `kit/worktree-control-plane.md` + `BOOTSTRAP.md`）**——登记过期的 `active` 把整个目录占住，agent 读到 `locked` / `OUT-OF-BOUNDS` 就不敢提交。commit / push 改为只比未提交文件：另一棵工作树里有同一路径，且那一份 7 天内被人碰过，才拦，并只说路径和那棵树。没撞上，hook 静默，`status` / `check` 打一行 `ok`。`claim` / `edit` 的重叠拒绝还在，只是不再挡提交。窗口沿用 `dormant_after_days`（默认 7）。决策快照 `snapshot/2026-09-24-gate-same-file.md`。
 
 ## v0.21.0（2026-09-17）——投影漂移对账命令 `agent-on drift` + 记账 #41/#42
 

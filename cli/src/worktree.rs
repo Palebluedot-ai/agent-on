@@ -219,19 +219,16 @@ struct LaneAudit {
     gate_boundary: Vec<String>,
 }
 
-/// The one thing the gate is for: a worktree's *uncommitted* change sitting
-/// inside ground a live lane has reserved. It is charged to the writer, and
-/// only the writer's own commit/push is stopped by it.
+/// The one thing the gate is for: the same uncommitted path in two worktrees,
+/// and the other copy was touched inside the window. Lane registration is not
+/// an input. Charged to the tree that is about to commit.
 #[derive(Debug, Clone, Serialize)]
 struct Conflict {
-    /// Canonical path of the worktree whose change enters the reserved ground.
+    /// Canonical path of the worktree being judged.
     worktree: String,
-    /// Lane registered for that worktree, if any.
-    writer: Option<String>,
     path: String,
-    /// The live lane whose `owns` the path falls in.
-    lane: String,
-    boundary: String,
+    /// The other worktree that also has this path uncommitted, recently.
+    other: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1188,6 +1185,28 @@ fn nul_paths(cwd: &Path, args: &[&str]) -> Result<Vec<String>, String> {
 /// is the only input the blocking rule reads — committed divergence from base
 /// was gated when it was committed (or deliberately bypassed), and a dead
 /// branch's old divergence must not follow every later commit around.
+fn file_epoch(worktree: &Path, rel: &str) -> Option<u64> {
+    fs::metadata(worktree.join(rel))
+        .and_then(|meta| meta.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|age| age.as_secs())
+}
+
+/// Another worktree's copy counts only when someone touched it inside the
+/// window. A missing mtime (a deletion, an unreadable file) does not count.
+/// `window_days == 0` turns the release off, so a mistyped config can only
+/// tighten the gate.
+fn copy_is_recent(epoch: Option<u64>, now: u64, window_days: u64) -> bool {
+    if window_days == 0 {
+        return true;
+    }
+    match epoch {
+        Some(touched) => now.saturating_sub(touched) <= window_days.saturating_mul(86_400),
+        None => false,
+    }
+}
+
 fn uncommitted_files(path: &Path) -> Result<Vec<String>, String> {
     let mut files = BTreeSet::new();
     for args in [
@@ -1537,32 +1556,28 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
         })
         .collect();
 
-    // The red condition. A live lane with a worktree behind it holds its
-    // declared owns as a contract; any *other* worktree whose uncommitted
-    // change lands inside that contract is writing on reserved ground.
-    let contracts: Vec<&LaneAudit> = audits
-        .iter()
-        .filter(|lane| lane.present && ownership_live(&lane.status))
-        .collect();
+    // The red condition. Same uncommitted path in two worktrees, and the other
+    // copy was touched inside the window. Declarations, owns, and lane status
+    // are not inputs: a reservation nobody is writing is not a second writer.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|age| age.as_secs())
+        .unwrap_or(0);
     let mut conflicts = Vec::new();
-    for (worktree, writer, files, dormant) in &writers {
-        if *dormant {
-            continue;
-        }
+    for (worktree, _writer, files, _dormant) in &writers {
         for file in files {
-            for lane in &contracts {
-                if &lane.worktree == worktree {
+            for (other, _, other_files, _) in &writers {
+                if other == worktree || !other_files.iter().any(|candidate| candidate == file) {
                     continue;
                 }
-                if let Some(boundary) = lane.owns.iter().find(|b| boundary_contains(b, file)) {
-                    conflicts.push(Conflict {
-                        worktree: worktree.clone(),
-                        writer: writer.clone(),
-                        path: file.clone(),
-                        lane: lane.id.clone(),
-                        boundary: boundary.clone(),
-                    });
+                if !copy_is_recent(file_epoch(Path::new(other), file), now, dormant_after) {
+                    continue;
                 }
+                conflicts.push(Conflict {
+                    worktree: worktree.clone(),
+                    path: file.clone(),
+                    other: other.clone(),
+                });
             }
         }
     }
@@ -1582,96 +1597,52 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
     })
 }
 
-/// Field-wide verdict, for `check`: red only for a real conflict, or for an
-/// audit that could not run. Unregistered trees, overlapping declarations,
-/// out-of-bounds edits nobody else holds, vanished worktrees and dormant debt
-/// are all reported and none of them is fatal — a gate that is red for things
-/// no registry edit can clear carries no signal.
-fn report_has_failures(report: &AuditReport) -> bool {
-    !report.conflicts.is_empty() || !report.errors.is_empty()
-}
-
-fn writer_label(worktree: &str, writer: Option<&str>, primary: bool) -> String {
-    match writer {
-        Some(id) => format!("lane {id}"),
-        None if primary => format!("primary worktree {worktree}"),
-        None => format!("unregistered worktree {worktree}"),
+/// Lines that apply to one worktree. Empty means nothing blocks a commit there.
+fn focus_lines(report: &AuditReport, here: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    for conflict in &report.conflicts {
+        if conflict.worktree == here {
+            lines.push(format!(
+                "blocked: {} is also uncommitted in {}",
+                conflict.path, conflict.other
+            ));
+        }
     }
-}
-
-fn conflict_exit(conflict: &Conflict) -> String {
-    format!(
-        "exit: keep this change out of lane {lane}'s ground — commit only paths inside your own owns, or make the change from lane {lane}'s worktree. If lane {lane} is yours or its session is gone, release the ground: `agent-on worktree set-status parked --id {lane}` (a clean tree loses nothing; `--status active` brings it back) or narrow it: `agent-on worktree edit --id {lane} --owns <paths it still needs>`. Registration repair, never deletion. Unsure who owns it: `agent-on oncall route --path {path}`",
-        lane = conflict.lane,
-        path = conflict.path
-    )
+    for (tree, message) in report.error_trees.iter().zip(report.errors.iter()) {
+        if tree == here {
+            lines.push(format!("error: {message}"));
+        }
+    }
+    lines
 }
 
 /// One worktree's verdict, for commit/push hooks and the PreToolUse guard.
 ///
-/// Only two things stop *this* tree: its own uncommitted change entering
-/// another live lane's owns, or its own audit failing. What other worktrees
-/// look like — unregistered, out of bounds, vanished, overlapping on paper —
-/// is their report, not this tree's blocker. A control operation in progress
-/// (merge, rebase, cherry-pick …) is never judged: its index is the other
-/// side's work arriving, not this tree writing.
+/// Stops this tree only when one of its uncommitted paths is also uncommitted
+/// in another worktree whose copy was touched inside the window, or when this
+/// tree's own audit could not run. Lane registration is not an input. A
+/// control operation in progress (merge, rebase, cherry-pick …) is never
+/// judged: its index is the other side's work arriving, not this tree writing.
+/// Success is silent.
 pub fn gate_for(repo: &Path) -> (i32, String) {
     let here = match repo_root(repo) {
         Ok(root) => fs::canonicalize(&root).unwrap_or(root),
-        Err(e) => return (1, format!("ERROR: {e}\n")),
+        Err(e) => return (1, format!("error: {e}\n")),
     };
     match control_operation_in_progress(&here) {
         Ok(Some(_)) => return (0, String::new()),
         Ok(None) => {}
-        Err(e) => return (1, format!("ERROR: {e}\n")),
+        Err(e) => return (1, format!("error: {e}\n")),
     }
     let report = match build_report(&here) {
         Ok(report) => report,
-        Err(e) => return (1, format!("ERROR: {e}\n")),
+        Err(e) => return (1, format!("error: {e}\n")),
     };
-    let here_s = here.display().to_string();
-    let mine: Vec<&Conflict> = report
-        .conflicts
-        .iter()
-        .filter(|c| c.worktree == here_s)
-        .collect();
-    let my_errors: Vec<&String> = report
-        .error_trees
-        .iter()
-        .zip(report.errors.iter())
-        .filter(|(tree, _)| **tree == here_s)
-        .map(|(_, message)| message)
-        .collect();
-    if mine.is_empty() && my_errors.is_empty() {
+    let lines = focus_lines(&report, &here.display().to_string());
+    if lines.is_empty() {
         return (0, String::new());
     }
-    let primary = report.primary_worktree == here_s;
-    let mut out = String::new();
-    if let Some(first) = mine.first() {
-        out.push_str(&format!(
-            "CONFLICT: {} has uncommitted changes inside another live lane's owns\n",
-            writer_label(&first.worktree, first.writer.as_deref(), primary)
-        ));
-        for c in &mine {
-            out.push_str(&format!(
-                "  {} → live lane {} (owns {})\n",
-                c.path, c.lane, c.boundary
-            ));
-        }
-        let mut seen = BTreeSet::new();
-        for c in &mine {
-            if seen.insert(c.lane.clone()) {
-                out.push_str(&format!("  {}\n", conflict_exit(c)));
-            }
-        }
-    }
-    for message in my_errors {
-        out.push_str(&format!("ERROR: {message}\n"));
-    }
-    out.push_str(
-        "Other worktrees' state (unregistered, out of bounds, vanished) never blocks this tree; `agent-on worktree status` shows the whole field.\n",
-    );
-    (1, out)
+    (1, format!("{}\n", lines.join("\n")))
 }
 
 fn git_path(cwd: &Path, name: &str) -> Result<PathBuf, String> {
@@ -1701,102 +1672,36 @@ pub(crate) fn control_operation_in_progress(cwd: &Path) -> Result<Option<&'stati
     Ok(None)
 }
 
-fn render_text(report: &AuditReport) -> String {
-    let mut out = format!("WORKTREE CONTROL PLANE: {}\n", report.repo);
-    if report.lanes.is_empty() {
-        out.push_str("lanes: none\n");
-    }
-    for lane in &report.lanes {
-        out.push_str(&format!(
-            "- {} [{}] {} | base {} behind {} | changed {} | locked {} | reclaim {}\n  goal: {}\n  owns: {}\n",
-            lane.id,
-            lane.status,
-            lane.branch,
-            lane.base,
-            lane.base_ahead
-                .map(|v| v.to_string())
-                .unwrap_or_else(|| "?".to_string()),
-            lane.changed_files.len(),
-            lane.locked,
-            lane.reclaim,
-            lane.goal,
-            lane.owns.join(", ")
-        ));
-        if !lane.out_of_bounds.is_empty() {
-            out.push_str(&format!(
-                "  OUT-OF-BOUNDS: {}\n    advisory: outside this lane's declared owns; it only blocks a commit when the path is inside another live lane's owns (see CONFLICT). Widen with `agent-on worktree edit --id {} --owns <full list>`\n",
-                lane.out_of_bounds.join(", "),
-                lane.id
-            ));
-        }
-        if lane.writing && !ownership_live(&lane.status) && !lane.dormant {
-            out.push_str(&format!(
-                "  STATUS-DRIFT: registered {} but the worktree still holds work {} has not taken in; the boundary gate holds the paths that work touches. Clearing this is a metadata edit, so it does not wait for the absent session: any lane this blocks may repair the registration itself — re-pin with `agent-on worktree edit --id {} --base <ref>` when the work already reached the base under another commit (a squash merge rewrites the hash), or `agent-on worktree edit --status active --id {}` when that session is coming back. Registration repair, not deletion — never clear its owns or remove its worktree. If the work really is unlanded, land or rescue it.\n",
-                lane.status, lane.base, lane.id, lane.id
-            ));
-        }
-    }
-    for path in &report.unregistered_worktrees {
-        out.push_str(&format!("UNREGISTERED: {path}\n"));
-    }
-    if !report.unregistered_worktrees.is_empty() {
-        out.push_str(
-            "  advisory: an unregistered worktree holds no boundary and blocks nobody; register it only when it needs to reserve ground: `agent-on worktree claim --cwd <path> --id <id> --goal <goal> --owns <paths>`\n",
-        );
-    }
-    for item in &report.overlaps {
-        out.push_str(&format!("OVERLAP: {item}\n"));
-    }
-    if !report.overlaps.is_empty() {
-        out.push_str(
-            "  advisory: declared boundaries collide; the gate stops actual writes (CONFLICT), not declarations. Tidy with `agent-on worktree edit --id <lane> --owns …`\n",
-        );
-    }
-    for item in &report.dependency_blocks {
-        out.push_str(&format!("WAIT: {item}\n"));
-    }
-    for item in &report.rescue_debt {
-        out.push_str(&format!("RESCUE-DEBT: {item}\n"));
-    }
-    for item in &report.missing {
-        out.push_str(&format!("MISSING: {item}\n"));
-    }
-    for conflict in &report.conflicts {
-        let is_primary = report.primary_worktree == conflict.worktree;
-        out.push_str(&format!(
-            "CONFLICT: {} writes {} inside live lane {}'s owns ({})\n  {}\n",
-            writer_label(&conflict.worktree, conflict.writer.as_deref(), is_primary),
-            conflict.path,
-            conflict.lane,
-            conflict.boundary,
-            conflict_exit(conflict)
-        ));
-    }
-    for item in &report.errors {
-        out.push_str(&format!("ERROR: {item}\n"));
-    }
-    out.push_str(if report_has_failures(report) {
-        "RESULT: FAIL\n"
+/// Human verdict for the worktree `here`. One line when a commit is fine,
+/// one line per blocking path otherwise. The lane inventory stays in `--json`.
+fn render_text(report: &AuditReport, here: &str) -> String {
+    let lines = focus_lines(report, here);
+    if lines.is_empty() {
+        "ok\n".to_string()
     } else {
-        "RESULT: PASS\n"
-    });
-    out
+        format!("{}\n", lines.join("\n"))
+    }
 }
 
 pub fn run_audit(repo: &Path, json: bool, strict: bool) -> (i32, String) {
-    match build_report(repo) {
+    let here = match repo_root(repo) {
+        Ok(root) => fs::canonicalize(&root).unwrap_or(root),
+        Err(e) => return (1, format!("error: {e}\n")),
+    };
+    match build_report(&here) {
         Ok(report) => {
-            let failed = report_has_failures(&report);
+            let here_s = here.display().to_string();
+            let lines = focus_lines(&report, &here_s);
             let output = if json {
                 serde_json::to_string_pretty(&report)
                     .map(|v| format!("{v}\n"))
                     .unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}\n"))
             } else {
-                render_text(&report)
+                render_text(&report, &here_s)
             };
-            (if strict && failed { 1 } else { 0 }, output)
+            (if strict && !lines.is_empty() { 1 } else { 0 }, output)
         }
-        Err(e) => (1, format!("ERROR: {e}\n")),
+        Err(e) => (1, format!("error: {e}\n")),
     }
 }
 
@@ -2775,16 +2680,14 @@ mod tests {
         );
         assert_eq!(code, 0, "{out}");
         fs::write(wt.join("README.md"), "escaped\n").unwrap();
-        // Drift outside its own owns is reported; with nobody else holding
-        // README.md it is not a failure.
+        // A file only this tree has dirty is not a conflict, owns or not.
         let (code, out) = run_audit(&root, false, true);
         assert_eq!(code, 0, "{out}");
-        assert!(out.contains("OUT-OF-BOUNDS: README.md"), "{out}");
-        assert!(out.contains("RESULT: PASS"), "{out}");
+        assert_eq!(out, "ok\n");
     }
 
     #[test]
-    fn check_fails_only_for_a_write_inside_another_live_lanes_owns() {
+    fn check_blocks_only_when_another_worktree_has_the_same_fresh_file() {
         let (tmp, root, wt) = fixture();
         let (code, out) = claim_lane(
             &wt,
@@ -2811,23 +2714,29 @@ mod tests {
                 "main",
             ],
         );
-        // Unregistered and clean: reported, not fatal.
-        let (code, out) = run_audit(&root, false, true);
-        assert_eq!(code, 0, "{out}");
-        assert!(out.contains("UNREGISTERED:"), "{out}");
-        // Writing inside lane-a's ground: the one real failure.
+        // One tree dirty, the other clean: the declaration does not block.
         fs::write(intruder.join("app/base.txt"), "intrude\n").unwrap();
-        let (code, out) = run_audit(&root, false, true);
+        let (code, out) = run_audit(&intruder, false, true);
+        assert_eq!(code, 0, "{out}");
+        assert_eq!(out, "ok\n");
+        // The same path dirty in both, and both copies fresh: both commits stop.
+        fs::write(wt.join("app/base.txt"), "lane also\n").unwrap();
+        let (code, out) = run_audit(&intruder, false, true);
         assert_eq!(code, 1, "{out}");
-        assert!(out.contains("CONFLICT:"), "{out}");
-        assert!(out.contains("app/base.txt"), "{out}");
+        assert!(
+            out.contains("blocked: app/base.txt is also uncommitted in"),
+            "{out}"
+        );
+        assert!(
+            out.contains(&fs::canonicalize(&wt).unwrap().display().to_string()),
+            "{out}"
+        );
         let (code, out) = gate_for(&intruder);
         assert_eq!(code, 1, "{out}");
         let (code, out) = gate_for(&wt);
-        assert_eq!(
-            code, 0,
-            "the lane whose ground was entered is not blocked: {out}"
-        );
+        assert_eq!(code, 1, "the other writer is blocked too: {out}");
+        let (code, out) = gate_for(&root);
+        assert_eq!(code, 0, "a clean tree is not charged: {out}");
     }
 
     #[test]
@@ -2844,7 +2753,7 @@ mod tests {
         assert_eq!(claim_lane(&wt, &opts).0, 0);
         let (code, out) = run_audit(&root, false, true);
         assert_eq!(code, 0, "{out}");
-        assert!(out.contains("RESULT: PASS"), "{out}");
+        assert_eq!(out, "ok\n");
     }
 
     #[test]

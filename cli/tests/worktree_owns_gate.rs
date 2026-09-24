@@ -144,12 +144,12 @@ fn check_fails_when_two_writing_lanes_share_a_boundary() {
         let text = combined(&checked);
         assert!(
             !checked.status.success(),
-            "check must fail while two lanes write the same boundary: {text}"
+            "check must fail while two worktrees have the same fresh file: {text}"
         );
-        assert!(text.contains("OVERLAP"), "{text}");
-        assert!(text.contains("lane-a"), "{text}");
-        assert!(text.contains("lane-b"), "{text}");
-        assert!(text.contains("RESULT: FAIL"), "{text}");
+        assert!(
+            text.contains("blocked: shared/s.md is also uncommitted in"),
+            "{text}"
+        );
     }
 }
 
@@ -179,8 +179,7 @@ fn check_passes_when_the_landed_lane_is_clean_and_merged() {
     let checked = agent_on(&b, &["worktree", "check"]);
     let text = combined(&checked);
     assert!(checked.status.success(), "{text}");
-    assert!(!text.contains("OVERLAP"), "{text}");
-    assert!(text.contains("RESULT: PASS"), "{text}");
+    assert_eq!(text, "ok\n");
 }
 
 /// The entry gate has to see the same fact: a landed worktree that is still
@@ -281,8 +280,10 @@ fn edit_status_reopens_a_landed_lane_that_set_status_cannot() {
     assert!(edited.status.success(), "{text}");
     assert!(text.contains("status: active"), "{text}");
 
-    let status = ok(&a, &["worktree", "status"]);
-    assert!(status.contains("lane-a [active]"), "{status}");
+    let status = ok(&a, &["worktree", "status", "--json"]);
+    assert!(status.contains("\"id\": \"lane-a\""), "{status}");
+    assert!(status.contains("\"status\": \"active\""), "{status}");
+    assert_eq!(ok(&a, &["worktree", "status"]), "ok\n");
 }
 
 /// A repaired registration re-arms the plain live-vs-live gate.
