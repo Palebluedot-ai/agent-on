@@ -11,7 +11,7 @@
 - suggested_landing:BOOTSTRAP.md §1 定档三问后加一句「第四问（条件触发）：依赖外部测试环境的，先验证能拿到，否则按真实环境定档」；bench/cases 新增一例（测试网白名单致 S 档假设当日作废）
 - rollback:revert 落地 commit
 - trace:aster-agent loop-notes.md 2026-09-06|Error Signal 高 行；agent-on.lock.md local_deviations 第 2 行
-- 状态: landed@v0.22.0（BOOTSTRAP.md §1 定档新增第四问（条件触发：外部测试环境））
+- 状态: landed@d83fd19（BOOTSTRAP.md §1 定档新增第四问（条件触发：外部测试环境））。随 v0.22.0 的闸改动 commit 一起发出，CHANGELOG 当时漏记，本批补记
 
 ### upgrade-backfill-deferred-to-first-milestone（升档补件可延后到首个真实里程碑通过后，但必须登记且同会话补齐）
 - source:aster-agent @ 2f1d4af | pin v0.19.0

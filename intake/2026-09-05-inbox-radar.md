@@ -40,7 +40,7 @@
 - suggested_landing:kit/worktree-control-plane.md 死锁三解节（重写时并入「detached 需分支」「base 重钉」两条实证）；boot/session-handshake 执行轨行；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-03「guard 连坐要先登记再提交」+ §2026-09-04「分类器与 guard 都在命令执行前评估」
-- 状态: landed@v0.22.0（kit/worktree-control-plane.md「陈年树与带独有提交的树」三条：detached 先建分支 / base 重钉自身 HEAD / 一树一条命令；「修复与提交分两条」本仓 v0.20.0 已固化）
+- 状态: landed@d83fd19（kit/worktree-control-plane.md「陈年树与带独有提交的树」三条：detached 先建分支 / base 重钉自身 HEAD / 一树一条命令；「修复与提交分两条」本仓 v0.20.0 已固化）。这段随 v0.22.0 的闸改动 commit 一起发出，CHANGELOG 当时漏记，本批补记；同批加注：第 2 条在 v0.20.0 之后的闸下已无用处
 
 ### compound-shell-chain-breaks-after-heredoc（agent 一条 shell 命令只做一件有状态的事，heredoc 之后的语句不受前面失败保护）
 - source:inbox-radar @ a92eaee | pin v0.5.1

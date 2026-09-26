@@ -349,6 +349,8 @@ lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管*
 
 **陈年树与带独有提交的树(2026-09-05 inbox-radar 实测三条)**:
 
+> 2026-09-26 注:这三条实测于 pin v0.5.1 的老闸。v0.20.0 起闸只看未提交改动、不看相对 base 的发散,v0.22.0 起 commit 不读 lane 登记——**第 2 条已经没有用处**(留作老 pin 的现场参考);第 1 条只在你要给陈年树记账时用得上;第 3 条(一树一条命令)是宿主分类器的行为,照旧成立。
+
 - **detached HEAD 的树不能直接 claim**:`claim --parked` 会报「detached HEAD cannot claim a lane; create a branch first」。先 `git checkout -b stale/<lane-id>` 打个分支标签,再 `claim --cwd <path> --parked` 即过——标签只是给它一个可以被引用的名字,不是新工作。
 - **带独有提交的树把 base 重钉自身 HEAD**:`--base <自身 HEAD>` 之后 `check` PASS。这是**完解不是绕闸**:它让「相对 base 落后」这个判据指向它真实的起点,而不是指向一条它从未从那里长出过的线(12 / 72 个独有提交的树均按此通过)。
 - **批量删除会被分类器拦**:把 4 个 `worktree remove --force` 与 `branch -d` 合在一条命令里,分类器按「一条命令只做一件有状态的事」整条拦下——**一树一条命令**逐条执行才通过。与上面「修复与提交分两条」是同一条纪律的两个面;删除本身仍只归人。
