@@ -2,9 +2,24 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.23.1 起攒）
+## [未发布]（自 v0.23.2 起攒）
 
 （空）
+
+## v0.23.2（2026-09-26）——worktree-scope core.hooksPath 与共享路径相同判健康并归一化
+
+> **patch**（「不用知道」——只消误报，值不同仍照旧拦）：宿主工具（Claude Code）每开一个 session worktree 就把 repo-local 的 `core.hooksPath` 复制一份进 worktree scope；`hooks status/install/uninstall` 原本把任何 worktree-scope 值一律判「can bypass the shared guard」漂移，2026-08-17 曾因此挡住 `hooks install --daily-gc`，只能逐树手工 unset，且新 worktree 一开又复发。
+
+- **判据**：worktree-scope 值与共享路径**逐字节相同**时解析到同一份 hooks，不可能绕闸——判冗余不判漂移；值不同仍 fail-closed 拦截不变
+- **status 保持只读**：healthy + `note:` 点名冗余 worktree 与清理入口
+- **install（已安装且健康）与 uninstall 顺手 unset 冗余条目**（归一化；uninstall 先清，避免留下指向已删目录的 hooksPath）
+- **effective 检查改为「全部值等于期望路径」**：冗余条目使 `--get-all` 每 scope 报一次，旧的精确相等比较会对同一根因产生第二条误报
+
+### 证据
+
+- 回归测试三条（status 容忍 / install 归一化 / uninstall 清理），修复前全红（复现 08-17 误拦原样），修复后 `cargo test` 235 项全绿，`cargo clippy --all-targets` 0 警告，`cargo fmt --check` 干净
+- 真仓验证：本机 4 个 session worktree 带冗余条目，新二进制 `hooks status` 报 healthy + note（旧版报 unhealthy exit 1）
+- 源头调查：agent-on 全仓无任何 `--worktree` 写点；时间线证明 08-17 手工清理 47 秒后新开的 session worktree 即再现条目（宿主 EnterWorktree 所写，仓内改不掉，故 CLI 侧收编为冗余语义）
 
 ## v0.23.1（2026-09-26）——发版推送改一条原子推送
 
