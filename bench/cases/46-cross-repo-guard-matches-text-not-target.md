@@ -1,6 +1,6 @@
 # 案例 46：跨仓守卫按「命令文本里有路径」判越界 = 误拦只读引用
 
-> 层级：L2 | 来源：CryptoQuant 2026-09-06 首次结账（同项目三次复现）+ aster-agent 2026-09-14 首次结账（一次确定性复现）| 入册：2026-09-21 草稿，2026-09-26 消化收编时改判根因
+> 层级：L2 | 来源：CryptoQuant 2026-09-06 首次结账（同项目三次复现）+ aster-agent 2026-09-14 首次结账（一次确定性复现）+ Dartify 2026-09-26（同族第二现场：值守路由闸）| 入册：2026-09-21 草稿，2026-09-26 消化收编时改判根因
 
 ## 症状
 
@@ -46,9 +46,25 @@
 
 **反向自检一句**：这条命令如果被拦，**它到底会对 agent-on 仓产生什么变更**？答不出具体变更（新增 commit / 改文件 / 推 ref），就是误拦。**再加一句**：被拦先看拦截文案点名的执行体路径——路径指向缓存、版本对不上仓里那份，先查执行面，别先改判据。
 
+## 同族第二现场：值守路由闸按词元判「对外通信」（Dartify 2026-09-26）
+
+值守在班时，Dartify 功能窗口一次纯本地的图标名查询（grep Flutter SDK 源码）被路由闸判成「对外通信」拦下。值守窗口干跑复现（cwd 指向非值守 worktree）：
+
+| 命令 | exit | 判定 |
+|---|---|---|
+| `grep -rn mail_outline /tmp/x` | 0 | — |
+| `grep -rn -w mail /tmp/x` | 2 | 对外通信（误判） |
+| `ls /usr/share/teams` | 2 | 对外通信（误判） |
+| `rg -n slack docs/` | 2 | 对外通信（误判） |
+| `gh pr view 300` | 0 | — |
+
+2026-09-26 消化会话在 Agent-On 上用同一个二进制复现了前四行。根因在 `cli/src/oncall.rs` 的 `classify_bash`：它对**每个词**取 basename 再比对 `mail` / `slack` / `teams` 名单，参数位置的词一律命中。和上面的跨仓闸是同一个判据病：拿「文本里出现了这个词」代替「这个程序被执行了」。
+
+修法（本批已落）：只在**命令位置**认命令名——第一个词、`&& || ; | &` 之后、`env` / `sudo` / `timeout N` / `xargs` 等包装之后的词；`command -v mail` 只是查找不算执行。回归测试钉住了上表四条误判和一组正例（`echo x | mail …`、`xargs mail`、`env FOO=1 mail …`、`sudo -u bob mail …`、`git -C /repo push origin main`）。顺手补了一个漏判：`git -C <path> push origin main` 以前会把 `<path>` 当成子命令，漏掉推 main。
+
 ## 已固化到哪
 
 - **入册**：本案例（CryptoQuant、aster-agent 两张卡）。
-- **判据**：现行 `cli/src/guard.rs` 的 `parse_git_command` 已按目标仓判，无需再改。
+- **判据**：现行 `cli/src/guard.rs` 的 `parse_git_command` 已按目标仓判，无需再改；值守路由闸 `cli/src/oncall.rs` 的 `classify_bash` 本批改为只认命令位置，`kit/babysit/ROUTING.md` §6 写明误伤按 bug 报。
 - **执行面**：`playbook/multi-contributor-protocol.md` §三½.5 的「执行面」、`kit/guard/README.md` 执行面自检、`boot/settlement.md` 升级节「升级后核执行面」；`agent-on doctor` 报 hook 执行面仍待实现（下一条 CLI 轨）。
 - 相关：案 39（宿主安全句当制度）、案 40（出口可达性）、案 45（记录 ≠ 有人）、案 47（规则改了，执行面没换）。

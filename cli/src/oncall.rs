@@ -378,76 +378,207 @@ const CHAT_HOSTS: &[&str] = &[
 const MAIL_COMMANDS: &[&str] = &["sendmail", "mail", "mailx", "mutt", "msmtp"];
 const CHAT_COMMANDS: &[&str] = &["slack", "teams", "msteams", "slack-cli"];
 
+/// Tokens that end one command and put the next word in command position.
+const SEPARATORS: &[&str] = &["&&", "||", ";", "|", "|&", "&"];
+
+fn is_separator(tok: &str) -> bool {
+    SEPARATORS.contains(&tok)
+}
+
+/// `cd /tmp; mail x` — shlex leaves the `;` glued to the word before it.
+fn ends_command(tok: &str) -> bool {
+    tok.len() > 1 && (tok.ends_with(';') || tok.ends_with('&') || tok.ends_with('|'))
+}
+
+/// `FOO=1 cmd`: a leading assignment is not the command.
+fn is_assignment(tok: &str) -> bool {
+    match tok.split_once('=') {
+        Some((name, _)) => {
+            !name.is_empty()
+                && !name.starts_with(|c: char| c.is_ascii_digit())
+                && name.chars().all(|c| c == '_' || c.is_ascii_alphanumeric())
+        }
+        None => false,
+    }
+}
+
+/// Wrappers run the command that follows their own options. Returns the index
+/// of the wrapped command, or `None` when `name` is not a wrapper.
+fn skip_wrapper(name: &str, toks: &[String], at: usize) -> Option<usize> {
+    let value_flags: &[&str] = match name {
+        "env" => &["-u", "--unset", "-C", "--chdir"],
+        "sudo" | "doas" => &[
+            "-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt", "-C", "-D",
+            "--chdir", "-R", "--chroot", "-T", "-U",
+        ],
+        "xargs" => &[
+            "-I",
+            "-n",
+            "--max-args",
+            "-L",
+            "--max-lines",
+            "-P",
+            "--max-procs",
+            "-d",
+            "--delimiter",
+            "-s",
+            "--max-chars",
+            "-E",
+            "-a",
+            "--arg-file",
+        ],
+        "timeout" => &["-s", "--signal", "-k", "--kill-after"],
+        "nice" => &["-n", "--adjustment"],
+        "command" | "exec" | "nohup" | "time" => &[],
+        _ => return None,
+    };
+    let mut j = at + 1;
+    while j < toks.len() && !is_separator(&toks[j]) {
+        let t = toks[j].as_str();
+        if value_flags.contains(&t) {
+            j += 2;
+            continue;
+        }
+        if t.starts_with('-') || (name == "env" && is_assignment(t)) {
+            j += 1;
+            continue;
+        }
+        break;
+    }
+    if name == "timeout" && j < toks.len() && !is_separator(&toks[j]) {
+        j += 1; // the duration
+    }
+    Some(j)
+}
+
+/// Arguments of the command at `at`, up to the end of that command.
+fn args_after(toks: &[String], at: usize) -> Vec<String> {
+    let mut args = Vec::new();
+    if ends_command(&toks[at]) {
+        return args;
+    }
+    for tok in &toks[at + 1..] {
+        if is_separator(tok) {
+            break;
+        }
+        if ends_command(tok) {
+            args.push(tok.trim_end_matches([';', '&', '|']).to_string());
+            break;
+        }
+        args.push(tok.clone());
+    }
+    args
+}
+
+/// What one command (its program name and arguments) does, if on-call-only.
+fn classify_command(name: &str, rest: &[String]) -> Option<Action> {
+    match name {
+        "gh" => {
+            let words: Vec<String> = rest
+                .iter()
+                .filter(|t| !t.starts_with('-'))
+                .cloned()
+                .collect();
+            // `gh api` keeps its flags: the method matters.
+            if words.first().map(String::as_str) == Some("api") {
+                let mut with_flags = vec!["api".to_string()];
+                with_flags.extend(
+                    rest.iter()
+                        .skip_while(|t| t.as_str() != "api")
+                        .skip(1)
+                        .cloned(),
+                );
+                gh_action(&with_flags)
+            } else {
+                gh_action(&words)
+            }
+        }
+        "git" => {
+            // Global options before the subcommand; `-C <path>` must not be
+            // mistaken for it.
+            let mut j = 0;
+            while j < rest.len() {
+                let arg = rest[j].as_str();
+                if matches!(
+                    arg,
+                    "-C" | "-c" | "--git-dir" | "--work-tree" | "--namespace"
+                ) {
+                    j += 2;
+                    continue;
+                }
+                if arg.starts_with('-') {
+                    j += 1;
+                    continue;
+                }
+                break;
+            }
+            if rest.get(j).map(String::as_str) == Some("push") {
+                git_push_action(&rest[j + 1..])
+            } else {
+                None
+            }
+        }
+        "curl" | "wget" | "http" | "httpie" => {
+            let joined = rest.join(" ").to_ascii_lowercase();
+            CHAT_HOSTS
+                .iter()
+                .any(|host| joined.contains(host))
+                .then_some(Action::Outbound)
+        }
+        "osascript" => {
+            let joined = rest.join(" ").to_ascii_lowercase();
+            (joined.contains("messages") || joined.contains("mail")).then_some(Action::Outbound)
+        }
+        other => (MAIL_COMMANDS.contains(&other) || CHAT_COMMANDS.contains(&other))
+            .then_some(Action::Outbound),
+    }
+}
+
 /// Which on-call-only action this shell command performs, if any.
 ///
+/// Only words in **command position** name a program: the first word, the
+/// first word after `&& || ; | &`, and the first word after a wrapper such as
+/// `env` / `sudo` / `timeout N` / `xargs`. Arguments are data — `grep mail`
+/// is a local search, not mail (Dartify 2026-09-26).
+///
 /// This is a deny-list: it catches the known shapes, not every possible one.
-/// The discipline layer (kit/babysit/ROUTING.md) covers the rest.
+/// Commands inside `bash -c "…"`, `$(…)` or subshells are not seen. The
+/// discipline layer (kit/babysit/ROUTING.md) covers the rest.
 pub(crate) fn classify_bash(cmd: &str) -> Option<Action> {
     let toks = tokens(cmd);
     let mut i = 0;
+    let mut at_command = true;
     while i < toks.len() {
-        let name = base_name(&toks[i]);
-        let rest: Vec<String> = toks[i + 1..]
-            .iter()
-            .take_while(|t| !matches!(t.as_str(), "&&" | "||" | ";" | "|"))
-            .cloned()
-            .collect();
-        match name.as_str() {
-            "gh" => {
-                let words: Vec<String> = rest
-                    .iter()
-                    .filter(|t| !t.starts_with('-'))
-                    .cloned()
-                    .collect();
-                // `gh api` keeps its flags: the method matters.
-                let hit = if words.first().map(String::as_str) == Some("api") {
-                    let mut with_flags = vec!["api".to_string()];
-                    with_flags.extend(
-                        rest.iter()
-                            .skip_while(|t| t.as_str() != "api")
-                            .skip(1)
-                            .cloned(),
-                    );
-                    gh_action(&with_flags)
-                } else {
-                    gh_action(&words)
-                };
-                if hit.is_some() {
-                    return hit;
-                }
-            }
-            "git" => {
-                let sub = rest.iter().find(|t| !t.starts_with('-'));
-                if sub.map(String::as_str) == Some("push") {
-                    let args: Vec<String> = rest
-                        .iter()
-                        .skip_while(|t| t.as_str() != "push")
-                        .skip(1)
-                        .cloned()
-                        .collect();
-                    if let Some(hit) = git_push_action(&args) {
-                        return Some(hit);
-                    }
-                }
-            }
-            "curl" | "wget" | "http" | "httpie" => {
-                let joined = rest.join(" ").to_ascii_lowercase();
-                if CHAT_HOSTS.iter().any(|host| joined.contains(host)) {
-                    return Some(Action::Outbound);
-                }
-            }
-            "osascript" => {
-                let joined = rest.join(" ").to_ascii_lowercase();
-                if joined.contains("messages") || joined.contains("mail") {
-                    return Some(Action::Outbound);
-                }
-            }
-            other => {
-                if MAIL_COMMANDS.contains(&other) || CHAT_COMMANDS.contains(&other) {
-                    return Some(Action::Outbound);
-                }
-            }
+        let tok = toks[i].as_str();
+        if is_separator(tok) {
+            at_command = true;
+            i += 1;
+            continue;
         }
+        if !at_command {
+            at_command = ends_command(tok);
+            i += 1;
+            continue;
+        }
+        if is_assignment(tok) {
+            i += 1;
+            continue;
+        }
+        let name = base_name(tok.trim_end_matches([';', '&', '|']));
+        if name == "command" && matches!(toks.get(i + 1).map(String::as_str), Some("-v" | "-V")) {
+            // `command -v mail` looks a program up; nothing runs.
+            at_command = false;
+            i += 1;
+            continue;
+        }
+        if let Some(next) = skip_wrapper(&name, &toks, i) {
+            i = next;
+            continue;
+        }
+        if let Some(hit) = classify_command(&name, &args_after(&toks, i)) {
+            return Some(hit);
+        }
+        at_command = ends_command(tok);
         i += 1;
     }
     None
@@ -1080,6 +1211,49 @@ mod tests {
             classify_bash("git fetch origin -q && gh pr merge 17 --merge"),
             Some(Action::Merge)
         );
+    }
+
+    /// Dartify 2026-09-26: a local grep for an icon name was routed as
+    /// "outbound". Arguments are data; only command position names a program.
+    #[test]
+    fn argument_position_names_are_not_commands() {
+        for cmd in [
+            "grep -rn -w mail /tmp/x",
+            "grep -n IconData /tmp/x | grep mail",
+            "ls /usr/share/teams",
+            "rg -n slack docs/",
+            "echo git push origin main",
+            "cat notes.txt | grep 'gh pr merge 17'",
+            "command -v mail",
+            "which sendmail",
+        ] {
+            assert_eq!(classify_bash(cmd), None, "{cmd}");
+        }
+    }
+
+    #[test]
+    fn command_position_names_still_route() {
+        for cmd in [
+            "mail -s hi a@b.c < x",
+            "echo x | mail a@b.c",
+            "cat list | xargs mail -s hi",
+            "xargs -I {} mail {}",
+            "env FOO=1 mail a@b.c",
+            "FOO=1 mail a@b.c",
+            "sudo -u bob mail a@b.c",
+            "timeout 5 mail a@b.c",
+            "nohup slack-cli send hi",
+            "cd /tmp; mail a@b.c",
+        ] {
+            assert_eq!(classify_bash(cmd), Some(Action::Outbound), "{cmd}");
+        }
+        for cmd in [
+            "FOO=1 git push origin main",
+            "git -C /repo push origin main",
+            "sudo gh pr merge 3",
+        ] {
+            assert_eq!(classify_bash(cmd), Some(Action::Merge), "{cmd}");
+        }
     }
 
     #[test]
