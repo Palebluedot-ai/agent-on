@@ -2,9 +2,22 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.23.2 起攒）
+## [未发布]（自 v0.23.3 起攒）
+
+（空）
+
+## v0.23.3（2026-09-26）——README 多会话段改掉连坐旧说法
+
+> **patch**（「不用知道」——只改 README 一段文案，判据与代码不动）：v0.20.0 撤了连坐、v0.22.0 让 commit 闸不再读 lane 登记，README 多会话段却还照 v0.20 之前的闸写。照着读的人会以为没登记的树、主 worktree 的普通 commit 会被挡，于是先去 `claim` 或绕开主树——都是白做的动作。
 
 - **README 多会话段改掉连坐旧说法**：「3. 初始化之后」里 `hooks install` 那段还写着 v0.20 之前的闸——未登记、边界重叠、实际 diff 越界在写入点直接失败，有活跃执行轨时主 worktree 的普通 commit 也被挡。改成照 kit `worktree-control-plane.md`「闸只拦真冲突」的现行判据：会拦提交的只有一条（本树某个未提交文件在另一棵树里也未提交、且那一份 7 天内被碰过），`UNREGISTERED` / `OVERLAP` / `OUT-OF-BOUNDS` / `MISSING` 只进 `--json`。顺手删掉「clean merge 由后续 `pre-push` 兜底」：闸只看未提交改动，已提交的 merge 它看不见（kit 同节设计约束第 1 条）。判据与代码不动，对照的是 `cli/src/worktree.rs` 的 `gate_for`、`worktree_hooks.rs` 的 `run_hook`、`guard.rs` 的 PreToolUse 调用。
+
+### 证据
+
+- 新段逐句对过 main 上的实现：`run_hook` 对 `pre-commit` / `pre-push` 调同一个 `gate_for`，`guard.rs` 对 commit/push 目录也调它；`gate_for` 只在本树有 `blocked:` 或 `error:` 行时非零，其余登记项不进人读输出；未提交 = `git diff` + `git diff --cached` + `ls-files --others --exclude-standard`；窗口 `DEFAULT_DORMANT_AFTER_DAYS = 7`，按对方那份的 mtime 判；控制态认 `MERGE_HEAD` / `SQUASH_MSG` / `CHERRY_PICK_HEAD` / `REVERT_HEAD` / `rebase-merge` / `rebase-apply` / `sequencer`。
+- 「只留在 `--json` 里」有实物：`agent-on worktree check --json` 顶层键含 `unregistered_worktrees` / `overlaps` / `missing` / `rescue_debt`，lane 行含 `out_of_bounds`；同一棵树人读输出是一行 `ok`。
+- docs commit 前 `python3 .github/scripts/check_docs.py`：`DOC-GATE: PASS（215 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）`，exit 0。
+- 没写进 README 的一条：pre-push 拦「本地 merge `origin/<default>` 进已开 PR 的分支」（playbook §三½.8）的实现 `cli/src/prepush.rs` 不在 main 上，§三½.8 仍标「待实现」。那条 CLI 轨落地时连同 README 一起补。
 
 ## v0.23.2（2026-09-26）——worktree-scope core.hooksPath 与共享路径相同判健康并归一化
 

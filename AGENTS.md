@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.23.2`**（hooks 不再误拦与共享路径相同的 worktree-scope core.hooksPath——宿主每开 session worktree 复制一份，曾挡住 `install --daily-gc`；install/uninstall 顺手归一化，值不同仍 fail-closed。v0.23.1 的原子推送、v0.22.0 的同文件 commit 闸照旧）。
+**最新推荐 pin：`v0.23.3`**（README 多会话段改掉连坐旧说法：`hooks install` 那段照 kit「闸只拦真冲突」重写，不再说未登记 / 越界 / 主 worktree 会被挡；判据与代码不动。v0.23.2 的 hooksPath 归一化、v0.23.1 的原子推送、v0.22.0 的同文件 commit 闸照旧）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
