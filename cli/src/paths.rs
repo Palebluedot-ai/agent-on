@@ -213,6 +213,12 @@ pub fn doctor_report(cwd: Option<&Path>) -> String {
             env::var(k).unwrap_or_else(|_| "(unset)".into())
         ));
     }
+    let here = cwd
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    if let Some(line) = crate::doctor::worktree_line(&here, wr.as_deref()) {
+        lines.push(line);
+    }
     if wr.is_none() {
         lines.push(String::new());
         lines.push("未登记可写工作仓 (work_root)。init/adopt/handshake 可只靠 plugin。".into());
@@ -232,6 +238,8 @@ pub fn doctor_report(cwd: Option<&Path>) -> String {
             "  或 claude/codex plugin marketplace add Palebluedot-ai/agent-on && install".into(),
         );
     }
+    lines.push(String::new());
+    lines.extend(crate::doctor::hook_surface(&dirs_home(), rr.as_deref()));
     lines.push(String::new());
     lines.join("\n")
 }

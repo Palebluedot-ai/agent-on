@@ -1,6 +1,7 @@
 //! agent-on CLI — replaces former Python scripts.
 
 mod audit_lint;
+mod doctor;
 mod drift;
 mod guard;
 mod intake_lint;
