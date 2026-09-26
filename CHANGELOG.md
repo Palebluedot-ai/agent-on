@@ -2,9 +2,23 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.24.0 起攒）
+## [未发布]（自 v0.24.1 起攒）
 
 （空）
+
+## v0.24.1（2026-09-26）——kit 控制面页改掉同页的旧闸说法
+
+> **patch**（「不用知道」——只改 kit 一页文案，判据与代码不动）：`kit/worktree-control-plane.md`「闸只拦真冲突」一节写的是现行判据，同一页另外五处还照旧闸写：PreToolUse「跑 lane/owns 审计」、clean merge 之后「push 会再过严格闸」、人读 `status` 会报未登记 / 越界、`check` 按活轨 owns 判 `CONFLICT`、`RESCUE-DEBT`「永不静默」。照这几处读的人会去改 lane 登记、改 owns 来解一个根本不看它们的闸，或者以为 push 会替 clean merge 兜底。
+
+- **kit 控制面页改掉同页的旧闸说法**：`kit/worktree-control-plane.md`「闸只拦真冲突」一节是现行判据，同一页另有五处还照旧闸写，页面自己打架。逐处改成那一节的措辞：① PreToolUse 不是「再跑同一 lane/owns 审计」，是在 `commit` / `push` 上跑同一条同文件判据（不读 lane / owns），其余 git 写命令只过跨仓检查；② clean merge 那段删掉「随后 push 会再过严格闸」——推默认分支时没有哪道闸回头审已提交的 merge（设计约束 1；pre-push 的本地 merge 检查不管推默认分支本身），`--no-verify` / lane `base` 两句改成现况：`base` 不参与撞车判定，只喂 `claim` / `edit` 三档、`set-status ready` 的越界检查与 `--json` 盘点，填成解析不了的 ref 则那棵树按 `error` 拦；③「它同时报告：未登记 worktree……」只对 `--json` 成立，改成人读 `status` 只答这棵树能不能提交（`ok` / `blocked:` / `error:`），握手那条跟着改跑 `status --json`；④ `check` 非零条件从 09-14 的「未提交改动落进另一条活轨的 owns（`CONFLICT`）」改成现行的同文件判据、只算本树；⑤ `RESCUE-DEBT`「每次都报，永不静默」改成只在 `--json` 的 `rescue_debt` 里每次都报，人读要看就跑 `gc --dry-run`。判据与代码不动。
+
+### 证据
+
+- 逐句对过 main 93ccd73（v0.24.0）上的实现：`guard.rs` 只给 `commit` / `push` 目录调 `gate_for`，`merge` 等其余写命令只过跨仓检查；`run_hook` 对两个 hook 都先调 `gate_for`，pre-push 再跑 `prepush::check`，后者对推默认分支本身（`branch == default`）直接跳过；`focus_lines` 只收本树的 `blocked:` 行、对方停在 rebase 半路时的 `note:` 行和本树的 `error:` 行，其余情况 `render_text` 只打 `ok`；`unregistered_worktrees` / `overlaps` / `dependency_blocks` / `missing` / `rescue_debt` / `lanes[].out_of_bounds` 只进 `--json`；lane `base` 由 `changed_files` / `lane_gate_hold` / `status_guards`（`set-status ready`）读，解析不了时只把那棵树记进 `error_trees`；`base_sha_at_claim` 只在 claim / edit 写入与回显。
+- 临时仓实跑（main 源码现编的二进制，装上 worktree hooks，本地 bare 远端）：干净时 `status` / `check` 一行 `ok`；有未登记脏树、lane 改到 owns 之外、休眠 parked lane 时人读仍是 `ok`、不含任何旧标签，`check --json` exit 0，带 `rescue_debt: ["lane-r: 1 unrescued change(s) untouched for over 7 day(s); boundary released to the gate, reclaim stays rescue"]`，`gc --dry-run` 把那棵树列成 `RESCUE`；同一文件两棵树都未提交时本树打 `blocked: shared.txt is also uncommitted in …`（`status` exit 0、`check` exit 1），第三棵树仍 `ok`，pre-commit 拦；这时 clean `git merge --no-ff` 照样生成 merge commit；`git push origin main` 只因那个未提交文件被 pre-push 拦，对方那份撤掉后连 merge commit 一起推上去、hook 无输出；lane `base` 改成 `origin/nope` 后只有那棵树 `error: lane-l: cannot compare with origin/nope …`、commit 被拦，主树仍 `ok`；guard 对 `git commit` / `git push` exit 2，对 `git merge` / `git status` exit 0。
+- `cargo test`：`block_names_the_other_trees_rebase_progress`、`ready_requires_clean_in_boundary_worktree`、`hook_blocks_primary_only_when_it_enters_a_live_lane_and_never_mid_squash` 3 条全过。
+- docs commit 前 `python3 .github/scripts/check_docs.py`：`DOC-GATE: PASS（215 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）`，exit 0。
+- 顺带发现、不在本批：lane `base` 解析不了时，`is_ancestor` 的 git stderr（`fatal: Not a valid object name …`）会漏进每棵树的人读输出，连本来 `ok` 的树也带这一行。
 
 ## v0.24.0（2026-09-26）——CLI 轨：doctor 报执行面、pre-push 拦本地 merge、同文件闸报 rebase 进度、发版原子推送
 
