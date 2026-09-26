@@ -66,5 +66,5 @@
 
 - **入册**：本案例（CryptoQuant、aster-agent 两张卡）。
 - **判据**：现行 `cli/src/guard.rs` 的 `parse_git_command` 已按目标仓判，无需再改；值守路由闸 `cli/src/oncall.rs` 的 `classify_bash` 本批改为只认命令位置，`kit/babysit/ROUTING.md` §6 写明误伤按 bug 报。
-- **执行面**：`playbook/multi-contributor-protocol.md` §三½.5 的「执行面」、`kit/guard/README.md` 执行面自检、`boot/settlement.md` 升级节「升级后核执行面」；`agent-on doctor` 报 hook 执行面仍待实现（下一条 CLI 轨）。
+- **执行面**：`playbook/multi-contributor-protocol.md` §三½.5 的「执行面」、`kit/guard/README.md` 执行面自检、`boot/settlement.md` 升级节「升级后核执行面」；`agent-on doctor` 的「hook 执行面」段（`cli/src/doctor.rs`，<!-- src: cli/src/doctor.rs#hook_surface -->）。
 - 相关：案 39（宿主安全句当制度）、案 40（出口可达性）、案 45（记录 ≠ 有人）、案 47（规则改了，执行面没换）。

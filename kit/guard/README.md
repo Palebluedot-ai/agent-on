@@ -78,16 +78,19 @@ echo '{"tool_name":"Bash","cwd":"'"$FEATURE_WORKTREE"'","tool_input":{"command":
 发版、升级 pin、或者被拦得莫名其妙时，对一遍执行面：
 
 ```bash
-# 1. 宿主上挂着哪些 agent-on hook（Claude）
-python3 -c "import json,os;print(json.dumps(json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('hooks',{}),ensure_ascii=False,indent=1))" | grep -n agent-on
-claude plugin list | grep -A3 agent-on          # 插件版本；和仓里 .claude-plugin/plugin.json 的 version 比
-cat ~/.claude/plugins/cache/agent-on/agent-on/*/hooks/hooks.json
+# 1. 一条命令核完（只读，~/.claude 一个字节不写）
+agent-on doctor        # 看「hook 执行面」一段：结论行、STALE / GUARD OFF、修法
 
-# 2. 落后就换掉（重启 Claude 生效；改 ~/.claude 属于用户动作）
+# 2. 落后就换掉：先重编，再刷插件缓存（重启 Claude 生效；改 ~/.claude 属于用户动作）
+cargo build --release --manifest-path <WRITE_ROOT>/cli/Cargo.toml
 claude plugin update agent-on@agent-on
 ```
 
-判据：插件版本对不上仓里的 `plugin.json`，或者 hook 命令指向一份不经 `agent-on-git-guard` shim 转发的脚本，就是执行面陈旧。拦截文案里点名的执行体路径是第一线索——指向缓存目录时先查这里，别先改判据，也别教被拦的会话改写命令。`agent-on doctor` 报执行面的那一段还没实现（下一条 CLI 轨），落地前按上面手工核。
+`doctor` 的「hook 执行面」逐条列 `~/.claude/settings.json` 与已启用插件（`installed_plugins.json` 的 `installPath`）`hooks.json` 里的 agent-on 条目，核四层：①插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；②`hooks.json` 对 READ_ROOT 的 `hooks/hooks.json`；③每个被执行的脚本按字节对 READ_ROOT 同名文件；④脚本与仓里一致时，按 shim 自己的转发顺序（插件目录里编好的 `cli/target/release/agent-on` → 脚本所在仓编好的那份 → PATH 上的 `agent-on`）找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，shim 找不到二进制（fail-open，闸不生效）报 `GUARD OFF`。
+
+**第④层是 2026-09-26 实测补的**：脚本哈希全一致时只核脚本会报「一致」，可目录型 marketplace 装插件会把 `cli/target/` 一起拷进缓存，shim 又优先跑插件目录里那份——本机两份在跑的二进制都编于 09-24，v0.23.0 起的闸修复一个都不在执行面上。所以要先重编、再 `plugin update`，顺序反了缓存里还是旧的。
+
+判据：插件版本对不上仓里的 `plugin.json`，或者 hook 命令指向一份不经 `agent-on-git-guard` shim 转发的脚本，或者 shim 最终跑的二进制早于仓里最近一次 `cli/src` 提交，就是执行面陈旧。拦截文案里点名的执行体路径是第一线索——指向缓存目录时先查这里，别先改判据，也别教被拦的会话改写命令。
 
 ## 分类器/闸拒诊断（命令字面 ≠ 目标）
 
