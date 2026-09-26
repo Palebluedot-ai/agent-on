@@ -96,10 +96,10 @@
      - 步骤:
      1. 把 `CHANGELOG` 的 `[未发布]` 本批内容**封进新版本节**(勿只写「攒批」却不发 tag)
      2. 更新 README / AGENTS「当前推荐 pin」为将打的 tag
-     3. 打 **annotated tag** 钉在**当前 HEAD** 并 `git push origin HEAD` + `git push origin <tag>`(或 `agent-on tag-release --push`)
+     3. 打 **annotated tag** 钉在**当前 HEAD**,再用**一条原子推送**把分支和 tag 一起推上去:`git push --atomic origin HEAD:<default> <tag>`(或 `agent-on tag-release --push`)。分两次推,CI 的推荐 pin 闸可能在 tag 到达前就 checkout,报「推荐 pin 没有对应的 git tag」(v0.23.0 实测:先推 main、隔十几秒再推 tag,main 上的 gate 红了一次,tag 到了之后重跑才绿)
      - **默认档位**:本批全 patch 文案/案例 → `patch`;有 L3 双落点或新节/新机制 → `minor`;破坏存量实例化 → `major`(无迁移注记**不许**打 tag)
      - **禁止**:「commit/push 完成但 HEAD 仍领先最新 tag」——下游 pin 只能钉 tag,未发布 commit **不是**可升级版本;同一交付轮次内可多层 commit,**push 结束时必须一 tag 钉 HEAD**(一批一 tag 覆盖这批全部 commit)
-     - 机械助手:`agent-on tag-release --level patch|minor|major --title "一句话" --push`(工作区干净、已 commit 后跑;需 `cargo install --path cli`)。**`--push` 推的是当前分支同名的远端分支**——在 worktree 分支上消化时别带 `--push`,打完 tag 另跑 `git push origin HEAD:main` 与 `git push origin <tag>`
+     - 机械助手:`agent-on tag-release --level patch|minor|major --title "一句话" --push`(工作区干净、已 commit 后跑;需 `cargo install --path cli`)。**`--push` 推的是当前分支同名的远端分支**——在 worktree 分支上消化时别带 `--push`,打完 tag 用一条 `git push --atomic origin HEAD:main <tag>`
      - **提交与发版前核 diff**:`git diff --stat` 里不是本批的改动不进本批 commit;工作区有来历不明的未提交 canonical 改动 → 先问清归属再动,别挪开它发版再挪回来(v0.22.0 实证:另一场消化的两处落点被闸改动的 commit 顺带发出、CHANGELOG 没记,其余 21 处留在工作区五天)
      - major 无迁移注记不许打
    - 顺手第五件(轻):**README 对表**——数字与状态截面(案例数/篇数/口令数/路线段)与实况核一遍,漂了当场修(实证:两次消化都在 README 里抓到过期信息;绑此事件,不设定时器)
