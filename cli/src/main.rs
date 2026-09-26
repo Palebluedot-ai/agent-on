@@ -329,9 +329,6 @@ enum WorktreeHooksCmd {
         hook: String,
         #[arg(long)]
         repo: Option<PathBuf>,
-        /// Git's own hook arguments (pre-push: remote name, URL), after `--`
-        #[arg(last = true)]
-        hook_args: Vec<String>,
     },
 }
 
@@ -564,15 +561,9 @@ fn main() {
                     WorktreeHooksCmd::Uninstall { repo } => {
                         worktree_hooks::uninstall_with_schedule(&repo.unwrap_or_else(default_repo))
                     }
-                    WorktreeHooksCmd::Run {
-                        hook,
-                        repo,
-                        hook_args,
-                    } => worktree_hooks::run_hook(
-                        &repo.unwrap_or_else(default_repo),
-                        &hook,
-                        &hook_args,
-                    ),
+                    WorktreeHooksCmd::Run { hook, repo } => {
+                        worktree_hooks::run_hook(&repo.unwrap_or_else(default_repo), &hook)
+                    }
                 };
                 if c == 0 {
                     print!("{out}");

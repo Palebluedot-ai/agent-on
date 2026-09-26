@@ -327,3 +327,80 @@ fn hook_scripts_that_pass_no_arguments_still_get_the_check() {
         "{text}"
     );
 }
+
+/// `gh pr list --head <branch>` also returns PRs from forks that happen to use
+/// the same branch name; a stranger's PR is not this branch's PR.
+#[test]
+fn a_fork_pr_that_shares_the_branch_name_does_not_count() {
+    let repo = Repo::new();
+    repo.pr_branch_behind_main(false);
+    repo.git(&["merge", "-q", "--no-edit", "origin/main"]);
+    let out = repo.push(
+        &["-q", "origin", "feat/x"],
+        Some(r#"[{"number":9,"isCrossRepository":true,"baseRefName":"main"}]"#),
+    );
+    assert!(out.status.success(), "{}", combined(&out));
+}
+
+/// update-branch merges the PR's own base. For a PR into another branch,
+/// merging origin/main is a different act, and update-branch cannot stand in.
+#[test]
+fn a_pr_into_another_base_does_not_count() {
+    let repo = Repo::new();
+    repo.pr_branch_behind_main(false);
+    repo.git(&["merge", "-q", "--no-edit", "origin/main"]);
+    let out = repo.push(
+        &["-q", "origin", "feat/x"],
+        Some(r#"[{"number":8,"isCrossRepository":false,"baseRefName":"release/1"}]"#),
+    );
+    assert!(out.status.success(), "{}", combined(&out));
+}
+
+/// Pushing feat/x while main is checked out: `git reset --keep` would move
+/// main. The work order has to name the pushed branch itself.
+#[test]
+fn a_branch_pushed_from_elsewhere_gets_a_work_order_for_that_branch() {
+    let repo = Repo::new();
+    repo.pr_branch_behind_main(false);
+    let pre_merge = repo.rev("HEAD");
+    repo.git(&["merge", "-q", "--no-edit", "origin/main"]);
+    let merge = repo.rev("HEAD");
+    repo.git(&["checkout", "-q", "main"]);
+    let out = repo.push(
+        &["origin", "feat/x"],
+        Some(r#"[{"number":42,"isCrossRepository":false,"baseRefName":"main"}]"#),
+    );
+    let text = combined(&out);
+    assert!(!out.status.success(), "{text}");
+    assert!(!text.contains("git reset --keep"), "{text}");
+    assert!(
+        text.contains(&format!(
+            "git update-ref refs/heads/feat/x {} {}",
+            &pre_merge[..12],
+            &merge[..12]
+        )),
+        "{text}"
+    );
+    assert!(text.contains("git fetch origin feat/x:feat/x"), "{text}");
+}
+
+/// A clone from before a master→main rename keeps `origin/HEAD` pointing at a
+/// pruned `origin/master`. The default branch still has to be found.
+#[test]
+fn a_dangling_origin_head_does_not_switch_the_check_off() {
+    let repo = Repo::new();
+    repo.git(&[
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/master",
+    ]);
+    repo.pr_branch_behind_main(false);
+    repo.git(&["merge", "-q", "--no-edit", "origin/main"]);
+    let out = repo.push(
+        &["origin", "feat/x"],
+        Some(r#"[{"number":42,"isCrossRepository":false,"baseRefName":"main"}]"#),
+    );
+    let text = combined(&out);
+    assert!(!out.status.success(), "push went through:\n{text}");
+    assert!(text.contains("pulls/42/update-branch"), "{text}");
+}

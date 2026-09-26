@@ -260,7 +260,7 @@ fn hook_script(executable: &Path, hook: &str) -> Result<String, String> {
         )
     })?;
     Ok(format!(
-        "#!/bin/sh\n{MANAGED_MARKER}\nexec {} worktree hooks run --hook {} --repo \"$PWD\" -- \"$@\"\n",
+        "#!/bin/sh\n{MANAGED_MARKER}\nAGENT_ON_HOOK_ARG1=\"$1\" AGENT_ON_HOOK_ARG2=\"$2\"\nexport AGENT_ON_HOOK_ARG1 AGENT_ON_HOOK_ARG2\nexec {} worktree hooks run --hook {} --repo \"$PWD\"\n",
         shell_quote(executable),
         shell_quote(hook)
     ))
@@ -937,8 +937,10 @@ fn clear_inherited_git_local_env() {
 /// hook runs inside the worktree being committed/pushed, so `repo` is that
 /// tree, and only that tree's own conflict or audit failure stops it.
 /// pre-push adds one more check on what is being pushed: a local merge of the
-/// default branch into a branch with an open PR (`crate::prepush`).
-pub fn run_hook(repo: &Path, hook: &str, hook_args: &[String]) -> (i32, String) {
+/// default branch into a branch with an open PR (`crate::prepush`). Git's own
+/// hook arguments arrive as `AGENT_ON_HOOK_ARG1/2`, not as CLI arguments, so a
+/// hook script can outlive a swap to an older agent-on build.
+pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
     if !HOOK_NAMES.contains(&hook) {
         return (
             2,
@@ -963,10 +965,17 @@ pub fn run_hook(repo: &Path, hook: &str, hook_args: &[String]) -> (i32, String) 
             let _ = stdin.lock().read_to_string(&mut input);
         }
         let updates = crate::prepush::parse_updates(&input);
-        if let Some(block) =
-            crate::prepush::check(repo, hook_args, &updates, &crate::prepush::gh_open_pr)
-        {
+        let hook_args: Vec<String> = ["AGENT_ON_HOOK_ARG1", "AGENT_ON_HOOK_ARG2"]
+            .iter()
+            .map(|key| std::env::var(key).unwrap_or_default())
+            .collect();
+        let verdict =
+            crate::prepush::check(repo, &hook_args, &updates, &crate::prepush::gh_open_pr);
+        if let Some(block) = verdict.block {
             return (1, format!("BLOCKED by Agent-On pre-push:\n{block}"));
+        }
+        if !verdict.notes.is_empty() {
+            return (0, format!("{}\n", verdict.notes.join("\n")));
         }
     }
     (0, String::new())
@@ -1003,6 +1012,26 @@ mod tests {
         run(&root, &["git", "add", "."]);
         run(&root, &["git", "commit", "-m", "init"]);
         (tmp, root)
+    }
+
+    /// The exec line keeps the exact argument shape older agent-on binaries
+    /// accept: git's own hook arguments travel in the environment, so swapping
+    /// in an older build cannot turn every push into a usage error.
+    #[test]
+    fn hook_script_keeps_the_argument_shape_older_binaries_accept() {
+        let script = hook_script(Path::new("/opt/agent-on"), "pre-push").unwrap();
+        let exec = script
+            .lines()
+            .find(|line| line.starts_with("exec "))
+            .unwrap();
+        assert_eq!(
+            exec,
+            "exec '/opt/agent-on' worktree hooks run --hook 'pre-push' --repo \"$PWD\""
+        );
+        assert!(
+            script.contains("export AGENT_ON_HOOK_ARG1 AGENT_ON_HOOK_ARG2"),
+            "{script}"
+        );
     }
 
     #[test]
@@ -1318,15 +1347,15 @@ mod tests {
 
         // A file only the primary has dirty is not a block, owns or not.
         fs::write(root.join("README.md"), "note\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit", &[]);
+        let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(root.join("app")).unwrap();
         fs::write(root.join("app/x.txt"), "intrude\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit", &[]);
+        let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(lane.join("app")).unwrap();
         fs::write(lane.join("app/x.txt"), "lane also\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit", &[]);
+        let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 1, "{out}");
         assert!(
             out.contains("blocked: app/x.txt is also uncommitted in"),
@@ -1345,7 +1374,7 @@ mod tests {
             root.join(marker)
         };
         fs::write(marker, "squash\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit", &[]);
+        let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 0, "{out}");
     }
 }
