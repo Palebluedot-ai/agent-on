@@ -41,7 +41,7 @@
 - suggested_landing:kit/phase-card-template.md 验收标准区加一条旁注「链路证据 ≠ 行为证据」；playbook/anti-hallucination 判别式条附例
 - rollback:revert 落地 commit
 - trace:aster-agent loop-notes.md 2026-09-06|观测 行
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 8 条 + phase-card 验收区「行为类条目」）
+- 状态: landed@同批（anti-hallucination C 附6 第 8 条 + phase-card 验收区「行为类条目」）
 
 ### cross-repo-git-guard-false-positive-on-cp（跨仓 git 守卫按命令文本匹配路径，把「拷 agent-on 模板 + 对项目仓 git」误判为对 agent-on 仓写）
 - source:aster-agent @ 2f1d4af | pin v0.19.0（守卫来自 plugin cache agent-on 0.5.0 `kit/guard/agent-on-git-guard.sh`）

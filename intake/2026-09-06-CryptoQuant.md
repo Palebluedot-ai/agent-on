@@ -40,7 +40,7 @@
 - suggested_landing:playbook/anti-hallucination.md 加「外部事实必带实测戳」一条；BOOTSTRAP §1.5 第 5 步 rough plan 注明「外部事实表允许细」；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-05「规划草稿里 6 处外部 API 事实凭记忆写错」；agent-on.lock.md local_deviations 第 3 行
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 11 条「外部事实必带实测戳」）
+- 状态: landed@同批（anti-hallucination C 附6 第 11 条「外部事实必带实测戳」）
 
 ### serialize-live-checks-per-ip（同一出口 IP 上的活体验证要串行，限速压测期间不得再打同一所）
 - source:CryptoQuant @ b58a4da | pin v0.19.0
@@ -50,7 +50,7 @@
 - suggested_landing:playbook/sop.md 活体验证一节加一句；kit/phase-card-template.md 活体验收行示例注「串行」
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「同一 IP 上并行跑 Gate 压测与活体 coverage」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 9 条 + phase-card 验收区「活体」条目）
+- 状态: landed@同批（anti-hallucination C 附6 第 9 条 + phase-card 验收区「活体」条目）
 
 ### pipeline-masks-test-exit-code（门禁命令接管道会吞掉 pytest 的退出码，红测试照样进库）
 - source:CryptoQuant @ 86faffe | pin v0.19.0
@@ -60,7 +60,7 @@
 - suggested_landing:kit/merge-checklist.md 或 sop 的「提交前门禁」行；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「`set -e` 挡不住管道里的 pytest 失败」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 1 条「证据命令不许接管道」）
+- 状态: landed@同批（anti-hallucination C 附6 第 1 条「证据命令不许接管道」+ kit/merge-checklist.md 2e 门禁链不接管道）
 
 ### fixture-absence-must-be-explicit（靠「fixture 目录碰巧不全」制造失败的测试，会在补录 fixture 后悄悄变绿）
 - source:CryptoQuant @ 1283aa6 | pin v0.19.0
@@ -70,7 +70,7 @@
 - suggested_landing:playbook/anti-hallucination.md 或 sop 测试纪律「fixture 与替身」一段；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「把 Binance OI fixtures 补录到全宇宙 524 个后…」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 3 条）
+- 状态: landed@同批（anti-hallucination C 附6 第 3 条）
 
 ### transient-errors-must-not-be-marked-permanent（验收指标按语义不按表面形态；暂时性错误不得被长任务永久标记）
 - source:CryptoQuant @ 631990e | pin v0.19.0
@@ -80,7 +80,7 @@
 - suggested_landing:kit/phase-card-template.md 验收标准示例（按语义写）；playbook/sop.md 或 error-signal 一节「暂时/永久分类」；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「限速红线被碰」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 7 条）
+- 状态: landed@同批（anti-hallucination C 附6 第 7 条）
 
 ### resumability-tests-must-cross-key-boundary（「可续跑」的测试必须让时钟跨过一次键值边界再跑第二次）
 - source:CryptoQuant @ 73dde38 | pin v0.19.0
@@ -90,7 +90,7 @@
 - suggested_landing:playbook/sop.md 测试纪律加一条；kit/phase-card-template.md 的「可续跑」类验收示例；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「回填水位键用了绝对 (range_start, range_end)」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 6 条）
+- 状态: landed@同批（anti-hallucination C 附6 第 6 条）
 
 ### replay-double-writes-more-than-production（回放替身写回的属性比线上多，单测全绿而线上分类失效）
 - source:CryptoQuant @ 4e83d7a | pin v0.19.0
@@ -100,7 +100,7 @@
 - suggested_landing:playbook/anti-hallucination.md「替身比线上慷慨」一条；kit 的 fixtures/README 模板（若有）加「写回属性对照表」；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「回放替身比线上『更慷慨』」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 4 条）
+- 状态: landed@同批（anti-hallucination C 附6 第 4 条）
 
 ### fake-echoes-assumption-live-audit-required（假交易所只是复读我的假设；活体后必须做逐项完整率审计）
 - source:CryptoQuant @ bd4c148 | pin v0.19.0
@@ -110,7 +110,7 @@
 - suggested_landing:playbook/anti-hallucination.md「替身不是证据」；kit/phase-card-template.md 活体验收示例加「全量审计脚本」；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-06「Bitget 分页按『endTime 含』写」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 5 条 + phase-card 验收区「活体·全量完整率审计」）
+- 状态: landed@同批（anti-hallucination C 附6 第 5 条 + phase-card 验收区「活体·全量完整率审计」）
 
 ### skip-mrd-when-north-star-doc-complete（用户自带完整北极星文档时，BOOTSTRAP 规划链的 MRD / PRD 模板环节可省，用修订记录承接偏差）
 - source:CryptoQuant @ 712c403 | pin v0.19.0

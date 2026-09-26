@@ -50,7 +50,7 @@
 - suggested_landing:playbook 工具行为 / anti-hallucination「命令链」一节；kit 的 merge-checklist 或 sop「多步版本控制操作串 &&，先看 log 再改历史」行；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-04「复合命令里 heredoc 之后的语句不在 && 链里」
-- 状态: landed@v0.22.0（playbook/anti-hallucination.md C 附6 第 12 条）
+- 状态: landed@同批（playbook/anti-hallucination.md C 附6 第 12 条）
 
 ### receipt-contract-tests-must-reach-real-consumer（改回执/契约字段时，测试必须穿到真实消费者，不能停在生产者断言）
 - source:inbox-radar @ 51006f6 | pin v0.5.1
@@ -60,4 +60,4 @@
 - suggested_landing:playbook 测试纪律（TDD 与证据）「契约测试要到消费者」一段；kit/phase-card-template 验收标准示例行；bench 案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-04「回执契约要穿到真实消费者」
-- 状态: landed@v0.22.0（anti-hallucination C 附6 第 2 条 + kit/phase-card-template.md 验收区「回执/契约字段」条目）
+- 状态: landed@同批（anti-hallucination C 附6 第 2 条 + kit/phase-card-template.md 验收区「回执/契约字段」条目）
