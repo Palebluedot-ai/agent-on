@@ -21,7 +21,7 @@
 - suggested_landing:boot/adopt.md §二 升档表加「补件时机」一行；kit/agent-on-lock-template.md local_deviations 注释加示例行
 - rollback:revert 落地 commit
 - trace:aster-agent agent-on.lock.md local_deviations 第 3 行
-- 状态: landed@v0.22.0（boot/adopt.md §二 升档表新增「补件时机」行）
+- 状态: landed@同批（boot/adopt.md §二 升档表新增「补件时机」行）
 
 ### human-executes-money-commands-ai-transcribes（碰钱项目：真钱/签名命令由人执行，AI 只写码、转录、关卡）
 - source:aster-agent @ d7af0cd | pin v0.19.0
