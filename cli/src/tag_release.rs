@@ -156,19 +156,20 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
         "{msg_extra}created annotated tag {new_tag} (was {tag}, +{ahead} commits)\n  HEAD: {full}\n"
     );
 
+    // Branch and tag go up in one atomic push: pushed separately, CI checked
+    // out the branch before the tag existed and the pin gate went red (v0.23.1).
     if opts.push {
-        if let Err(e) = run_git(repo, &["push", "origin", "HEAD"], true) {
+        if let Err(e) = run_git(
+            repo,
+            &["push", "--atomic", "origin", "HEAD", &new_tag],
+            true,
+        ) {
             return (1, e);
         }
-        if let Err(e) = run_git(repo, &["push", "origin", &new_tag], true) {
-            return (1, e);
-        }
-        out.push_str(&format!("pushed origin HEAD and {new_tag}\n"));
+        out.push_str(&format!("pushed origin HEAD and {new_tag} (atomic)\n"));
     } else {
         out.push_str("下一步(须执行,否则下游仍升不了):\n");
-        out.push_str(&format!(
-            "  git push origin HEAD && git push origin {new_tag}\n"
-        ));
+        out.push_str(&format!("  git push --atomic origin HEAD {new_tag}\n"));
         out.push_str(&format!("并确认 README/AGENTS 推荐 pin 已改为 {new_tag}\n"));
     }
     (0, out)
@@ -267,6 +268,139 @@ mod tests {
         assert!(msg.contains("landed@v0.1.1"), "{msg}");
         let tags = run_git(repo, &["tag", "-l"], true).unwrap();
         assert!(!tags.contains("v0.1.1"), "tag must not be created");
+    }
+
+    /// A work repo with `v0.1.0` and one commit on top, tracking a bare remote
+    /// that already has `v0.1.0` and the first commit on `main`.
+    fn repo_with_remote() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+        let d = tempdir().unwrap();
+        let remote = d.path().join("remote.git");
+        let repo = d.path().join("work");
+        fs::create_dir_all(&repo).unwrap();
+        git(
+            d.path(),
+            &["init", "--bare", "-b", "main", remote.to_str().unwrap()],
+        );
+        git(&repo, &["init", "-b", "main"]);
+        git(&repo, &["config", "user.email", "t@t.com"]);
+        git(&repo, &["config", "user.name", "t"]);
+        fs::write(repo.join("f"), "1").unwrap();
+        git(&repo, &["add", "f"]);
+        git(&repo, &["commit", "-m", "c1"]);
+        git(&repo, &["tag", "-a", "v0.1.0", "-m", "v0.1.0"]);
+        git(
+            &repo,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        );
+        git(&repo, &["push", "origin", "main", "v0.1.0"]);
+        fs::write(repo.join("f"), "2").unwrap();
+        git(&repo, &["add", "f"]);
+        git(&repo, &["commit", "-m", "c2"]);
+        (d, repo, remote)
+    }
+
+    fn remote_rev(remote: &Path, rev: &str) -> Option<String> {
+        let out = Command::new("git")
+            .args([
+                "--git-dir",
+                remote.to_str().unwrap(),
+                "rev-parse",
+                "-q",
+                "--verify",
+            ])
+            .arg(rev)
+            .output()
+            .unwrap();
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    }
+
+    #[test]
+    fn push_lands_branch_and_tag_together() {
+        let (_d, repo, remote) = repo_with_remote();
+        let (code, msg) = run_tag_release(
+            &repo,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: true,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 0, "{msg}");
+        let head = run_git(&repo, &["rev-parse", "HEAD"], true).unwrap();
+        assert_eq!(
+            remote_rev(&remote, "refs/heads/main").as_deref(),
+            Some(head.as_str())
+        );
+        assert_eq!(
+            remote_rev(&remote, "refs/tags/v0.1.1^{commit}").as_deref(),
+            Some(head.as_str())
+        );
+    }
+
+    /// v0.23.1: pushing the branch and the tag separately let CI's pin gate
+    /// check out the branch before the tag existed. One atomic push means a
+    /// rejected tag keeps the branch back too, and the other way round.
+    #[test]
+    fn push_is_atomic_so_a_rejected_tag_keeps_the_branch_back() {
+        let (d, repo, remote) = repo_with_remote();
+        // Someone else already published v0.1.1 on another commit.
+        let other = d.path().join("other");
+        git(
+            d.path(),
+            &[
+                "clone",
+                "-q",
+                remote.to_str().unwrap(),
+                other.to_str().unwrap(),
+            ],
+        );
+        git(&other, &["config", "user.email", "o@o.com"]);
+        git(&other, &["config", "user.name", "o"]);
+        git(
+            &other,
+            &["tag", "-a", "v0.1.1", "-m", "not ours", "origin/main"],
+        );
+        git(&other, &["push", "origin", "v0.1.1"]);
+        let before = remote_rev(&remote, "refs/heads/main");
+
+        let (code, msg) = run_tag_release(
+            &repo,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: true,
+                allow_dirty: false,
+            },
+        );
+        assert_ne!(code, 0, "the tag push must fail: {msg}");
+        assert_eq!(
+            remote_rev(&remote, "refs/heads/main"),
+            before,
+            "branch reached the remote without its tag"
+        );
+    }
+
+    #[test]
+    fn next_step_hint_is_one_atomic_push() {
+        let (_d, repo, _remote) = repo_with_remote();
+        let (code, msg) = run_tag_release(
+            &repo,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: false,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 0, "{msg}");
+        assert!(
+            msg.contains("git push --atomic origin HEAD v0.1.1"),
+            "{msg}"
+        );
+        assert!(!msg.contains("&& git push"), "{msg}");
     }
 
     #[test]
