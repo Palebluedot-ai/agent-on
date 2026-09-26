@@ -86,7 +86,7 @@ cargo build --release --manifest-path <WRITE_ROOT>/cli/Cargo.toml
 claude plugin update agent-on@agent-on
 ```
 
-`doctor` 的「hook 执行面」逐条列 `~/.claude/settings.json` 与已启用插件（`installed_plugins.json` 的 `installPath`）`hooks.json` 里的 agent-on 条目，核四层：①插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；②`hooks.json` 对 READ_ROOT 的 `hooks/hooks.json`；③每个被执行的脚本按字节对 READ_ROOT 同名文件；④脚本与仓里一致时，按 shim 自己的转发顺序（插件目录里编好的 `cli/target/release/agent-on` → 脚本所在仓编好的那份 → PATH 上的 `agent-on`）找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，shim 找不到二进制（fail-open，闸不生效）报 `GUARD OFF`。
+`doctor` 的「hook 执行面」逐条列 `~/.claude/settings.json` 与已启用插件（`installed_plugins.json` 的 `installPath`）`hooks.json` 里的 agent-on 条目，核四层：①插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；②`hooks.json` 对 READ_ROOT 的 `hooks/hooks.json`；③每个被执行的脚本按字节对 READ_ROOT 同名文件；④脚本与仓里一致时，按 shim 自己的转发顺序（插件目录里编好的 `cli/target/release/agent-on` → 脚本所在仓编好的那份 → PATH 上的 `agent-on`）找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，shim 找不到二进制（fail-open，闸不生效）报 `GUARD OFF`，名字带 agent-on、却追不到任何 agent-on 树的脚本（多半是早先拷出来的老闸）报 `UNTRACED`；软链先解析到真身再判。
 
 **第④层是 2026-09-26 实测补的**：脚本哈希全一致时只核脚本会报「一致」，可目录型 marketplace 装插件会把 `cli/target/` 一起拷进缓存，shim 又优先跑插件目录里那份——本机两份在跑的二进制都编于 09-24，v0.23.0 起的闸修复一个都不在执行面上。所以要先重编、再 `plugin update`，顺序反了缓存里还是旧的。
 

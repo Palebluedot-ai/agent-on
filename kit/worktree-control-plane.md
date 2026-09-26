@@ -149,7 +149,7 @@ agent-on worktree hooks status
 安装器把 `pre-commit` / `pre-push` 放在 common git dir 的 Agent-On 专属目录，并设置仓库级 shared `core.hooksPath`，所以 primary 与所有 linked worktree 同时生效：
 
 - 两个 hook 都只判**本树**：本树未提交文件与另一棵树 7 天内改过的同一未提交文件相撞 → 拦；本树审计跑不起来 → 拦；没撞上 → 静默；
-- pre-push 另判**推上去的是什么**：把 `origin/<default>` 并进来的本地 merge commit（committer ≠ GitHub、merge 干净）推向开着 PR 的分支 → 拦，文案给出完整的 `gh api -X PUT …/pulls/<N>/update-branch`；有冲突的 merge、没开 PR 的分支、推默认分支本身都放行（判据与两个出口见 playbook/multi-contributor-protocol.md §三½.8）；
+- pre-push 另判**推上去的是什么**：把 `origin/<default>` 并进来的本地 merge commit（committer ≠ GitHub、merge 干净）推向开着同仓、进默认分支的 PR 的分支 → 拦，文案给出完整的 `gh api -X PUT …/pulls/<N>/update-branch`；有冲突的 merge、git 太老判不了冲突的 merge、没有这样 PR 的分支、推默认分支本身都放行（判据与两个出口见 playbook/multi-contributor-protocol.md §三½.8）；
 - merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
 - 成功时静默；失败时打印原因与下一条修复命令；
 - 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；

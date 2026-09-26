@@ -43,7 +43,7 @@
 4. **追平服务端化**：落后 base 一律 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`，
    不碰任何本地 worktree；任何人不本地 checkout 别人的分支代推。功能会话侧同样受此约束（第 2 条）。
    机械闸在 agent-on 的 pre-push 里（`agent-on worktree hooks install` 装）：待推提交里有 committer ≠ GitHub、
-   把 `origin/<default>` 并进来的本地 merge commit，推向开着 PR 的分支 → 拦，拦截文案给出上面这条完整命令。
+   把 `origin/<default>` 并进来的本地 merge commit，推向开着（同仓、进默认分支的）PR 的分支 → 拦，拦截文案给出上面这条完整命令。
    本地 merge 有冲突的放行（update-branch 解不了冲突，本地解是唯一出路）；没装 hooks 的仓只靠本条款。
 5. **四条边界**：
    ① 真冲突不代解——值守取证（run 指针 + 缺陷定位 + 修复选项）打回 PR 作者会话；

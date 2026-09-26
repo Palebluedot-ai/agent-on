@@ -6,17 +6,18 @@
 
 **CLI 轨：2026-09-26 消化留下的五项**（`cli/src/**` 属硬停第 1 类；intake 卡上的 deferred 改为 `landed@同批`）：
 
-- **`agent-on doctor` 报 hook 执行面**（`cli/src/doctor.rs`，只读，`~/.claude` 一个字节不写）：列出 `~/.claude/settings.json` 与已启用插件缓存 `hooks.json` 里的 agent-on 条目；插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；`hooks.json` 与每个被执行的脚本按字节对 READ_ROOT 同名文件（显示 git blob 短哈希）；残留缓存版本单列。脚本一致时再追一层：按 shim 自己的转发顺序找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，找不到二进制报 `GUARD OFF`（shim fail-open），修法按执行顺序给命令。——kit `guard/README.md`「执行面自检」、`boot/settlement.md` 升级第 5 步、案 46/47
+- **`agent-on doctor` 报 hook 执行面**（`cli/src/doctor.rs`，只读，`~/.claude` 一个字节不写）：列出 `~/.claude/settings.json` 与已启用插件缓存 `hooks.json` 里的 agent-on 条目；插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；`hooks.json` 与每个被执行的脚本按字节对 READ_ROOT 同名文件（显示 git blob 短哈希）；残留缓存版本单列。脚本一致时再追一层：按 shim 自己的转发顺序找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，找不到二进制报 `GUARD OFF`（shim fail-open），追不到任何 agent-on 树的脚本报 `UNTRACED`（软链先解析），修法按执行顺序给命令。——kit `guard/README.md`「执行面自检」、`boot/settlement.md` 升级第 5 步、案 46/47
 - **本机实测改正案 47 一句过头话**：目录型 marketplace 会把 `cli/target/` 一起拷进插件缓存，而 shim 优先跑插件目录里那份二进制。本机两份在跑的二进制（插件缓存、主树）都编于 09-24，v0.23.0 起的闸修复都不在执行面上；「缓存里不再留一份会过期的判据」只对脚本层成立。**装了本插件的机器：先在工作仓 `cargo build --release`，再 `claude plugin update agent-on@agent-on`（重启生效）；Git hooks 跑的是安装时记下的那份（通常是 `~/.cargo/bin/agent-on`），要另跑 `cargo install --path cli`。**
 - **`agent-on doctor` 报「当前在 linked worktree」**：`--git-dir` ≠ `--git-common-dir` 时打一行并给出主树路径；是 WRITE_ROOT 的仓，就点名 settlement 下半场第 0 步第四检。
 - **同文件闸拦截文案报出对方 rebase 进度**（`cli/src/worktree.rs`）：对方树停在 rebase 半路时多一行 `note: … is stopped mid-rebase at step x of y, last step … ago`，读的是 common git dir 下 `worktrees/<名>/rebase-merge/msgnum` 与 `end`（或 rebase-apply 的 `next` / `last`），出口归对方会话（继续或 `git rebase --abort`，别替它 abort）。判据不变；`check --json` 的 `conflicts[]` 加可选字段 `other_rebase`。——kit `worktree-control-plane.md`「对方停在 rebase 半路」
-- **pre-push 拦「本地 merge origin/<default> 进已开 PR 的分支」**（`cli/src/prepush.rs`）：§三½.8 的机械半边。只拦一种形状：待推提交里有 committer ≠ GitHub、非首 parent 已在 `origin/<default>` 上、merge 干净的 merge commit，推向远端已有、非默认、`gh` 查得到开着 PR 的分支。文案按执行顺序给工单，含完整的 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`；查不到 PR 号就写 `<N>` 并给查法。**有意留两个出口**：merge 有冲突放行（update-branch 解不了冲突，拦了就是案 40 的死锁）；分支没开 PR 放行。只在装了 worktree hooks 的仓生效；新装的 hook 脚本把 git 的 `$1 $2` 透传过来，已装的旧脚本不用重装（默认按 origin 判）。——playbook `multi-contributor-protocol.md` §三½.8 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 4 条、`worktree-control-plane.md` 机械执行层
+- **pre-push 拦「本地 merge origin/<default> 进已开 PR 的分支」**（`cli/src/prepush.rs`）：§三½.8 的机械半边。只拦一种形状：待推提交里有 committer ≠ GitHub、非首 parent 已在 `origin/<default>` 上、merge 干净的 merge commit，推向远端已有、非默认、`gh` 查得到**同仓、目标是默认分支**的开着的 PR 的分支（fork 里同名分支的 PR、进别的 base 的 PR 不算）。文案按执行顺序给工单，含完整的 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`；撤 merge 那一步按被推的是不是当前分支分别给 `reset --keep` 或带旧值校验的 `update-ref`；查不到 PR 号就写 `<N>` 并给查法；GitHub Enterprise 带 `--hostname`。**有意留的出口**：merge 有冲突放行（update-branch 解不了冲突，拦了就是案 40 的死锁）；git < 2.38 判不了冲突不拦、打一行提示；分支没有这样的 PR 放行。只在装了 worktree hooks 的仓生效；git 的 `$1 $2` 经环境变量传给二进制，已装的旧脚本不用重装（默认按 origin 判），换回老版本二进制也不会让 push 报用法错误。——playbook `multi-contributor-protocol.md` §三½.8 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 4 条、`worktree-control-plane.md` 机械执行层
 - **`agent-on tag-release --push` 改一条原子推送**：`git push --atomic origin HEAD <tag>`；不带 `--push` 时打印的下一步也换成这一条（v0.23.1 留下的尾巴）。
 
 ### 证据
 
-- 每项先写失败测试、看它因为对的原因红，再实现：新增 26 条（doctor 11 含 shim 转发顺序防漂移、prepush 单元 4 + 真 `git push` 集成 7、tag-release 3、rebase 进度 1）。集成测试走真的已安装 hook：远端 URL 读作 GitHub（`insteadOf` 指向本地 bare 仓），`gh` 是 PATH 上的替身。
-- `cargo test` 261 项全过（exit 0），`cargo clippy --all-targets -- -D warnings` exit 0，`cargo fmt --check` exit 0。
+- 每项先写失败测试、看它因为对的原因红，再实现：新增 36 条（doctor 13 含 shim 转发顺序防漂移、prepush 单元 7 + 真 `git push` 集成 11、tag-release 3、rebase 进度 1、hook 脚本形状 1）。集成测试走真的已安装 hook：远端 URL 读作 GitHub（`insteadOf` 指向本地 bare 仓），`gh` 是 PATH 上的替身。
+- 独立复核（子代理换搜索面，逐条在临时仓复现）报 7 处，全部属实、全部修掉：工单会挪错分支、fork 同名分支 PR 误拦、进别的 base 的 PR 误拦、老 git 判不了冲突却当干净拦、悬空 `origin/HEAD` 让检查失效、GHE 缺 host、doctor 对拷出来的老闸给假绿；另把 hook 参数改走环境变量，免得换回老二进制时 push 报用法错误。修复前对应的 4 条集成测试全红。
+- `cargo test` 271 项全过（exit 0），`cargo clippy --all-targets -- -D warnings` exit 0，`cargo fmt --check` exit 0；`.github/scripts/check_docs.py` PASS，`intake-lint` 207 张卡通过。
 - `agent-on doctor` 本机：两处 `STALE`（主树与插件缓存的二进制都编于 09-24）；`agent-on drift` 本批新增的三处文档断言都锚到了符号。
 
 ## v0.23.3（2026-09-26）——README 多会话段改掉连坐旧说法
