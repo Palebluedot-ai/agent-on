@@ -10,7 +10,7 @@
 - suggested_landing:playbook/truth-hierarchy 增「源≠通道」一节；kit/phase-card-template 的 disturbance 行示例加「不许顺手换展示通道」
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-03「『不是真相源』≠『不是通道』」
-- 状态: landed@v0.22.0（playbook/truth-hierarchy.md 五⅞.1「源≠通道≠仓库」）
+- 状态: landed@同批（playbook/truth-hierarchy.md 五⅞.1「源≠通道≠仓库」）
 
 ### skip-ci-state-commits-hide-red-main（状态提交带 [skip ci] 的项目，监控必须另看最新非 skip 的 CI 结论）
 - source:inbox-radar @ cc79fc1 | pin v0.5.1
@@ -20,7 +20,7 @@
 - suggested_landing:playbook 运行态 / Error Signal 一节；kit/progress-template 的 monitoring_summary 说明行加「最新非 skip CI 结论」；bench 短案例
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-03「`[skip ci]` 让红灯隐身」
-- 状态: landed@v0.22.0（playbook/truth-hierarchy.md 五⅞.3 + kit/progress-template.yaml monitoring_summary 注释）
+- 状态: landed@同批（playbook/truth-hierarchy.md 五⅞.3 + kit/progress-template.yaml monitoring_summary 注释）
 
 ### state-source-must-move-with-production-cutovers（改变「每天实际发生什么」的合流必须同批更新状态源与 product map）
 - source:inbox-radar @ 946e754 | pin v0.5.1
