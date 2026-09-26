@@ -4,7 +4,7 @@
 
 ## [未发布]（自 v0.24.3 起攒）
 
-（空）
+- **`agent-on tag-release --push` 推到 origin 的默认分支**：原来推的是 refspec `HEAD`，在 worktree 的 session 分支（`claude/*`）上等于把这个分支按原名推上远端、再捎上 tag——main 不动，tag 落在一个不在 main 上的 commit 上。自举纪律 6 教每个会话跑的正是这条命令，而本仓会话大多在 worktree 里（v0.24.2 只好手工 `git push --atomic origin HEAD:main`）。现在复用 pre-push 那份默认分支解析（`origin/HEAD`，指向失效时退回 main / master），推 `HEAD:refs/heads/<默认分支>`，和 tag 仍是一条原子推送；认不出默认分支就在打 tag 之前拒绝。不带 `--push` 时打印的下一步改成 `git push --atomic origin HEAD:<默认分支> <tag>`，`--help` 补上 `--push` 的说明。**推送被拒会撤掉刚打的本地 tag**：改推默认分支之后，「默认分支已前进」成了常见的拒绝原因（并行会话几分钟发一版）；tag 是所有 worktree 共享的，没推出去的 tag 留在本地，别的会话的 `tag-release` 会从它往下数版本号，`check_docs.py` 的推荐 pin 闸也会认它。
 
 ## v0.24.3（2026-09-26）——一条 lane 的 base 解析不了，git 的报错不再印到每棵树上
 

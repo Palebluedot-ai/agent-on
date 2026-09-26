@@ -136,6 +136,18 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
             ),
         );
     }
+    // The release belongs on origin's default branch. A bare `HEAD` refspec
+    // publishes the current branch under its own name: from a session worktree
+    // (`claude/*`) that made a stray remote branch and left the default branch
+    // behind the tag (v0.24.2 had to be pushed by hand). Nowhere to push →
+    // refuse before tagging, not after.
+    let default = crate::prepush::default_branch(repo, "origin");
+    if opts.push && default.is_none() {
+        return (
+            1,
+            "认不出 origin 的默认分支(origin/HEAD、origin/main、origin/master 都不在),不知道往哪推,没打 tag。\n出口:`git fetch origin`(或 `git remote set-head origin --auto`)后重跑;或不带 --push 发版、自己推。\n".into(),
+        );
+    }
     let head = run_git(repo, &["rev-parse", "--short", "HEAD"], true).unwrap_or_default();
 
     let mut msg_extra = String::new();
@@ -158,18 +170,40 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
 
     // Branch and tag go up in one atomic push: pushed separately, CI checked
     // out the branch before the tag existed and the pin gate went red (v0.23.1).
+    let target = default.as_deref().unwrap_or("<默认分支>");
     if opts.push {
+        // Fully qualified, so a detached HEAD does not leave git guessing.
+        let refspec = format!("HEAD:refs/heads/{target}");
         if let Err(e) = run_git(
             repo,
-            &["push", "--atomic", "origin", "HEAD", &new_tag],
+            &["push", "--atomic", "origin", &refspec, &new_tag],
             true,
         ) {
-            return (1, e);
+            // Tags are shared by every worktree: left behind, this one is the
+            // version the next `tag-release` anywhere counts from.
+            let undo = match run_git(repo, &["tag", "-d", &new_tag], true) {
+                Ok(_) => format!("推送没成功,已撤掉本地 tag {new_tag}(没推出去的 tag 留在共享 ref 里,别的 worktree 会按它算下一个版本号)。\n"),
+                Err(d) => format!("推送没成功,本地 tag {new_tag} 也没撤掉:{}\n手动 `git tag -d {new_tag}`。\n", d.trim_end()),
+            };
+            return (
+                1,
+                format!(
+                    "{}\n{undo}出口:看上面 git 报的原因。{target} 已前进或同名 tag 已被别人发了,就 `git fetch origin`、rebase 到 origin/{target},再重跑 tag-release(版本号按最新 tag 重算)。\n",
+                    e.trim_end()
+                ),
+            );
         }
-        out.push_str(&format!("pushed origin HEAD and {new_tag} (atomic)\n"));
+        out.push_str(&format!(
+            "pushed HEAD to origin/{target} and {new_tag} (atomic)\n"
+        ));
     } else {
         out.push_str("下一步(须执行,否则下游仍升不了):\n");
-        out.push_str(&format!("  git push --atomic origin HEAD {new_tag}\n"));
+        out.push_str(&format!(
+            "  git push --atomic origin HEAD:{target} {new_tag}\n"
+        ));
+        if default.is_none() {
+            out.push_str("  (认不出 origin 的默认分支:把 <默认分支> 换成真名,通常是 main)\n");
+        }
         out.push_str(&format!("并确认 README/AGENTS 推荐 pin 已改为 {new_tag}\n"));
     }
     (0, out)
@@ -226,6 +260,42 @@ mod tests {
         assert!(msg.contains("v0.1.1"), "{msg}");
         let tags = run_git(repo, &["tag", "-l"], true).unwrap();
         assert!(tags.contains("v0.1.1"));
+        // No `origin` at all: the hint must not guess a branch name.
+        assert!(msg.contains("HEAD:<默认分支> v0.1.1"), "{msg}");
+    }
+
+    fn repo_without_remote() -> tempfile::TempDir {
+        let d = tempdir().unwrap();
+        let repo = d.path();
+        git(repo, &["init"]);
+        git(repo, &["config", "user.email", "t@t.com"]);
+        git(repo, &["config", "user.name", "t"]);
+        fs::write(repo.join("f"), "1").unwrap();
+        git(repo, &["add", "f"]);
+        git(repo, &["commit", "-m", "c1"]);
+        git(repo, &["tag", "-a", "v0.1.0", "-m", "v0.1.0"]);
+        fs::write(repo.join("f"), "2").unwrap();
+        git(repo, &["add", "f"]);
+        git(repo, &["commit", "-m", "c2"]);
+        d
+    }
+
+    #[test]
+    fn push_refuses_before_tagging_when_the_default_branch_is_unknown() {
+        let d = repo_without_remote();
+        let (code, msg) = run_tag_release(
+            d.path(),
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: true,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 1, "{msg}");
+        assert!(msg.contains("默认分支"), "{msg}");
+        let tags = run_git(d.path(), &["tag", "-l", "v0.1.1"], true).unwrap();
+        assert!(tags.is_empty(), "tagged with nowhere to push it: {msg}");
     }
 
     fn repo_with_intake_mark(mark: &str) -> tempfile::TempDir {
@@ -316,6 +386,103 @@ mod tests {
             .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
+    /// A linked worktree on a session branch with a commit of its own: how
+    /// every `.claude/worktrees/*` session releases.
+    fn session_worktree(d: &Path, repo: &Path) -> std::path::PathBuf {
+        let wt = d.join("session");
+        git(
+            repo,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "claude/x",
+                wt.to_str().unwrap(),
+            ],
+        );
+        fs::write(wt.join("f"), "3").unwrap();
+        git(&wt, &["commit", "-qam", "c3"]);
+        wt
+    }
+
+    /// v0.24.2: from a session worktree the refspec `HEAD` published
+    /// `claude/x` under its own name and left `main` behind the tag.
+    #[test]
+    fn push_from_a_session_worktree_lands_on_the_default_branch() {
+        let (d, repo, remote) = repo_with_remote();
+        let wt = session_worktree(d.path(), &repo);
+        let (code, msg) = run_tag_release(
+            &wt,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: true,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 0, "{msg}");
+        let head = run_git(&wt, &["rev-parse", "HEAD"], true).unwrap();
+        assert_eq!(
+            remote_rev(&remote, "refs/heads/main").as_deref(),
+            Some(head.as_str()),
+            "main stayed behind the tag: {msg}"
+        );
+        assert_eq!(
+            remote_rev(&remote, "refs/tags/v0.1.1^{commit}").as_deref(),
+            Some(head.as_str())
+        );
+        assert_eq!(
+            remote_rev(&remote, "refs/heads/claude/x"),
+            None,
+            "stray session branch on the remote"
+        );
+    }
+
+    /// Parallel sessions move `main` minutes apart. Tags are shared by every
+    /// worktree, so a tag left behind by a rejected push is the version the
+    /// next `tag-release` anywhere counts from, though it never shipped.
+    #[test]
+    fn rejected_push_leaves_no_local_tag() {
+        let (d, repo, remote) = repo_with_remote();
+        let wt = session_worktree(d.path(), &repo);
+        // Another session lands on main first.
+        let other = d.path().join("other");
+        git(
+            d.path(),
+            &[
+                "clone",
+                "-q",
+                remote.to_str().unwrap(),
+                other.to_str().unwrap(),
+            ],
+        );
+        git(&other, &["config", "user.email", "o@o.com"]);
+        git(&other, &["config", "user.name", "o"]);
+        fs::write(other.join("g"), "theirs").unwrap();
+        git(&other, &["add", "g"]);
+        git(&other, &["commit", "-qm", "theirs"]);
+        git(&other, &["push", "-q", "origin", "main"]);
+        let before = remote_rev(&remote, "refs/heads/main");
+
+        let (code, msg) = run_tag_release(
+            &wt,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: true,
+                allow_dirty: false,
+            },
+        );
+        assert_ne!(code, 0, "main moved, the push must be rejected: {msg}");
+        assert_eq!(remote_rev(&remote, "refs/heads/main"), before);
+        assert_eq!(remote_rev(&remote, "refs/tags/v0.1.1"), None);
+        assert_eq!(remote_rev(&remote, "refs/heads/claude/x"), None);
+        let tags = run_git(&wt, &["tag", "-l", "v0.1.1"], true).unwrap();
+        assert!(tags.is_empty(), "unpublished tag left behind: {msg}");
+        assert!(msg.contains("git fetch origin"), "{msg}");
+    }
+
     #[test]
     fn push_lands_branch_and_tag_together() {
         let (_d, repo, remote) = repo_with_remote();
@@ -383,6 +550,8 @@ mod tests {
         );
     }
 
+    /// One atomic push, and it names the default branch: a bare `HEAD`
+    /// refspec publishes a session worktree's branch under its own name.
     #[test]
     fn next_step_hint_is_one_atomic_push() {
         let (_d, repo, _remote) = repo_with_remote();
@@ -397,7 +566,7 @@ mod tests {
         );
         assert_eq!(code, 0, "{msg}");
         assert!(
-            msg.contains("git push --atomic origin HEAD v0.1.1"),
+            msg.contains("git push --atomic origin HEAD:main v0.1.1"),
             "{msg}"
         );
         assert!(!msg.contains("&& git push"), "{msg}");

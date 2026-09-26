@@ -70,6 +70,8 @@ enum Commands {
         level: String,
         #[arg(long)]
         title: String,
+        /// Push HEAD to origin's default branch together with the tag, in one
+        /// atomic push (from any branch or worktree). Rejected → local tag removed
         #[arg(long)]
         push: bool,
         #[arg(long)]

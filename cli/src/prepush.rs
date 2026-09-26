@@ -152,7 +152,7 @@ fn git_ok(repo: &Path, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
-fn default_branch(repo: &Path, remote: &str) -> Option<String> {
+pub(crate) fn default_branch(repo: &Path, remote: &str) -> Option<String> {
     let resolves = |branch: &str| {
         git_ok(
             repo,
