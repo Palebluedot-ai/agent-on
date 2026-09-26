@@ -51,4 +51,4 @@
 - suggested_landing:kit/guard/agent-on-git-guard.sh 判据修正 + 拦截文案加出口；bench/cases 新增一例；v0.20.0「闸必须自带出口」条目的同类
 - rollback:revert 守卫脚本改动（拦截面回到更宽即安全侧）
 - trace:aster-agent loop-notes.md 2026-09-14|脚手架不合身 行；agent-on.lock.md local_deviations 第 4 行
-- 状态: landed@v0.22.0（与 CryptoQuant guard 卡合并入册 bench/cases/46；闸体修复同为 deferred，理由见该卡）
+- 状态: landed@同批（与 CryptoQuant guard 卡合并入册 bench/cases/46；根因改判同该卡：判据早已在 Rust 闸里修好，误拦出自插件缓存 0.5.0 的老闸，执行面见案 47）

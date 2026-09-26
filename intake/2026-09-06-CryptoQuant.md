@@ -20,7 +20,7 @@
 - suggested_landing:kit/guard/agent-on-git-guard.sh（或 cli `agent-on guard`）改判据为目标仓，并排除 heredoc 正文；bench/cases 追加本例到 39/40 同族
 - rollback:revert 落地 commit（guard 回到字面匹配，只是更保守）
 - trace:loop-notes.md 2026-09-05「agent-on-git-guard 误拦」；2026-09-06 结账当场再拦（本卡 evidence ③）
-- 状态: landed@v0.22.0（入册 bench/cases/46-cross-repo-guard-matches-text-not-target.md）。**闸体修复 deferred**：kit/guard/** 属硬停第 1 类（闸与权限自身），放宽拦截面是安全侧倒退，须单独一轨并带放行/拦截矩阵测试；在此之前沿用「拆成两条命令 / 用编辑工具写文件」的现场出口
+- 状态: landed@同批（入册 bench/cases/46 + 规则落 multi-contributor §三½.5 判据面 / 执行面 + kit/guard/README「执行面自检」）。**根因改判**：09-21 草稿写的「闸体修复 deferred」是误诊——现行 Rust 闸（cli/src/guard.rs）早已按目标仓判，干跑对照老闸 exit 2 / Rust 闸 exit 0；误拦出自插件缓存 0.5.0 里的老 Python 闸，属执行面陈旧（案 47），本机修法 `claude plugin update agent-on@agent-on`
 
 ### plan-revision-must-rewrite-self-contained-cards（计划正文改版后，自包含的 phase 卡与 config 必须同批重写，并用机器断言守门）
 - source:CryptoQuant @ 12f1b51 | pin v0.19.0

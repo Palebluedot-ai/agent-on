@@ -1,6 +1,6 @@
 # kit/guard — 跨仓、worktree 与跨窗口边界（机械闸）
 
-> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前判**本树**有没有把未提交改动写进别的活轨的 `owns`（2026-09-14 起只拦这一条，不连坐；对照表见 [kit/worktree-control-plane.md](../worktree-control-plane.md)「闸只拦真冲突」）；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
+> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前判**本树**：本树某个未提交文件，另一棵工作树里也未提交、且那一份 7 天内被碰过，才拦（2026-09-24 起不读 lane 登记；见 [kit/worktree-control-plane.md](../worktree-control-plane.md)「闸只拦真冲突」）；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
 > **实现**：逻辑在 Rust CLI 的 `agent-on guard`；本目录 extensionless 文件是 canonical Bash shim，`.sh` 仅为旧个人 hook 的 Bash/Python 双兼容入口。
 
 ## 路径 / doctor
@@ -70,6 +70,24 @@ echo '{"tool_name":"Bash","cwd":"'"$FEATURE_WORKTREE"'","tool_input":{"command":
 `python3 .../agent-on-git-guard.sh` 曾因 v0.7 把脚本换成 Bash 而产生 `SyntaxError`。当前 `.sh` 兼容入口已同时支持 `python3` 与 `bash`，但长期建议删除个人重复 hook、使用 plugin；Agent-On 状态检查只提醒，不擅自改 `~/.codex/hooks.json`。
 
 回滚：从 hooks 删掉 PreToolUse 条目即可。
+
+## 执行面自检：在跑的是不是这一份（2026-09-26）
+
+规则在仓里改了，宿主上挂着的 hook 不会跟着换。同一台机器可能**并排挂着两代闸**，每条 Bash 各判一遍，谁拦算谁（实测：插件缓存停在 0.5.0，它的 hook 跑的是老 Python 闸，按命令文本判越界；`~/.claude/settings.json` 里那条转发到仓里的 Rust 闸，早已按目标仓判——误拦全出自前者，bench 案 46 / 47）。
+
+发版、升级 pin、或者被拦得莫名其妙时，对一遍执行面：
+
+```bash
+# 1. 宿主上挂着哪些 agent-on hook（Claude）
+python3 -c "import json,os;print(json.dumps(json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('hooks',{}),ensure_ascii=False,indent=1))" | grep -n agent-on
+claude plugin list | grep -A3 agent-on          # 插件版本；和仓里 .claude-plugin/plugin.json 的 version 比
+cat ~/.claude/plugins/cache/agent-on/agent-on/*/hooks/hooks.json
+
+# 2. 落后就换掉（重启 Claude 生效；改 ~/.claude 属于用户动作）
+claude plugin update agent-on@agent-on
+```
+
+判据：插件版本对不上仓里的 `plugin.json`，或者 hook 命令指向一份不经 `agent-on-git-guard` shim 转发的脚本，就是执行面陈旧。拦截文案里点名的执行体路径是第一线索——指向缓存目录时先查这里，别先改判据，也别教被拦的会话改写命令。`agent-on doctor` 报执行面的那一段还没实现（下一条 CLI 轨），落地前按上面手工核。
 
 ## 分类器/闸拒诊断（命令字面 ≠ 目标）
 

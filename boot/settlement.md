@@ -108,3 +108,4 @@
 2. **patch / minor**:改 lock 的 pin 行即完成——存量实例化文件不动,新工件自然用新模板
 3. **major**:按迁移注记对已实例化文件(看头部 `instantiated-from` 行定基准)出 diff 提案,用户逐条批准后执行
 4. **永不从 kit 重拷覆盖实例化文件**——它们是项目自己的 canonical。
+5. **升级后核执行面(2026-09-26)**:升级改的是 lock 的 pin,宿主上实际挂着的 hook 不跟着换。对一遍 agent-on 的 hook 条目(Claude:`~/.claude/settings.json` 与已启用插件的缓存 `hooks.json`;Codex:`~/.codex/hooks.json`):插件版本与仓里 `plugin.json` 一致、hook 经 `kit/guard/agent-on-git-guard` 转发到 `agent-on guard`——对不上就提示用户 `claude plugin update agent-on@agent-on`(重启生效;改 `~/.claude` 是用户动作)。步骤见 [kit/guard/README.md](../kit/guard/README.md)「执行面自检」。
