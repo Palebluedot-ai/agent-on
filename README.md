@@ -10,6 +10,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 [![release](https://img.shields.io/github/v/tag/Palebluedot-ai/agent-on?label=release&sort=semver)](https://github.com/Palebluedot-ai/agent-on/tags)
 ![tools](https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Grok-6f42c1)
 ![cli](https://img.shields.io/badge/CLI-Rust-dea584)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [它解决什么](#它解决什么) · [核心能力](#核心能力) · [5 分钟装机](#给朋友的-5-分钟装机claude--codex--grok) · [口令速查](#日常怎么用口令速查) · [为什么信它](#为什么信它) · [FAQ](#常见问题)
 
@@ -261,3 +262,7 @@ agent-on doctor
 - **fixture**：接口两侧共用的冻结样例数据，并行开发时当裁判用
 - **结账 / 消化**：结账 = 项目把带证据的教训送回本仓 `intake/`；消化 = 本仓把它落成正文修改并发版
 - **L1–L4**：教训的沉淀深度，从单次复盘到用户稳定偏好（[playbook/memory-layering.md](playbook/memory-layering.md)）
+
+## 许可证
+
+[MIT](LICENSE)。随便用、随便改、可以商用，保留版权声明即可。
