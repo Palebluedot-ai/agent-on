@@ -229,6 +229,23 @@ struct Conflict {
     path: String,
     /// The other worktree that also has this path uncommitted, recently.
     other: String,
+    /// The other worktree is stopped mid-rebase: its "uncommitted" files are a
+    /// replay in flight, and only its own session can finish or abort it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    other_rebase: Option<RebaseProgress>,
+}
+
+/// Where a stopped rebase is, read from the git admin dir alone
+/// (`rebase-merge/msgnum` + `end`, or `rebase-apply/next` + `last`), so the
+/// other tree's working files are never touched.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct RebaseProgress {
+    step: u64,
+    total: u64,
+    /// Seconds since the step counter last moved. A large value means the
+    /// session behind it has walked away.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    idle_secs: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1564,6 +1581,7 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
         .map(|age| age.as_secs())
         .unwrap_or(0);
     let mut conflicts = Vec::new();
+    let mut rebase_by_tree: BTreeMap<String, Option<RebaseProgress>> = BTreeMap::new();
     for (worktree, _writer, files, _dormant) in &writers {
         for file in files {
             for (other, _, other_files, _) in &writers {
@@ -1573,10 +1591,15 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
                 if !copy_is_recent(file_epoch(Path::new(other), file), now, dormant_after) {
                     continue;
                 }
+                let other_rebase = rebase_by_tree
+                    .entry(other.clone())
+                    .or_insert_with(|| rebase_progress(Path::new(other), now))
+                    .clone();
                 conflicts.push(Conflict {
                     worktree: worktree.clone(),
                     path: file.clone(),
                     other: other.clone(),
+                    other_rebase,
                 });
             }
         }
@@ -1597,16 +1620,83 @@ fn build_report(repo: &Path) -> Result<AuditReport, String> {
     })
 }
 
+fn read_counter(path: &Path) -> Option<u64> {
+    fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+/// Is `worktree` stopped in the middle of a rebase, and at which step.
+fn rebase_progress(worktree: &Path, now: u64) -> Option<RebaseProgress> {
+    for (dir, step_file, total_file) in [
+        ("rebase-merge", "msgnum", "end"),
+        ("rebase-apply", "next", "last"),
+    ] {
+        let Ok(state) = git_path(worktree, dir) else {
+            continue;
+        };
+        // rebase-apply also backs `git am`; only a rebase leaves `rebasing`.
+        if !state.is_dir() || (dir == "rebase-apply" && !state.join("rebasing").exists()) {
+            continue;
+        }
+        let step_path = state.join(step_file);
+        let (Some(step), Some(total)) = (
+            read_counter(&step_path),
+            read_counter(&state.join(total_file)),
+        ) else {
+            continue;
+        };
+        let idle_secs = fs::metadata(&step_path)
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|moved| moved.duration_since(UNIX_EPOCH).ok())
+            .map(|moved| now.saturating_sub(moved.as_secs()));
+        return Some(RebaseProgress {
+            step,
+            total,
+            idle_secs,
+        });
+    }
+    None
+}
+
+fn rough_age(secs: u64) -> String {
+    match secs {
+        s if s < 3_600 => format!("{}m", s / 60),
+        s if s < 172_800 => format!("{}h", s / 3_600),
+        s => format!("{}d", s / 86_400),
+    }
+}
+
+/// The exit belongs to the rebasing session; this one can only step aside.
+fn rebase_note(other: &str, progress: &RebaseProgress) -> String {
+    let idle = progress
+        .idle_secs
+        .map(|secs| format!(", last step {} ago", rough_age(secs)))
+        .unwrap_or_default();
+    format!(
+        "note: {other} is stopped mid-rebase at step {} of {}{idle}; its files are a replay in flight, not fresh edits. Exit: that tree's own session continues it or runs `git rebase --abort` (never abort it for them); if your copy can be regenerated, `git restore` it and rerun once they finish.",
+        progress.step, progress.total
+    )
+}
+
 /// Lines that apply to one worktree. Empty means nothing blocks a commit there.
 fn focus_lines(report: &AuditReport, here: &str) -> Vec<String> {
     let mut lines = Vec::new();
+    let mut rebasing: Vec<(&str, &RebaseProgress)> = Vec::new();
     for conflict in &report.conflicts {
         if conflict.worktree == here {
             lines.push(format!(
                 "blocked: {} is also uncommitted in {}",
                 conflict.path, conflict.other
             ));
+            if let Some(progress) = &conflict.other_rebase {
+                if !rebasing.iter().any(|(other, _)| *other == conflict.other) {
+                    rebasing.push((&conflict.other, progress));
+                }
+            }
         }
+    }
+    for (other, progress) in rebasing {
+        lines.push(rebase_note(other, progress));
     }
     for (tree, message) in report.error_trees.iter().zip(report.errors.iter()) {
         if tree == here {
@@ -2731,12 +2821,54 @@ mod tests {
             out.contains(&fs::canonicalize(&wt).unwrap().display().to_string()),
             "{out}"
         );
+        assert!(!out.contains("mid-rebase"), "{out}");
         let (code, out) = gate_for(&intruder);
         assert_eq!(code, 1, "{out}");
         let (code, out) = gate_for(&wt);
         assert_eq!(code, 1, "the other writer is blocked too: {out}");
         let (code, out) = gate_for(&root);
         assert_eq!(code, 0, "a clean tree is not charged: {out}");
+    }
+
+    /// Dartify 2026-09-25: the tree holding the file had stopped mid-rebase and
+    /// its session had gone idle. "Also uncommitted" read like someone editing;
+    /// the block has to say it is a replay stuck at step x of y.
+    #[test]
+    fn block_names_the_other_trees_rebase_progress() {
+        let (_tmp, root, wt) = fixture();
+        fs::write(root.join("app/base.txt"), "main edit\n").unwrap();
+        run(&root, &["git", "commit", "-qam", "main edits base"]);
+        fs::write(wt.join("a1.txt"), "one\n").unwrap();
+        run(&wt, &["git", "add", "a1.txt"]);
+        run(&wt, &["git", "commit", "-qm", "c1"]);
+        fs::write(wt.join("app/base.txt"), "lane edit\n").unwrap();
+        run(&wt, &["git", "commit", "-qam", "c2 conflicts with main"]);
+        fs::write(wt.join("a3.txt"), "three\n").unwrap();
+        run(&wt, &["git", "add", "a3.txt"]);
+        run(&wt, &["git", "commit", "-qm", "c3"]);
+        let rebase = Command::new("git")
+            .current_dir(&wt)
+            .args(["rebase", "main"])
+            .output()
+            .unwrap();
+        assert!(!rebase.status.success(), "the rebase must stop on c2");
+
+        fs::write(root.join("app/base.txt"), "primary edit\n").unwrap();
+        let (code, out) = gate_for(&root);
+        assert_eq!(code, 1, "{out}");
+        assert!(
+            out.contains("blocked: app/base.txt is also uncommitted in"),
+            "{out}"
+        );
+        assert!(out.contains("mid-rebase at step 2 of 3"), "{out}");
+        // The owner of the exit is the rebasing session, not this one.
+        assert!(out.contains("rebase --abort"), "{out}");
+
+        let (_, json) = run_audit(&root, true, false);
+        let report: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let rebase = &report["conflicts"][0]["other_rebase"];
+        assert_eq!(rebase["step"], 2, "{json}");
+        assert_eq!(rebase["total"], 3, "{json}");
     }
 
     #[test]
