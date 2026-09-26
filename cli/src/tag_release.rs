@@ -49,6 +49,39 @@ pub fn latest_tag(repo: &Path) -> Result<String, String> {
     Err("找不到 vX.Y.Z 形态 tag".into())
 }
 
+/// Intake marks `landed@vX.Y.Z` whose tag does not exist yet. A mark may only
+/// name a commit or tag that already carries the landing (Dartify 2026-09-26:
+/// cards marked `landed@v0.22.0` before the tag existed; another commit then
+/// took the number). Returns `file:line  mark` rows.
+pub fn unminted_tag_marks(repo: &Path) -> Vec<String> {
+    let re = Regex::new(r"landed@(v\d+\.\d+\.\d+)").unwrap();
+    let mut rows = Vec::new();
+    for path in crate::intake_lint::default_intake_paths(repo) {
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        for (i, line) in text.lines().enumerate() {
+            for cap in re.captures_iter(line) {
+                let tag = &cap[1];
+                let exists = run_git(
+                    repo,
+                    &["rev-parse", "-q", "--verify", &format!("refs/tags/{tag}")],
+                    true,
+                )
+                .is_ok();
+                if !exists {
+                    rows.push(format!(
+                        "{}:{}  landed@{tag}",
+                        path.file_name().unwrap_or_default().to_string_lossy(),
+                        i + 1
+                    ));
+                }
+            }
+        }
+    }
+    rows
+}
+
 pub struct TagOpts {
     pub level: String,
     pub title: String,
@@ -93,6 +126,16 @@ pub fn run_tag_release(repo: &Path, opts: &TagOpts) -> (i32, String) {
         Ok(t) => t,
         Err(e) => return (1, format!("{e}\n")),
     };
+    let premarked = unminted_tag_marks(repo);
+    if !premarked.is_empty() {
+        return (
+            1,
+            format!(
+                "intake 里有去向标注指向还不存在的 tag,拒绝打 {new_tag}:\n  {}\n去向只能引用已经存在、并且包含落点的 commit 或 tag;写不出 hash 就写 `landed@同批（落点）`。\n",
+                premarked.join("\n  ")
+            ),
+        );
+    }
     let head = run_git(repo, &["rev-parse", "--short", "HEAD"], true).unwrap_or_default();
 
     let mut msg_extra = String::new();
@@ -182,5 +225,62 @@ mod tests {
         assert!(msg.contains("v0.1.1"), "{msg}");
         let tags = run_git(repo, &["tag", "-l"], true).unwrap();
         assert!(tags.contains("v0.1.1"));
+    }
+
+    fn repo_with_intake_mark(mark: &str) -> tempfile::TempDir {
+        let d = tempdir().unwrap();
+        let repo = d.path();
+        git(repo, &["init"]);
+        git(repo, &["config", "user.email", "t@t.com"]);
+        git(repo, &["config", "user.name", "t"]);
+        fs::write(repo.join("f"), "1").unwrap();
+        git(repo, &["add", "f"]);
+        git(repo, &["commit", "-m", "c1"]);
+        git(repo, &["tag", "-a", "v0.1.0", "-m", "v0.1.0"]);
+        fs::create_dir_all(repo.join("intake")).unwrap();
+        fs::write(
+            repo.join("intake/2026-01-01-x.md"),
+            format!("### slug\n- 状态: {mark}\n"),
+        )
+        .unwrap();
+        git(repo, &["add", "intake"]);
+        git(repo, &["commit", "-m", "c2"]);
+        d
+    }
+
+    /// Dartify 2026-09-26: intake cards were marked `landed@v0.22.0` before
+    /// that tag existed; another commit then took the number.
+    #[test]
+    fn refuses_when_intake_marks_a_tag_that_does_not_exist_yet() {
+        let d = repo_with_intake_mark("landed@v0.1.1（kit/x.md）");
+        let repo = d.path();
+        let (code, msg) = run_tag_release(
+            repo,
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: false,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 1, "{msg}");
+        assert!(msg.contains("landed@v0.1.1"), "{msg}");
+        let tags = run_git(repo, &["tag", "-l"], true).unwrap();
+        assert!(!tags.contains("v0.1.1"), "tag must not be created");
+    }
+
+    #[test]
+    fn marks_pointing_at_existing_tags_pass() {
+        let d = repo_with_intake_mark("landed@v0.1.0（kit/x.md）");
+        let (code, msg) = run_tag_release(
+            d.path(),
+            &TagOpts {
+                level: "patch".into(),
+                title: "test".into(),
+                push: false,
+                allow_dirty: false,
+            },
+        );
+        assert_eq!(code, 0, "{msg}");
     }
 }
