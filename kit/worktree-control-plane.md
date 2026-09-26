@@ -131,7 +131,7 @@ agent-on worktree claim \
 
 merge / squash / cherry-pick / rebase 进行中照旧一律放行。
 
-**被拦时对方停在 rebase 半路（2026-09-26 Dartify 实测）**：「进行中放行」放行的是**正在 rebase 的那棵树自己**。它停在半路没人管时，重放到一半的文件在它的树里都算「未提交」，会挡住所有要改这些文件的树——Dartify SE-C1b 的四笔提交因此被拦了约 3 小时，对方会话的 rebase 停在 2/3、人已经走了，冲突起因常常是我们刚合进 main 的 PR。**怎么认**：读 common git dir 下 `worktrees/<名>/rebase-merge/msgnum` 与 `end`（第几步 / 共几步）和它们的 mtime，不用碰对方的树（隔离会话连 `git -C` 看对方的树都会被拒）。**出口**：① 你那份是可重跑生成的（台账、仪表盘），`restore` 掉自己那份，等对方收尾后重跑；② 转交对方会话（值守在班就走值守）收尾或 `rebase --abort`；③ 对方超过 7 天没动，闸自己放开。**别替对方 abort**——那是别人的工作区。拦截文案直接报出对方的 rebase 进度，还没实现（下一条 CLI 轨）。
+**被拦时对方停在 rebase 半路（2026-09-26 Dartify 实测）**：「进行中放行」放行的是**正在 rebase 的那棵树自己**。它停在半路没人管时，重放到一半的文件在它的树里都算「未提交」，会挡住所有要改这些文件的树——Dartify SE-C1b 的四笔提交因此被拦了约 3 小时，对方会话的 rebase 停在 2/3、人已经走了，冲突起因常常是我们刚合进 main 的 PR。**怎么认**：读 common git dir 下 `worktrees/<名>/rebase-merge/msgnum` 与 `end`（第几步 / 共几步）和它们的 mtime，不用碰对方的树（隔离会话连 `git -C` 看对方的树都会被拒）。**出口**：① 你那份是可重跑生成的（台账、仪表盘），`restore` 掉自己那份，等对方收尾后重跑；② 转交对方会话（值守在班就走值守）收尾或 `rebase --abort`；③ 对方超过 7 天没动，闸自己放开。**别替对方 abort**——那是别人的工作区。拦截文案会多一行 `note: <对方> is stopped mid-rebase at step x of y, last step <多久> ago`，读的就是上面这两个文件，出口照这里写；`check --json` 的 `conflicts[].other_rebase` 给同一组数。
 
 **全仓共写的热点文件，生成、add、commit 放进同一条命令**：`docs/state/progress.yaml`、`dashboard.html` 这类每条 PR 都要记一笔的台账，留一个未提交的窗口，就会挡住别人、也会被别人挡住（Dartify 同一天两次：CI 会话回填 #289 的编号没提交，收官记账就被拦）。一条命令做完，不留窗口；被拦时 `restore` 掉自己那份（可重跑，零损失），别让两边互锁。
 
