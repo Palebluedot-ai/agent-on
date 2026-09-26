@@ -164,13 +164,15 @@ struct LocalBaseMerge {
     committer: String,
 }
 
-/// `git merge-tree --write-tree` exits 1 on conflicts. Anything else it cannot
-/// answer counts as clean: the gate stays shut and `--no-verify` remains.
+/// `git merge-tree --write-tree` (git 2.38+) exits 1 on conflicts. Anything
+/// else it cannot answer counts as clean: the gate stays shut and
+/// `--no-verify` remains. No `--quiet`: it is newer than `--write-tree`, and a
+/// usage error must not be read as "clean" on an older git.
 fn merges_cleanly(repo: &Path, ours: &str, theirs: &str) -> bool {
     Command::new("git")
         .arg("-C")
         .arg(repo)
-        .args(["merge-tree", "--write-tree", "--quiet", ours, theirs])
+        .args(["merge-tree", "--write-tree", ours, theirs])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
