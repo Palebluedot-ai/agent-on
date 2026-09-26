@@ -282,17 +282,36 @@ impl Surface<'_> {
             if !expanded.contains('/') {
                 continue;
             }
-            let path = PathBuf::from(&expanded);
+            let named = expanded.to_lowercase().contains("agent-on");
+            // A symlinked shim runs the file it points at: trace that one.
+            let path = match plugin_root {
+                Some(root) if Path::new(&expanded).starts_with(root) => PathBuf::from(&expanded),
+                _ => fs::canonicalize(&expanded).unwrap_or_else(|_| PathBuf::from(&expanded)),
+            };
             let root = match plugin_root {
                 Some(root) if path.starts_with(root) => Some(root.to_path_buf()),
                 _ => find_agent_on_root(&path),
             };
             let Some(root) = root else {
-                if !path.exists() && expanded.to_lowercase().contains("agent-on") {
+                if !path.exists() && named {
                     self.lines.push(format!(
                         "{indent}  {expanded}  不存在：这条 hook 会报错或空转"
                     ));
                     self.problems.push(format!("GUARD OFF  {expanded} 不存在"));
+                } else if path.is_file() && named {
+                    // Silence here would read as "consistent" while an
+                    // untraceable copy (an old guard copied out) does the judging.
+                    self.lines.push(format!(
+                        "{indent}  {expanded}  不在任何 agent-on 树里：没法对 READ_ROOT"
+                    ));
+                    self.problems.push(format!(
+                        "UNTRACED   {} 不在任何 agent-on 树里——多半是早先拷出来的一份，按陈旧处理",
+                        path.display()
+                    ));
+                    self.fixes.insert(
+                        "让这条 hook 指向 READ_ROOT 的 kit/guard/agent-on-git-guard（或删掉它，改由插件挂）"
+                            .to_string(),
+                    );
                 }
                 continue;
             };
@@ -857,6 +876,49 @@ mod tests {
         assert!(out.contains("GUARD OFF"), "{out}");
         assert!(out.contains("fail-open"), "{out}");
         assert!(!out.contains("执行面与 READ_ROOT 一致"), "{out}");
+    }
+
+    fn settings_with_hook(host: &Host, command: String) {
+        write(
+            &host.home.join(".claude/settings.json"),
+            &json!({
+                "enabledPlugins": {"agent-on@agent-on": true},
+                "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": command}]}]}
+            })
+            .to_string(),
+        );
+    }
+
+    /// A guard copied out of any agent-on tree cannot be compared with
+    /// READ_ROOT, and silence about it would read as "consistent".
+    #[test]
+    fn a_hook_script_outside_every_agent_on_tree_is_not_consistent() {
+        let host = fresh_cache_host();
+        write(
+            &host.home.join(".claude/hooks/agent-on-git-guard.sh"),
+            OLD_PYTHON_GUARD,
+        );
+        settings_with_hook(
+            &host,
+            "python3 \"$HOME/.claude/hooks/agent-on-git-guard.sh\"".to_string(),
+        );
+        let out = surface(&host.home, Some(&host.read_root), None).join("\n");
+        assert!(out.contains("UNTRACED"), "{out}");
+        assert!(!out.contains("执行面与 READ_ROOT 一致"), "{out}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_shim_is_traced_to_the_tree_it_points_into() {
+        let host = fresh_cache_host();
+        let link = host.home.join("bin/agent-on-git-guard");
+        fs::create_dir_all(link.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(host.read_root.join("kit/guard/agent-on-git-guard"), &link)
+            .unwrap();
+        settings_with_hook(&host, "bash \"$HOME/bin/agent-on-git-guard\"".to_string());
+        let out = surface(&host.home, Some(&host.read_root), None).join("\n");
+        assert!(out.contains("= READ_ROOT 本份"), "{out}");
+        assert!(!out.contains("UNTRACED"), "{out}");
     }
 
     #[test]
