@@ -130,4 +130,4 @@
 - suggested_landing:kit/agent-on-lock-template.md 该行措辞；bench/capability-probe.md 头部「何时跑」；boot/settlement.md 不改
 - rollback:revert 落地 commit
 - trace:agent-on.lock.md local_deviations 第 4 行（本次结账新增）
-- 状态: landed@v0.22.0（kit/agent-on-lock-template.md 档位行改措辞 + bench/capability-probe.md 头部新增「何时跑」）
+- 状态: landed@同批（kit/agent-on-lock-template.md 档位行改措辞 + bench/capability-probe.md 头部新增「何时跑」）
