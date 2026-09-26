@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.24.2`**（CI 文档闸的推荐 pin 判据只认声明写法：版本号必须紧跟标签，每个文件的声明处数钉死，散文里提到推荐 pin 不再误报；只动 `.github/scripts/check_docs.py`，产品面不动。v0.24.1 的 kit 控制面页对齐、v0.24.0 的 doctor 执行面与 pre-push 本地 merge 检查、v0.22.0 的同文件 commit 闸照旧）。
+**最新推荐 pin：`v0.24.3`**（一条 lane 的 `base` 解析不了时，git 的 `fatal: Not a valid object name …` 不再印到每棵树的 `worktree status` / `check`、hook 与 guard 输出上：`is_ancestor` 改静默，布尔语义不变，那条 lane 自己的树照旧报 `error: … cannot compare with …`。v0.24.2 的 CI 文档闸、v0.24.1 的 kit 控制面页对齐、v0.24.0 的 doctor 执行面与 pre-push 本地 merge 检查、v0.22.0 的同文件 commit 闸照旧）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。

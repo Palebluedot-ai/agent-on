@@ -2,9 +2,22 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.24.2 起攒）
+## [未发布]（自 v0.24.3 起攒）
 
 （空）
+
+## v0.24.3（2026-09-26）——一条 lane 的 base 解析不了，git 的报错不再印到每棵树上
+
+> **patch**（「不用知道」——判据、退出码、`--json` 都不变，只收掉一行漏出来的 git stderr。`cli/src/**` 属硬停第 1 类：值守不在班（`agent-on oncall status` 报无人在班），用户在本会话交代照自举纪律 6 由本会话自合发版）：v0.24.1 证据末条「顺带发现、不在本批」的那一处。kit `worktree-control-plane.md` 写的是人读 `status` / `check` 只有 `ok` / `blocked:` / `error:` 三种行、hook 过了就静默；可只要全仓有一条 lane 的 `base` 解析不了，每棵树的输出都多出一行 git 的 `fatal:`，本来 `ok` 的树也不例外。
+
+- **祖先判定不再继承 git 的 stderr**（`cli/src/worktree.rs` 的 `is_ancestor`）：审计对每条登记的 lane 都跑一次 `git merge-base --is-ancestor HEAD <base>`，原来用 `Command::status()`，git 的 stderr 直通终端。某条 lane 的 `base` 解析不了（远端分支删了、登记被手改），`fatal: Not a valid object name <base>` 就印在每棵树的 `worktree status` / `check`、pre-commit / pre-push hook 与 PreToolUse guard 的输出里；`claim` / `edit` 量一条不在写、owns 声明重叠的 lane 时走同一个调用，同样会漏。改成与 `prepush.rs` 的 `git_ok` 同一写法：stdout / stderr 都接 `Stdio::null()`。布尔语义不变，解析不了照旧算「没合进」；出问题那条 lane 自己的树仍由 `changed_files` 报 `error: <id>: cannot compare with <base>: …`，`check` 照旧退 1、commit 照旧被拦。`worktree.rs` 里没有别的 `.status()`，审计路径上其余 git 调用都走 `.output()` 捕获。要看到效果得换上新二进制：Git hooks 跑安装时记下的那份（通常是 `~/.cargo/bin/agent-on`，`cargo install --path cli`），插件那份见 v0.24.0「本机实测」一条；`agent-on doctor` 会报执行面落后没有。
+
+### 证据
+
+- 先写失败测试：`cli/tests/gate_scope.rs` 新增两条集成测试，跑真二进制，stdout / stderr 分开断言。① 把 lane-a 的 `base` 改成 `origin/nope`：主树与未登记树的 `worktree status` / `check` stdout 恰为 `ok\n`、stderr 为空，`worktree hooks run --hook pre-commit|pre-push` 与 PreToolUse guard 退 0、零输出；lane-a 自己的 `check` 退 1，输出以 `error: lane-a: cannot compare with origin/nope: ` 开头。② lane-a 再改成 `parked`，从另一棵树 `claim --owns app`：成功，stderr 为空。修复前两条都红，红在同一行（`left: "fatal: Not a valid object name origin/nope\n"`）；修复后绿。另加单元测试 `unresolvable_base_is_not_an_ancestor` 钉住布尔语义（`main` 是祖先，`origin/nope` 不是）。
+- 临时仓照用户 09-26 的复现走一遍：本机已装的 `~/.cargo/bin/agent-on` 在主树 `worktree check` 先打 `fatal: Not a valid object name origin/nope` 再打 `ok`；本分支编的二进制只打 `ok`，pre-commit hook 零输出；lane 树打 `error: lane-l: cannot compare with origin/nope: fatal: ambiguous argument 'origin/nope...HEAD': …`、退 1。`claim` 那条也实测过：旧二进制先打那行 `fatal:` 再打 `CLAIMED`，新二进制只打 `CLAIMED`。
+- rebase 到 v0.24.2 之后：`cargo test` 274 项全过（exit 0），`cargo clippy --all-targets -- -D warnings` exit 0，`cargo fmt --check` exit 0。
+- 改完推荐 pin、打 tag 之前跑 `python3 .github/scripts/check_docs.py`：只报「推荐 pin `v0.24.3` 没有对应的 git tag」一条（预期，tag 下一步才打），职责边界、相对链接、推荐 pin 处数与三处一致都过。
 
 ## v0.24.2（2026-09-26）——CI 文档闸的推荐 pin 判据只认声明写法
 
