@@ -18,7 +18,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.25.1`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.25.2`。**
 
 ---
 
@@ -98,7 +98,7 @@ AI：定 M 标准档。已播种：
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.25.1`** |
+| **推荐 pin** | **`v0.25.2`** |
 | **不是** | npm、Claude 官方总商店、App Store |
 
 | OS | 默认工作仓（setup 会放到这里） |

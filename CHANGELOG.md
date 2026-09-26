@@ -2,9 +2,21 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.25.1 起攒）
+## [未发布]（自 v0.25.2 起攒）
 
 （空）
+
+## v0.25.2（2026-09-26）——补 MIT LICENSE 文件
+
+> **patch**（「不用知道」——许可证本来就是 MIT，`cli/Cargo.toml` 早已声明 `license = "MIT"`；本版只补上仓库根的文件。值守不在班，用户在本会话要求添加）。
+
+- **新增 `LICENSE`（MIT，Copyright (c) 2026 YANG CHAO）**：此前仓库根没有许可证文件，GitHub 不显示许可证，使用者无从确认能否复用。版权方取 `.claude-plugin/plugin.json` 与 `.codex-plugin/plugin.json` 的作者名。
+- **README**：加许可证徽章，末尾加「许可证」一节。
+
+### 证据
+
+- `python3 .github/scripts/check_docs.py`（改推荐 pin 前）：`DOC-GATE: PASS`，exit 0。
+- `grep -n license cli/Cargo.toml`：`license = "MIT"`，与新文件一致。
 
 ## v0.25.1（2026-09-26）——README 重写成面向新用户的中文首页，参考细节移入 docs/manual.md
 
