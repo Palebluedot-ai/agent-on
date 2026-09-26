@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -260,7 +260,7 @@ fn hook_script(executable: &Path, hook: &str) -> Result<String, String> {
         )
     })?;
     Ok(format!(
-        "#!/bin/sh\n{MANAGED_MARKER}\nexec {} worktree hooks run --hook {} --repo \"$PWD\"\n",
+        "#!/bin/sh\n{MANAGED_MARKER}\nexec {} worktree hooks run --hook {} --repo \"$PWD\" -- \"$@\"\n",
         shell_quote(executable),
         shell_quote(hook)
     ))
@@ -706,7 +706,7 @@ fn install_inner(repo: &Path) -> Result<String, String> {
     }
 
     Ok(format!(
-        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: blocks only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days\npre-push: same one-tree rule\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
+        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: blocks only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days\npre-push: same one-tree rule, plus a clean local merge of <remote>/<default> into a branch with an open PR (use the server-side update-branch)\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
         root.display()
     ))
 }
@@ -936,7 +936,9 @@ fn clear_inherited_git_local_env() {
 /// Git-hook entry: the same one-tree verdict the PreToolUse guard uses. The
 /// hook runs inside the worktree being committed/pushed, so `repo` is that
 /// tree, and only that tree's own conflict or audit failure stops it.
-pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
+/// pre-push adds one more check on what is being pushed: a local merge of the
+/// default branch into a branch with an open PR (`crate::prepush`).
+pub fn run_hook(repo: &Path, hook: &str, hook_args: &[String]) -> (i32, String) {
     if !HOOK_NAMES.contains(&hook) {
         return (
             2,
@@ -952,6 +954,20 @@ pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
     let (code, detail) = crate::worktree::gate_for(repo);
     if code != 0 {
         return (1, format!("BLOCKED by Agent-On {hook}:\n{detail}"));
+    }
+    if hook == "pre-push" {
+        // Git writes one line per ref being pushed to the hook's stdin.
+        let mut input = String::new();
+        let stdin = std::io::stdin();
+        if !stdin.is_terminal() {
+            let _ = stdin.lock().read_to_string(&mut input);
+        }
+        let updates = crate::prepush::parse_updates(&input);
+        if let Some(block) =
+            crate::prepush::check(repo, hook_args, &updates, &crate::prepush::gh_open_pr)
+        {
+            return (1, format!("BLOCKED by Agent-On pre-push:\n{block}"));
+        }
     }
     (0, String::new())
 }
@@ -1302,15 +1318,15 @@ mod tests {
 
         // A file only the primary has dirty is not a block, owns or not.
         fs::write(root.join("README.md"), "note\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit");
+        let (code, out) = run_hook(&root, "pre-commit", &[]);
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(root.join("app")).unwrap();
         fs::write(root.join("app/x.txt"), "intrude\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit");
+        let (code, out) = run_hook(&root, "pre-commit", &[]);
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(lane.join("app")).unwrap();
         fs::write(lane.join("app/x.txt"), "lane also\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit");
+        let (code, out) = run_hook(&root, "pre-commit", &[]);
         assert_eq!(code, 1, "{out}");
         assert!(
             out.contains("blocked: app/x.txt is also uncommitted in"),
@@ -1329,7 +1345,7 @@ mod tests {
             root.join(marker)
         };
         fs::write(marker, "squash\n").unwrap();
-        let (code, out) = run_hook(&root, "pre-commit");
+        let (code, out) = run_hook(&root, "pre-commit", &[]);
         assert_eq!(code, 0, "{out}");
     }
 }
