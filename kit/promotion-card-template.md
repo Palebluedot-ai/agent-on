@@ -18,6 +18,7 @@
 
 - pattern-slug 用短横线小写英文(如 `local-prod-divergence`)——消化会话靠它 grep 跨项目重复,同 slug ≥2 项目 = 置顶信号
 - **evidence 空着 = 这张卡不存在**;「我记得」不是证据
+- **字段名不加粗,列表符用顶格 `-`**:`- **source**：` 曾让整张卡对 `agent-on intake-lint` 隐身、lint 还报「通过:0 张卡」(Dartify 2026-09-26);现在 lint 认加粗,但 `*` 列表和缩进的字段仍认不出(会报「有 source 行但格式认不出」)。多行字段首行写一句摘要,细节缩进写在下面
 - **域判据**:卡必须是 AI 协作过程的教训;项目域知识(业务规则/领域语义/产品口径)留项目端,不装卡
 - 六项对应 memory-card schema 字段,结账时可从 jsonl 直接装配
 - **上游**:卡可以经 intake-only PR / Issue 交给维护者;卡本身**不是**对 playbook 的直接 patch。见 boot/settlement.md「上游贡献形态」
