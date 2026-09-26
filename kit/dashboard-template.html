@@ -33,6 +33,10 @@
       ② 口令「更新仪表盘」—— 用户随时手动喊，即刻重绘。
       ③ 握手新鲜度提醒 —— session-handshake 会核本页「最后更新」是否落后 progress.yaml，陈旧会被点名。
 
+  ● 收尾闸（2026-09-26）：重绘完先跑 `node <agent-on>/kit/dashboard-check.mjs dashboard.html`（或拷进项目 scripts/），
+      绿了再报完成、再 commit。DATA 是 JS 字面量：漏一个逗号，两条记录会被读成下标访问、静默消失，
+      文本闸和 CI 全绿——只有真的求值才看得见（Dartify #289）。
+
   ● 五条铁律（违反任何一条，这张页三天就开始骗人）
       ① 从真相源读了重绘，禁止手填 —— 手填的仪表盘必然与代码漂移，一漂移就失信。
       ② 单写者 = orchestrator 主会话重绘；轨道 agent 与人类只读（与 progress.yaml 同级纪律）。
@@ -407,7 +411,7 @@ document.getElementById('devlog').innerHTML = Object.keys(byDay).sort().reverse(
 
 <footer>
   <b style="color:var(--text2)">更新协议（人机契约 —— 详见本文件顶部 HTML 注释）</b><br>
-  ① 口令 <code>更新仪表盘</code> —— orchestrator 主会话从真相源读了重绘本页 DATA，commit 入仓。<br>
+  ① 口令 <code>更新仪表盘</code> —— orchestrator 主会话从真相源读了重绘本页 DATA，跑过 <code>node kit/dashboard-check.mjs dashboard.html</code> 再 commit 入仓。<br>
   ② 更新时机：每次切片合流（合流 checklist 的「更新 dashboard」步）/ 用户随时手动喊。<br>
   ③ 单写者纪律：只有主开发会话可写（与 <code>progress.yaml</code> 同级）；轨道 agent 与人类只读。<br>
   ④ 忠于真相不定义真相：本页与代码/测试冲突时，以代码测试为准并回来修本页；禁止手填。<br>

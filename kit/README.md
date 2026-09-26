@@ -22,6 +22,7 @@
 | [../tools/merge-audit/](../tools/merge-audit/README.md) | **值守自动合并的独立审计员**(Python 标准库,零依赖):合前 `precheck` 判档 / 合后 `record` 记账 / 事后 `scan`+`report` 从 GitHub 真相独立重判,点名 VIOLATION·MERGED_RED·UNRECORDED·MISMATCH;规则的可执行真相在它的 `policy.json` | 2026-08-20 用户「记录并监控它有没有越界行为」 |
 | [babysit/ROUTING.md](babysit/ROUTING.md) | **「谁执行」的唯一真相**:合并权/对外通信权/跨窗口中转权三条唯一归值守 · 发错窗口的指令按【转投】模板转投不执行 · `agent-on oncall` 在班登记与 PreToolUse 路由闸(无人在班 fail-open) | 2026-08-19 用户拍板「只由一个值守负责，发错窗口的直接转过去」 |
 | [progress-template.yaml](progress-template.yaml) | 单写者状态文件骨架 | docs/state/progress.yaml |
+| [dashboard-template.html](dashboard-template.html) + [dashboard-check.mjs](dashboard-check.mjs) | 项目仪表盘(M/L)+ DATA 求值闸:漏逗号 / 空洞 / 混型集合,重绘后跑一次再报完成 | IPONews / Dartify #289·#292 |
 | [run-ledger-template.md](../ledger/run-ledger-template.md) | Run 台账 schema(含成本列 = Ledger 层) | run-log.md + 混编经济学 |
 | [capability-probe.md](../bench/capability-probe.md) | 新模型能力探针(定保费档位用) | model-playbook §二 |
 
