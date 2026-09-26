@@ -40,7 +40,7 @@ agent-on setup                     # → 默认目录 + config
 | `handshake` | `$READ_ROOT/boot/session-handshake.md` | 换会话续跑三步握手 | 仅需 `$READ_ROOT` |
 | `worktree` | `$READ_ROOT/kit/worktree-control-plane.md` | 多会话轨道登记 / 边界审计 / shared Git hooks / 合流与保守回收；空后缀先跑 `agent-on worktree status`，回收盘点走 report-only `gc --dry-run` | 需 `$READ_ROOT` + 项目已是 git 仓；lane 与 hooks 状态只写本机 git common dir，可选调度只写用户本机配置/日志，不写 B |
 | `settle` | `$READ_ROOT/boot/settlement.md`（上半场） | 教训回流 intake | **必须 `$WRITE_ROOT`**；intake 只写 B，禁止写 plugin cache |
-| `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 会话**；无 B 则拒绝 |
+| `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 的主树会话**（开场第四检；宿主不让挪会话时按出口②清场后在 worktree 里消化）；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
 | `doctor` | （本文件 + 跑 `agent-on doctor`） | 打印 read_root / work_root / 登记指引 | 无 |
 

@@ -11,7 +11,7 @@
 - suggested_landing:<建议落点:bench 案例 / playbook 哪篇 / kit 哪个模板哪一行>
 - rollback:<这条规则若错了怎么撤(通常 = revert 落地 commit)>
 - trace:<来源 memory_card 的 run_id/task_id,或 loop-notes 行号>
-- 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected(原因) / deferred -->
+- 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected(原因) / deferred;只引用已存在的 commit/tag,禁止预写版本号 -->
 ```
 
 ## 纪律

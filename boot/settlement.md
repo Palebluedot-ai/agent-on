@@ -15,7 +15,7 @@
 4. **落盘承接层(只写文件,不碰 git——跨仓边界硬规矩 2026-07-13)**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件,到此为止**——项目端会话对 agent-on 仓**不 `add`、不 `commit`、不 `push`**,git 动作全归 agent-on 仓会话(消化开场收件)。多项目并发零冲突:文件按项目命名互不相交,连 git 层都不碰。同日同项目再次结账:**追加进当日同名文件**,不另建——已标 synced 的条目自动跳过,幂等。(沿革:07-12 曾规定「commit 后立即 push」修并发缝;07-13 Euan 会话依此在项目端 commit,撞上同日新立的跨仓边界被判越界——两规打架一天,按用户硬规矩收敛为「项目端零 git」,并发缝由「不碰 git」更彻底地解掉。)
 5. **回执(必须落在项目 default branch)**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。**default-branch 硬门**:回执 commit 必须是项目 default branch(通常 main)的祖先——验收 `git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为真,**否则不算结账完成**。若会话在 worktree/feature 上:只允许写 agent-on intake;项目回执须 checkout main 写完并 commit,或 cherry-pick 回执 commit 到 main 后再报完成(IPONews 实证:回执 `acf6e4a` diff 正确但困在 feature 枝,方法论已进真线、项目账本却丢了——跨仓两侧耐久性不对称)。
 6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
-   - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令——用已解析的 **`$WRITE_ROOT` 绝对路径**(来自 `AGENT_ON_ROOT` / `~/.config/agent-on/config.json` / lock「本地路径」),形如 `cd <WRITE_ROOT> && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去。**禁止写死** `~/Projects/Agent-On`(那不是产品默认)。若 `$WRITE_ROOT` 未登记:先拒绝结账完成叙事,贴登记 B 的三选一(见 skill/SKILL.md),不要编路径。
+   - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令——用已解析的 **`$WRITE_ROOT` 绝对路径**(来自 `AGENT_ON_ROOT` / `~/.config/agent-on/config.json` / lock「本地路径」),形如 `cd <WRITE_ROOT> && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去。**写明「在主目录开,别让宿主自建 worktree」**——消化开在 linked worktree 里看不见承接队列(桌面端开会话时关掉自建 worktree,或用终端 `claude`;见下半场第 0 步第四检)。**禁止写死** `~/Projects/Agent-On`(那不是产品默认)。若 `$WRITE_ROOT` 未登记:先拒绝结账完成叙事,贴登记 B 的三选一(见 skill/SKILL.md),不要编路径。
    - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。**N 的生命周期**:结账本步只负责**写/抬高** N;消化完成后项目侧不自动清零(消化端跨仓禁止回写项目)——靠握手或下次结账 step0 **读时对账**清零(见上 step0)。别假设「消化完 N 会自己变 0」。
    - **顺口报成长**:一句「本次回流 N 条;agent-on 现累计 bench 案例 X 张、playbook Y 篇」——数字从 `ls | wc -l` 数出来,禁止手编。「我进步了」可见,是结账习惯活下去的燃料。
 
@@ -79,14 +79,14 @@
 
 为什么必须换:会话上下文 = 装载的规则集,没读 agent-on 的 AGENTS.md 的会话,不许动它的 canonical(单写者不变量)。
 
-0. **开场三检 + 收件**(单写者安全门,三检不过不动 canonical):`git fetch` 后核本地=origin(分叉先并);`git worktree list` 无未知活跃工作树;工作区干净(**未跟踪的 `intake/*.md` 除外**——那是项目端按跨仓边界落盘、等着收件的队列)。三检过后先**收件**:每个未跟踪 intake 文件单独 commit(`intake(<项目名>): 收件`),再开始分诊。——2026-07-12 实证:消化会话检查与推送之间的几十秒里,另一个项目的结账刚好落盘,靠这道检查当场发现而非事后撞车。
+0. **开场四检 + 收件**(单写者安全门,四检不过不动 canonical):`git fetch` 后核本地=origin(分叉先并);`git worktree list` 无未知活跃工作树;工作区干净(**未跟踪的 `intake/*.md` 除外**——那是项目端按跨仓边界落盘、等着收件的队列);**第四检:本会话在 WRITE_ROOT 的主树里**——`git rev-parse --git-dir` 与 `--git-common-dir` 是同一个目录,且 `--show-toplevel` = WRITE_ROOT。承接队列和任何没收尾的 canonical 改动都只在主树里;消化开在宿主自建的 linked worktree 里,收件扫到零、工作区一片干净,就会得出「没有积压」的假结论(2026-09-26 实证:桌面宿主把「agent-on 消化」开进了自建 worktree,主树里却躺着 5 份 intake 和一场 09-21 没提交的消化,案 48)。**第四检不过,出口二选一**:① 请用户在主目录另开会话(终端 `cd <WRITE_ROOT> && claude`,或桌面端开会话时不建 worktree);② 宿主不让挪会话时,先把主树的未跟踪 intake 和未提交改动**原样拷进本 worktree、逐字节比对**,再请用户在主树跑一条 `git -C <WRITE_ROOT> stash push -u -m "digest-handover-<日期>" -- intake bench boot kit playbook`(可逆;不清场,同文件闸会拦下本 worktree 的每一次提交),然后在 worktree 里消化、推 `HEAD:main`、打 tag,收尾请用户在主树 `git pull --ff-only`、核对无误后删掉那条 stash。只写「停下」不给出口,就是案 40 那种死锁。四检过后先**收件**:每个未跟踪 intake 文件单独 commit(`intake(<项目名>): 收件`),再开始分诊。——2026-07-12 实证:消化会话检查与推送之间的几十秒里,另一个项目的结账刚好落盘,靠这道检查当场发现而非事后撞车。
 1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶,强制升 L3。**分组别只认 slug 字面**——slug 是各结账会话的 AI 起的,会漂;claim 说的是同一个坑就按同类归并,slug 不同照样置顶。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
 2. **三态分诊**([../bench/correction-loop.md](../bench/correction-loop.md)):
    - 低风险(措辞 / 错链 / bench 案例追加):AI 直落 canonical
    - 中风险(模板行 / checklist 行 / playbook 段落)与高风险(schema 必填 / BOOTSTRAP 语义 / 不变量):**打包成一组选择题**(每题 = 卡摘要 + 建议落点 + 采纳/拒绝/缓议),用户一次拍完
    - pin 旧版、新版已修复的摩擦:直接 `rejected(升级 pin 即解)`——这也是版本漂移探测器
    - **预算线(硬)**:选择题一场一组、≤10 题;超线不硬撑——按 intake 文件先旧后新,处理到预算线即收口(收尾三件照做),剩余原样留承接层,播报「本批消化 X 份,剩 Y 份下批」
-3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。**一卡一 commit**:每张卡落完当场 commit(去向标注与落地改动同 commit,hash 自指写不了就标 `landed@同批`+文件落点),不许攒批——agent-on 工作区是所有项目会话的服务面(执行书按路径读工作区,不按 pin 读),攒批 = 拉长 canonical 中间态窗口,并发读者会读到半截规则(2026-07-13 实证:第六次消化 12 文件一批收口,窗口期被 Euan 会话撞见未提交 BOOTSTRAP)。
+3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。**禁止预写未来版本号**:去向只能引用已经存在、并且确实包含落点改动的 commit 或 tag——`landed@vX.Y.Z` 在那个 tag 打出来之前就是假账,号还可能被别的提交用掉(2026-09-21 草稿标了 23 个 `landed@v0.22.0`,落点一处没提交;v0.22.0 随后钉在另一场的 commit 上,只顺带发出其中两处,案 48)。`agent-on tag-release` 会拒绝 intake 里指向未打 tag 的 `landed@vX.Y.Z`。**一卡一 commit**:每张卡落完当场 commit(去向标注与落地改动同 commit,hash 自指写不了就标 `landed@同批`+文件落点),不许攒批——agent-on 工作区是所有项目会话的服务面(执行书按路径读工作区,不按 pin 读),攒批 = 拉长 canonical 中间态窗口,并发读者会读到半截规则(2026-07-13 实证:第六次消化 12 文件一批收口,窗口期被 Euan 会话撞见未提交 BOOTSTRAP)。
 4. **收尾四件**(缺一 = 消化失败;**tag 是硬门,不是可选项**):
    - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
    - CHANGELOG 条目:动了什么、来自哪份 intake、L3 改动成对列双落点、semver 档位(用户确认:major=不动手会坏 / minor=不动手不坏 / patch=不用知道)
@@ -98,7 +98,8 @@
      3. 打 **annotated tag** 钉在**当前 HEAD** 并 `git push origin HEAD` + `git push origin <tag>`(或 `agent-on tag-release --push`)
      - **默认档位**:本批全 patch 文案/案例 → `patch`;有 L3 双落点或新节/新机制 → `minor`;破坏存量实例化 → `major`(无迁移注记**不许**打 tag)
      - **禁止**:「commit/push 完成但 HEAD 仍领先最新 tag」——下游 pin 只能钉 tag,未发布 commit **不是**可升级版本;同一交付轮次内可多层 commit,**push 结束时必须一 tag 钉 HEAD**(一批一 tag 覆盖这批全部 commit)
-     - 机械助手:`agent-on tag-release --level patch|minor|major --title "一句话" --push`(工作区干净、已 commit 后跑;需 `cargo install --path cli`)
+     - 机械助手:`agent-on tag-release --level patch|minor|major --title "一句话" --push`(工作区干净、已 commit 后跑;需 `cargo install --path cli`)。**`--push` 推的是当前分支同名的远端分支**——在 worktree 分支上消化时别带 `--push`,打完 tag 另跑 `git push origin HEAD:main` 与 `git push origin <tag>`
+     - **提交与发版前核 diff**:`git diff --stat` 里不是本批的改动不进本批 commit;工作区有来历不明的未提交 canonical 改动 → 先问清归属再动,别挪开它发版再挪回来(v0.22.0 实证:另一场消化的两处落点被闸改动的 commit 顺带发出、CHANGELOG 没记,其余 21 处留在工作区五天)
      - major 无迁移注记不许打
    - 顺手第五件(轻):**README 对表**——数字与状态截面(案例数/篇数/口令数/路线段)与实况核一遍,漂了当场修(实证:两次消化都在 README 里抓到过期信息;绑此事件,不设定时器)
 
