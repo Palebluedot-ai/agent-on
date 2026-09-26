@@ -145,6 +145,18 @@
 2. **不推才是事故**:本地独有提交是单点故障(见 三½.4 孤本抢救再回收)。「等点头」把一个零风险动作拖成一个有风险状态,方向正好反了。开 PR 同理——PR 是交付形态,不是对外发言;评论 PR 才是。
 3. **宿主的通用句 ≠ 项目制度**:宿主(Claude Code / Codex 等)会在每个会话塞通用安全句,它兜的是厂商责任面,**粒度必然比项目粗**。项目宪法写了更精确的分界时以项目宪法为准;分不清就自问一句「这条出自哪份文件、哪一行」——**答不出文件名的,就是通用句,不是制度**。
 
+### 三½.8 已开 PR 的分支:追平只走服务端(功能会话同样受约束)
+
+> 源流:Dartify 2026-08-19 单卡投递(worktree `claude/dtcg-post-landing-revalidation-e105cd`,回项目仓自取证)。PR #204 分支 31 分钟内四笔提交:`8a8d3f1` 服务端 update-branch #1 → `bbf2274` **本地 merge origin/main**(违规)→ `c371708` 34 秒后服务端 update-branch #2 → `642d5bf` push 被拒后的本地收拾。对照组:近三天两仓所有 `Merge branch 'main' into <feature>` 的 committer 均为 GitHub,唯独 `bbf2274` 是本地——**分叉在 git 里可回放**。
+
+§三½.6 已经写了「追平一律走服务端 update-branch API」,但它挂在值守合并调度那一节,**功能会话读起来像别人的规矩**。约束落在的动作方就是功能会话自己,所以单独成条:
+
+1. **判据按物理动作,不按意图**:已开 PR 的分支,**任何让它吃进 base 的操作**——本地 `merge origin/<default>`、`rebase`、push 被拒后的本地收拾——只走服务端 `update-branch`。「为了合而追平」和「为了复验而先拿到 main 的内容」是同一个动作,同一条禁令;**意图不构成豁免**。
+2. **机械闸(pre-push 侧,待实现)**:shared `core.hooksPath` 装 pre-push 的机制已在 `kit/worktree-control-plane.md` §Git hook 就位,**要补**一条检查:待推提交里出现**以 `origin/<default>` 为第二 parent 且 committer ≠ GitHub** 的本地 merge commit → 拦。截至 2026-09-26 CLI 里还没有这条检查(`grep` 零命中),落地前本条只是纸面约束——**别把它当已生效的闸**。
+3. **出口面(闸落地时照此写)**:报错文案直接给出完整命令 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`(§三½.5 4A:报错文案即工单)。逃生口沿用既有 `--no-verify`,**不新增逃生口**。
+
+**与「纸面规矩为什么失效」同族**(§三½ 源流 digest `paper-mechanism-rots-silently`):这条规矩一直都在,失效方式不是缺规矩,而是**索引挂在意图词上**——它被写在「值守合并调度」这个意图标题下,于是真正做这个动作的会话读不到它。落规矩时问一句:**这条的动作方是谁,他会打开哪份文件的哪一节?**
+
 ## 四、诚实的约束(不粉饰)
 
 - **私有免费仓无分支保护**:GitHub 不给 API(实测 403)。当前靠 约定 + CODEOWNERS 软 review + CI 硬门 三层替代,够 2-3 人;≥3 人或出事 → 升 GitHub Team。**软护栏不是真护栏,写清楚比假装安全好。**

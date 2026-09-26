@@ -16,6 +16,10 @@
    功能会话用 `agent-on oncall status` 读交单地址（不靠猜会话名）。
 2. **功能会话交付线**：开发 → 提交 → 开 PR → 首轮 CI 触发 → 描述写全 → 交单 = 交付完成。
    功能会话不自己 merge、不为追平 rebase main 后强推、不直推受保护分支。
+   **本条约束的是功能会话自己**：已开 PR 的分支，任何让它吃进 base 的操作——本地
+   `merge origin/<default>`、`rebase`、push 被拒后的本地收拾——一律只走服务端
+   update-branch；判据按**物理动作**不按意图（「为了复验先拿 main」与「为了合而追平」
+   是同一个动作），见 agent-on `playbook/multi-contributor-protocol.md` §三½.8。
 3. **交单**：开完 PR 向值守 SendMessage 交单（模板↓）。收件地址从
    <值守文档，如 docs/babysit.md> 交接快照读「在班值守地址」；读不到才退回
    ListAgents 人工辨认（看名字与启动时长——值守通常是在班最久的长时会话）。
@@ -30,7 +34,9 @@
    值守以最新一条消息为准，不凭旧交单行动。
 
 4. **追平服务端化**：落后 base 一律 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`，
-   不碰任何本地 worktree；任何人不本地 checkout 别人的分支代推。
+   不碰任何本地 worktree；任何人不本地 checkout 别人的分支代推。功能会话侧同样受此约束（第 2 条）。
+   对应的机械闸（pre-push 拦「以 `origin/<default>` 为第二 parent 且 committer ≠ GitHub 的本地 merge
+   commit」，拦截文案给出上面这条完整命令）**还没实现**，落地前这条只靠本条款约束。
 5. **四条边界**：
    ① 真冲突不代解——值守取证（run 指针 + 缺陷定位 + 修复选项）打回 PR 作者会话；
    ② **自动合入是默认，硬停清单是穷举的例外**（照 agent-on
