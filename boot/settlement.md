@@ -9,6 +9,7 @@
 1. **收集出仓候选**(增量,以 lock 的 last_settlement 为锚;**锚为空 = 首次结账**——lock 该行留空、或倒仓/无 lock 的历史项目,都不做增量:全量扫描,收所有未标 `sync_status=synced` 的条目):
    - **主路径(S/M 档,绝大多数项目走这条)**:`loop-notes.md` 里上次回执之后新增的可复用散文条目——六类触发当场记的那些行。散文条目直接装配成 Promotion Card,不经 jsonl。
    - `agent-on.lock.md` 的 local_deviations 新增行(脚手架不合身信号)
+   - **宿主记忆(2026-09-26 起)**:宿主私有记忆里 mtime 晚于锚点的条目(Claude Code:`~/.claude/projects/<项目路径转写>/memory/*.md`,不含 `MEMORY.md` 索引;别的宿主按各自位置,没有就跳过)。教训常常只进了这里——Dartify 08-17 结账后 138 个 commit、loop-notes 一行没加,同期宿主记忆改了 19 个文件,其中 9 条是可出仓的协作教训。照样过第 2 步证据硬门与域判据:宿主记忆里个人偏好和项目域知识居多,只收 AI 协作过程教训,证据回项目仓核到 commit / PR 才装卡。**幂等靠锚点 + slug 去重,不回写记忆文件**:下次结账锚点前移,slug 已在 intake 里的跳过;回写 `~/.claude` 会触发确认,结账就不再是零确认。
    - **L 档旁路(仅多 agent 编排且已启用 run 台账时)**:项目 `ledger/runs/*.jsonl` 里 `suggested_location=agent_on` 且 `sync_status=pending` 的 memory_card。**注意:jsonl 采集链 + audit-lint 尚未在真实项目跑通过——S/M 档没有 run 台账,目录不存在是正常的,别困惑,走主路径即可。**
 2. **证据硬门 + 域判据**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。出仓候选还必须是「**AI 协作过程**」的教训(编排/纪律/工具行为/防幻觉);**项目域知识(业务规则、领域语义、产品口径)归项目端自己的 AGENTS/docs,不出仓**——agent-on 不吸域知识,防方法论仓指令膨胀(2026-07-15 判例:delayed-data 卡 rejected,用户裁决「项目域都归项目」)。
 3. **装配 Promotion Card**(模板 [../kit/promotion-card-template.md](../kit/promotion-card-template.md)):六项缺一拒收,另带 pattern slug + 本项目 pin 版本。落盘前建议对将写入的 intake 文件跑 `agent-on intake-lint <文件>`(或整目录);不通过则修卡再结——贡献上游时硬建议。
