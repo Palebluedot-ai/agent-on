@@ -2,9 +2,22 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.25.0 起攒）
+## [未发布]（自 v0.25.1 起攒）
 
 （空）
+
+## v0.25.1（2026-09-26）——README 重写成面向新用户的中文首页，参考细节移入 docs/manual.md
+
+> **patch**（「不用知道」——只动文档，判据、CLI、模板都不变。值守不在班（`agent-on oncall status` 报无人在班），用户在本会话拍板发版推送）。
+
+- **README 重写**：原首页是维护者视角，装机后紧跟一大段 worktree hook 判据与十几版路线细节，新人读不到「这是什么、为什么用」。现在的顺序是：痛点表（五个用 AI 写代码的常见坑 → 背后的真问题）→ 七条核心能力 → 30 秒示例对话 → 适合谁 / 不适合谁 → 5 分钟装机 → 口令速查 → 三档装备 → 迭代闭环 → 为什么信它 → 与其他工具的关系 → 目录 → FAQ → 状态与路线 → 术语。「给朋友的 5 分钟装机」节名保留（AGENTS.md 职责边界引用它）。
+- **新增 `docs/manual.md`（使用手册·参考篇）**：原 README 的多会话 worktree / 合流控制面整段、路径 / 远程安装 / 换机恢复三问、按版本的演进摘要原样移入，相对链接改成从 `docs/` 起算，不丢内容。
+- **装机命令不再写死旧版本**：原 `git checkout v0.12.1` 比推荐 pin 落后十几版，改成切到最新 tag，不再和推荐 pin 脱节。
+
+### 证据
+
+- `python3 .github/scripts/check_docs.py`：`DOC-GATE: PASS（215 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）`，exit 0（改推荐 pin 前跑）。
+- `git diff HEAD~1 --stat`（文档 commit `46e1dc4`）：`README.md` 378 行增删、`docs/manual.md` 新增 99 行，只动这两个文件。
 
 ## v0.25.0（2026-09-26）——tag-release --push 推到 origin 的默认分支，被拒不留本地 tag，有人在班时归值守
 
