@@ -15,3 +15,5 @@
 
 ## 已固化到哪
 kit/babysit/BABYSIT-TEMPLATE.md §2/§4;multi-contributor §三½.6(值守调度)。
+
+**复发记录**:2026-09-24 Dartify #263——功能会话自己写的等待循环按 `gh pr checks` 快照判完成,`update-branch` 刚返回、仓内 CI 还没起跑,30 秒内报全绿(run 列表可回放:`365856e4` cancelled → `7536ec7f` success → 合入)。上面的落点都在值守侧,功能会话读不到;规则因此提到 kit/babysit/CONTRIBUTING-CLAUSE 第 2 条与 multi-contributor §三½.6 第 5 条:先记 head SHA,按 `headSha` 确认 run completed,再看 checks。

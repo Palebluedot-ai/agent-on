@@ -20,6 +20,13 @@
    `merge origin/<default>`、`rebase`、push 被拒后的本地收拾——一律只走服务端
    update-branch；判据按**物理动作**不按意图（「为了复验先拿 main」与「为了合而追平」
    是同一个动作），见 agent-on `playbook/multi-contributor-protocol.md` §三½.8。
+   **复核没跑完就开 draft**：有调度的仓里开 PR 就等于进了合并队列，调度只看 CI 绿 + 描述写全，
+   不知道你还在复核。合并前复核要么开 PR 之前跑完，要么 `gh pr create --draft`，复核过了再
+   `gh pr ready`——draft 转 ready 才算交单。
+   **等 CI 对准 head**：先记 `gh pr view <N> --json headRefOid`，用
+   `gh run list --json headSha,status,conclusion` 确认这个 head 的 run 已经 completed，再看
+   `gh pr checks` 和 `mergeStateStatus`——checks 只是「此刻挂着什么」的快照，update-branch 刚返回时
+   仓内 CI 可能还没起跑。
 3. **交单**：开完 PR 向值守 SendMessage 交单（模板↓）。收件地址从
    <值守文档，如 docs/babysit.md> 交接快照读「在班值守地址」；读不到才退回
    ListAgents 人工辨认（看名字与启动时长——值守通常是在班最久的长时会话）。
