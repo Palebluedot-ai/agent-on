@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.22.0`**（commit 闸只看同一份 7 天内的未提交文件，不再读 lane 登记；v0.21.0 的投影漂移对账照旧）。
+**最新推荐 pin：`v0.23.0`**（消化收编 09-21 孤儿批；闸的判据面 / 执行面；消化开场四检 + 禁止预写版本号；CLI 修值守路由误拦、intake-lint 假通过、tag-release 预写版本号。v0.22.0 的同文件 commit 闸照旧）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。

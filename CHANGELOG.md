@@ -2,9 +2,49 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.22.0 起攒）
+## [未发布]（自 v0.23.0 起攒）
 
 （空）
+
+## v0.23.0（2026-09-26）——消化收编 09-21 孤儿批 + 闸的判据面 / 执行面 + 消化开场四检
+
+> **minor**（用户 2026-09-26 拍板，消化选择题全按推荐）：不动手不坏——新增规则、模板行与案例；CLI 三处修复都朝「少误拦、多拦住真问题」走：值守路由闸只认命令位置，`intake-lint` 对「写了 source 却认不出」的卡报错（以前静默跳过还报通过），`tag-release` 拒绝 intake 里指向未打 tag 的 `landed@vX.Y.Z`。无 breaking，不需要迁移注记。
+> 本批消化 5 份 intake / 38 卡：36 landed、2 deferred（CryptoQuant 两张单点卡，09-21 草稿已缓议）。其中 4 份是 09-21 一场没提交的消化留下的：落点 21 处躺在主树工作区五天、23 张卡预写了 `landed@v0.22.0`。本批逐卡核验收编、改正标注。宿主不让把会话挪回主树，本批按新立的「第四检出口②」在 worktree 里消化（用户在主树 stash 清场）。
+
+**补记 v0.22.0 漏记的两条**（落点随 `d83fd19` 一起发出，CHANGELOG 当时没写）：
+- `BOOTSTRAP.md` §1 定档**第四问**（条件触发）：依赖第三方测试环境的，先只读验证拿得到测试资源，拿不到就按真实环境定档（aster-agent 2026-09-14）
+- `kit/worktree-control-plane.md`「陈年树与带独有提交的树」三条（inbox-radar 2026-09-05）；本批加注：第 2 条在 v0.20.0 之后的闸下已无用处
+
+**09-21 草稿收编**（intake 2026-08-19-dartify / 2026-09-05-inbox-radar / 2026-09-06-CryptoQuant / 2026-09-14-aster-agent）：
+- **证据面 C 附6「绿不等于验到了」十二条**（L3，三项目同族）——playbook `anti-hallucination.md` C 附6 + kit `phase-card-template.md` 验收区四行 + kit `merge-checklist.md` 2e 门禁链不接管道（草稿映射表声称的 kit 落点并不存在，本批补上）
+- **真相源之外的三个盲区**（源 ≠ 通道 ≠ 仓库 / 生产切换同批改状态源并先核运行实况 / `[skip ci]` 藏红灯）——playbook `truth-hierarchy.md` 五⅞ + kit `progress-template.yaml` 两处注释 + `boot/session-handshake.md` 读取表一行
+- **AGENTS 骨架 §0.5「项目一句话 + 北极星指针」读取位**（只影响新实例化）+ §1 真钱 / 签名命令由人执行——kit `AGENTS-skeleton.md` + `boot/session-handshake.md`
+- **已开 PR 的分支追平只走服务端，功能会话同样受约束**——playbook `multi-contributor-protocol.md` §三½.8 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 2 / 4 条；草稿把 pre-push「本地 merge commit」闸写成已存在，CLI 里并没有，改标待实现
+- **升档补件时机例外**——`boot/adopt.md` §二
+- **能力探针不挂在首次结账前**——`bench/capability-probe.md` + kit `agent-on-lock-template.md` 档位行
+- 案 46 入册并改判根因（见下）
+
+**闸误拦族升 L3**（CryptoQuant / aster-agent / Dartify 三项目）：
+- playbook `multi-contributor-protocol.md` §三½.5 四张面扩成六张——**判据面**（判动作的真实目标与命令位置，不判文本）+ **执行面**（规则改了 ≠ 在跑的那份换了）+ 自检第四问；kit `guard/README.md`「执行面自检」；`boot/settlement.md` 升级第 5 步「升级后核执行面」；`anti-hallucination.md` 第六型 #17 末句
+- 干跑对照：跨仓误拦出自插件缓存 0.5.0 里的老 Python 闸（exit 2），仓里的 Rust 闸早已按目标仓判（exit 0）——09-21 草稿「闸体修复 deferred」是误诊。案 46 改根因，新案 47「规则改了，执行面没换」。**装了 agent-on 插件的机器请跑 `claude plugin update agent-on@agent-on`（重启生效）**
+- `cli/src/oncall.rs`：值守路由闸只在**命令位置**认命令名，`grep -w mail`、`ls /usr/share/teams`、`rg -n slack` 不再判成对外通信；顺手补 `git -C <path> push origin main` 漏判——kit `babysit/ROUTING.md` §6「误伤按 bug 报」
+
+**消化流程自身两漏**（Dartify 09-26，本场即现场）：
+- `boot/settlement.md` 下半场第 0 步**三检改四检**（第四检 = 主树自证 + 两条出口）；第 3 步**禁止预写版本号**；第 4 步提交与发版前核 diff 来历，并写明 `tag-release --push` 在 worktree 分支上推不到 main；上半场第 6 步开场命令写明主目录。同步 `skill/SKILL.md`、`playbook/iteration-loop.md` §四、`intake/README.md` 第 3 条、kit `promotion-card-template.md`。新案 48
+- `cli/src/tag_release.rs`：intake 里有指向未打 tag 的 `landed@vX.Y.Z` 就拒绝发版
+- `cli/src/intake_lint.rs`：一张卡都没认出来不许报通过；字段名加粗也认、多行字段读续行。对全部 intake 实测：旧版 205 张通过，新版认出 207 张（多出两张加粗卡）全部通过
+
+**Dartify 09-26 其余卡**：
+- 结账候选面加**宿主记忆**（锚点 + slug 去重，不回写记忆文件）——`boot/settlement.md` 上半场第 1 步
+- 功能会话两条交单纪律：**复核没完开 draft**、**等 CI 对准 head SHA**——playbook `multi-contributor-protocol.md` §三½.6 第 5 条 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 2 条；案 37 追复发记录
+- **独立复核要换搜索面**（否定结论先跑正对照、贴命中数）——playbook `anti-hallucination.md` 第六型 2 + `workflow-orchestration.md` 第 5 条 + kit `review-prompt-template.md`；新案 49
+- 多树并行两条：**rebase 停在半路挂住文件**、**子代理让宿主开树**——kit `worktree-control-plane.md` + `workflow-orchestration-checklist.md` + `progress-template.yaml`
+- **仪表盘 DATA 求值闸** `kit/dashboard-check.mjs`（改编自 Dartify #292）+「更新仪表盘」收尾加一步
+- **批准的三种冒牌：转述的、过期的、外延的**——playbook `multi-contributor-protocol.md` §三½.6 第 1 条 + kit `babysit/MERGE-POLICY.md` + `output-contract.md` §3；新案 50（正例）
+
+**留给下一条 CLI 轨**（卡上已标 deferred）：`agent-on doctor` 报 hook 执行面与「当前在 linked worktree」；同文件闸拦截文案报出对方 rebase 进度；pre-push「本地 merge commit」闸。
+
+**杂项**：`.gitignore` 加 `.workbuddy/`（WorkBuddy 在仓根留的本地记忆，否则 `tag-release` 的干净检查过不去）。
 
 ## v0.22.0（2026-09-24）——commit 闸只看同一份未提交文件
 
