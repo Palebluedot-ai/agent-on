@@ -518,6 +518,11 @@ fn classify_command(name: &str, rest: &[String]) -> Option<Action> {
                 None
             }
         }
+        // `tag-release --push` runs its `git push` inside the CLI, out of the
+        // `git` arm's sight, and lands the default branch plus a tag.
+        "agent-on" => (rest.first().map(String::as_str) == Some("tag-release")
+            && rest.iter().any(|t| t == "--push"))
+        .then_some(Action::Merge),
         "curl" | "wget" | "http" | "httpie" => {
             let joined = rest.join(" ").to_ascii_lowercase();
             CHAT_HOSTS
@@ -1164,6 +1169,28 @@ mod tests {
         assert_eq!(classify_bash("git push --tags"), Some(Action::Merge));
         assert_eq!(classify_bash("git push origin main"), Some(Action::Merge));
         assert_eq!(classify_bash("gh pr close 3"), Some(Action::Merge));
+    }
+
+    /// `tag-release --push` pushes the default branch and a tag from inside
+    /// the CLI, where the `git push` arm never sees it. Tagging without
+    /// `--push` stays local.
+    #[test]
+    fn tag_release_push_is_oncall_only() {
+        assert_eq!(
+            classify_bash("agent-on tag-release --level patch --title x --push"),
+            Some(Action::Merge)
+        );
+        assert_eq!(
+            classify_bash(
+                "git fetch origin -q && agent-on tag-release --push --level minor --title x"
+            ),
+            Some(Action::Merge)
+        );
+        assert_eq!(
+            classify_bash("agent-on tag-release --level patch --title x"),
+            None
+        );
+        assert_eq!(classify_bash("agent-on doctor"), None);
     }
 
     #[test]
