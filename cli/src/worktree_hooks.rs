@@ -227,6 +227,34 @@ fn unset_hooks_path(cwd: &Path) -> Result<(), String> {
     }
 }
 
+fn unset_worktree_scope_hooks_path(worktree: &Path) -> Result<(), String> {
+    let output = git_output(
+        worktree,
+        &["config", "--worktree", "--unset-all", "core.hooksPath"],
+    )?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() {
+            format!(
+                "cannot unset worktree-scope core.hooksPath in {}",
+                worktree.display()
+            )
+        } else {
+            stderr
+        })
+    }
+}
+
+// A worktree-scope core.hooksPath that is byte-identical to the managed shared
+// path resolves to the same hooks and cannot bypass the guard. Host tools
+// (Claude Code worktree creation) copy the repository-local value into every
+// new worktree, so this shows up routinely and is redundancy, not drift.
+fn is_redundant_scope(values: &[String], expected: &str) -> bool {
+    !values.is_empty() && values.iter().all(|value| value == expected)
+}
+
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
@@ -309,9 +337,16 @@ fn script_for<'a>(state: &'a HookInstallState, name: &str) -> &'a str {
     }
 }
 
-fn installation_problems(cwd: &Path, state: &HookInstallState) -> Result<Vec<String>, String> {
+#[derive(Debug)]
+struct InstallationReport {
+    problems: Vec<String>,
+    redundant_scope: Vec<PathBuf>,
+}
+
+fn installation_report(cwd: &Path, state: &HookInstallState) -> Result<InstallationReport, String> {
     let expected_dir = hooks_dir(cwd)?;
     let mut problems = Vec::new();
+    let mut redundant_scope = Vec::new();
     if Path::new(&state.hooks_dir) != expected_dir {
         problems.push(format!(
             "state points to unexpected hooks directory {} (expected {})",
@@ -334,14 +369,19 @@ fn installation_problems(cwd: &Path, state: &HookInstallState) -> Result<Vec<Str
         ));
     }
     for config in all_worktree_hook_configs(cwd)? {
-        if !config.worktree_scope.is_empty() {
+        if is_redundant_scope(&config.worktree_scope, &expected) {
+            redundant_scope.push(config.path.clone());
+        } else if !config.worktree_scope.is_empty() {
             problems.push(format!(
                 "{} has worktree-scope core.hooksPath={} which can bypass the shared guard",
                 config.path.display(),
                 config.worktree_scope.join(", ")
             ));
         }
-        if config.effective != [expected.clone()] {
+        // A redundant worktree-scope entry makes --get-all report the shared
+        // path once per scope; identical values still resolve to the managed
+        // hooks, so only a value that differs (or none at all) is a problem.
+        if config.effective.is_empty() || config.effective.iter().any(|value| value != &expected) {
             problems.push(format!(
                 "{} resolves effective core.hooksPath={} (expected {})",
                 config.path.display(),
@@ -381,7 +421,10 @@ fn installation_problems(cwd: &Path, state: &HookInstallState) -> Result<Vec<Str
             state.executable
         ));
     }
-    Ok(problems)
+    Ok(InstallationReport {
+        problems,
+        redundant_scope,
+    })
 }
 
 fn unmanaged_default_hooks(cwd: &Path) -> Result<Vec<PathBuf>, String> {
@@ -415,7 +458,7 @@ fn remove_if_exact(path: &Path, expected: &str) {
     }
 }
 
-fn uninstall_preflight(cwd: &Path) -> Result<Option<HookInstallState>, String> {
+fn uninstall_preflight(cwd: &Path) -> Result<Option<(HookInstallState, Vec<PathBuf>)>, String> {
     let state_file = state_path(cwd)?;
     let directory = hooks_dir(cwd)?;
     if !state_file.exists() {
@@ -461,15 +504,23 @@ fn uninstall_preflight(cwd: &Path) -> Result<Option<HookInstallState>, String> {
             }
         ));
     }
+    let mut redundant_scope = Vec::new();
     for config in all_worktree_hook_configs(cwd)? {
-        if !config.worktree_scope.is_empty() {
+        if is_redundant_scope(&config.worktree_scope, &configured_expected) {
+            redundant_scope.push(config.path.clone());
+        } else if !config.worktree_scope.is_empty() {
             return Err(format!(
                 "{} has worktree-scope core.hooksPath={} which can bypass the shared guard",
                 config.path.display(),
                 config.worktree_scope.join(", ")
             ));
         }
-        if config.effective != [configured_expected.clone()] {
+        if config.effective.is_empty()
+            || config
+                .effective
+                .iter()
+                .any(|value| value != &configured_expected)
+        {
             return Err(format!(
                 "{} resolves effective core.hooksPath={} (expected {})",
                 config.path.display(),
@@ -493,7 +544,7 @@ fn uninstall_preflight(cwd: &Path) -> Result<Option<HookInstallState>, String> {
             ));
         }
     }
-    Ok(Some(state))
+    Ok(Some((state, redundant_scope)))
 }
 
 pub fn install(repo: &Path) -> (i32, String) {
@@ -546,17 +597,32 @@ fn install_inner(repo: &Path) -> Result<String, String> {
     let state_file = state_path(&root)?;
     if state_file.exists() {
         let state = read_state(&state_file)?;
-        let problems = installation_problems(&root, &state)?;
-        if problems.is_empty() {
-            return Ok(format!(
+        let report = installation_report(&root, &state)?;
+        if report.problems.is_empty() {
+            let mut message = format!(
                 "WORKTREE HOOKS: already installed and healthy\nrepo: {}\nhooks: {}\n",
                 root.display(),
                 state.hooks_dir
-            ));
+            );
+            if !report.redundant_scope.is_empty() {
+                for path in &report.redundant_scope {
+                    unset_worktree_scope_hooks_path(path)?;
+                }
+                message.push_str(&format!(
+                    "normalized: removed redundant worktree-scope core.hooksPath (was identical to the managed path) in {}\n",
+                    report
+                        .redundant_scope
+                        .iter()
+                        .map(|path| path.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            return Ok(message);
         }
         return Err(format!(
             "an incomplete or changed installation already exists:\n- {}\nrun `agent-on worktree hooks status` for the same repository; no files were changed",
-            problems.join("\n- ")
+            report.problems.join("\n- ")
         ));
     }
 
@@ -625,11 +691,11 @@ fn install_inner(repo: &Path) -> Result<String, String> {
             .map_err(|e| format!("serialize hook install state: {e}"))?;
         write_new(&state_file, &format!("{raw}\n"))?;
         set_hooks_path(&root, &directory)?;
-        let problems = installation_problems(&root, &state)?;
-        if !problems.is_empty() {
+        let report = installation_report(&root, &state)?;
+        if !report.problems.is_empty() {
             return Err(format!(
                 "post-install verification failed:\n- {}",
-                problems.join("\n- ")
+                report.problems.join("\n- ")
             ));
         }
         Ok(())
@@ -717,22 +783,31 @@ fn status_inner(repo: &Path) -> Result<(bool, String), String> {
         ));
     }
     let state = read_state(&state_file)?;
-    let problems = installation_problems(&root, &state)?;
-    if problems.is_empty() {
-        Ok((
-            true,
-            format!(
-                "WORKTREE HOOKS: healthy\nrepo: {}\nGit hooks: managed here for all worktrees\ncore.hooksPath: {}\npre-commit: active\npre-push: active\nPreToolUse: plugin-managed; not part of this repo-local health result (verify host trust once with `/hooks`)\n",
-                root.display(), state.hooks_dir
-            ),
-        ))
+    let report = installation_report(&root, &state)?;
+    if report.problems.is_empty() {
+        let mut message = format!(
+            "WORKTREE HOOKS: healthy\nrepo: {}\nGit hooks: managed here for all worktrees\ncore.hooksPath: {}\npre-commit: active\npre-push: active\nPreToolUse: plugin-managed; not part of this repo-local health result (verify host trust once with `/hooks`)\n",
+            root.display(), state.hooks_dir
+        );
+        if !report.redundant_scope.is_empty() {
+            message.push_str(&format!(
+                "note: redundant worktree-scope core.hooksPath (identical to the managed path, typically copied in by the host worktree tool; harmless) in {}. `agent-on worktree hooks install` removes it\n",
+                report
+                    .redundant_scope
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        Ok((true, message))
     } else {
         Ok((
             false,
             format!(
                 "WORKTREE HOOKS: unhealthy\nrepo: {}\n- {}\nnext: restore the reported managed files/config, or remove them manually after review; Agent-On will not overwrite drift\n",
                 root.display(),
-                problems.join("\n- ")
+                report.problems.join("\n- ")
             ),
         ))
     }
@@ -797,7 +872,7 @@ pub fn uninstall_with_schedule(repo: &Path) -> (i32, String) {
 fn uninstall_inner(repo: &Path) -> Result<String, String> {
     let root = repo_root(repo)?;
     let state_file = state_path(&root)?;
-    let Some(_state) = uninstall_preflight(&root)? else {
+    let Some((_state, redundant_scope)) = uninstall_preflight(&root)? else {
         return Ok(format!(
             "WORKTREE HOOKS: already uninstalled\nrepo: {}\n",
             root.display()
@@ -805,6 +880,11 @@ fn uninstall_inner(repo: &Path) -> Result<String, String> {
     };
 
     let directory = hooks_dir(&root)?;
+    // Clear redundant copies first: after the managed directory is gone they
+    // would leave those worktrees resolving hooks from a deleted path.
+    for path in &redundant_scope {
+        unset_worktree_scope_hooks_path(path)?;
+    }
     unset_hooks_path(&root)?;
     for name in HOOK_NAMES {
         fs::remove_file(directory.join(name))
@@ -1144,6 +1224,74 @@ mod tests {
             [bypass.display().to_string()]
         );
         assert!(config_values(&root, true).unwrap().is_empty());
+    }
+
+    fn fixture_with_redundant_linked_scope() -> (TempDir, PathBuf, PathBuf) {
+        let (tmp, root) = fixture();
+        let linked = tmp.path().join("linked");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "linked",
+                linked.to_str().unwrap(),
+                "main",
+            ],
+        );
+        run(
+            &root,
+            &["git", "config", "extensions.worktreeConfig", "true"],
+        );
+        assert_eq!(install(&root).0, 0);
+        let managed = hooks_dir(&root).unwrap().display().to_string();
+        run(
+            &linked,
+            &["git", "config", "--worktree", "core.hooksPath", &managed],
+        );
+        (tmp, root, linked)
+    }
+
+    #[test]
+    fn status_tolerates_worktree_scope_equal_to_managed_path() {
+        let (_tmp, root, linked) = fixture_with_redundant_linked_scope();
+
+        let (code, out) = status(&root);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("healthy"), "{out}");
+        assert!(out.contains("redundant worktree-scope"), "{out}");
+        assert!(out.contains(linked.to_str().unwrap()), "{out}");
+    }
+
+    #[test]
+    fn install_normalizes_worktree_scope_equal_to_managed_path() {
+        let (_tmp, root, linked) = fixture_with_redundant_linked_scope();
+
+        let (code, out) = install(&root);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("already installed and healthy"), "{out}");
+        assert!(out.contains("normalized"), "{out}");
+        assert!(worktree_scope_values(&linked, true).unwrap().is_empty());
+        assert_eq!(
+            config_values(&root, true).unwrap(),
+            [hooks_dir(&root).unwrap().display().to_string()]
+        );
+        let (code, out) = status(&root);
+        assert_eq!(code, 0, "{out}");
+        assert!(!out.contains("redundant worktree-scope"), "{out}");
+    }
+
+    #[test]
+    fn uninstall_clears_worktree_scope_equal_to_managed_path() {
+        let (_tmp, root, linked) = fixture_with_redundant_linked_scope();
+
+        let (code, out) = uninstall(&root);
+        assert_eq!(code, 0, "{out}");
+        assert!(worktree_scope_values(&linked, true).unwrap().is_empty());
+        assert!(config_values(&root, true).unwrap().is_empty());
+        assert!(!state_path(&root).unwrap().exists());
     }
 
     #[test]
