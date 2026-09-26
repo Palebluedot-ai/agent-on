@@ -6,6 +6,13 @@
 
 方法论来自 agent-on(版本与偏离登记见项目根 `agent-on.lock.md`,只映射不复制)。口令:「agent-on 结账」(沉淀回流)/「agent-on 升级」(bump pin)。
 
+## §0.5 项目一句话(握手第一步的读取位)
+
+- **项目一句话**:[做什么,给谁用] <!-- 必填。session-handshake 第一步「复述项目总目标」读的就是这一行;空着 = 握手第一步无从可读 -->
+- **北极星指针**:[指向哪份文档 / 哪个指标算「做成了」] <!-- 与上一行同批填;runtime 约束与产品终局分栏写,见 §1 runtime ≠ product surface -->
+
+> 源流 2026-09-06 CryptoQuant 首次结账:M 档骨架实例化后,握手第一步「从 AGENTS.md 读总目标」**无处可读**,项目只能自加 §0.5。槽位做进模板,各项目不必自创节——**握手执行书要求读的东西,骨架必须提供一个确定位置**。
+
 ## §1 硬约束(违反=事故)
 
 | 约束 | 内容 |
@@ -15,8 +22,8 @@
 | [安全红线] | 密钥只进本地 gitignored .env 与部署平台 env;签名 URL/token 禁入日志;service 级凭证只许在 [封装模块路径] 出现 |
 | **不写死暂停项** | [用户说「以后再聊」的清单,逐条列]=**未获明确指令前不实现、不假设**(删掉=留缺口给幻觉,禁令=钉死);MVP 后置的**渠道/触点**(推送/移动端/多租户)必须入此表——只活在对话「以后做」= 实现会话当 soft backlog 偷做。**局部解禁**允许:用 requirements **D 表**写清「已拍什么 / 仍禁什么」,同批同步 AGENTS 暂停表述、dashboard、TODOS、威胁模型相关句——**禁止**聊天默示全解、禁止只改业务 docs 不改暂停表述(Euan D18 2026-07-19) |
 | **不发明花名册** | 邮件/IM 里出现过的邮箱 ≠ 可写组织目录。只在人类确认后登记身份,再 regenerate 派生映射。禁止为了「分到人」而 invent roster 行 |
-| 外向操作 | push/部署/建远程资源/改共享云配置,首次须用户确认;**假定一切 CLI 在非交互环境自动确认**(--dry-run 不存在就先在无害目标试行为) |
-| 高风险域 preflight(可选) | 碰钱/真实用户数据/批处理毁库时:本仓 SessionStart 写会话回执 + 高风险 Bash fail-closed(无回执不 push/不批跑);模式见 kit/guard/README「L-进场·会话回执」。IDE hook 非生产护栏(生产见 anti-hallucination dev floor vs prod API) |
+| 外向操作 | **两类分开,别一锅端**。①**本轨内部动作 = 自己做,不问**:提交 · 推**自己的**分支(`git push origin <本轨分支>`)· 开 PR / draft PR · 跑测试——本地独有提交久留不推**才是**事故(机器一坏全丢),为它讨点头是噪音不是护栏。②**外向硬门 = 须用户点头**:merge · 打 tag / push tag · 发 release · 直推受保护分支 · force-push · 删远端分支 · 关别人的 PR;PR·Issue 评论与一切代表本项目对外发言(邮件/IM/webhook);部署 · 建远程资源 · 改共享云配置 · 跑数据库迁移;花钱。**授权幂等**:同一项目内同类动作**一次点头长期有效**,不逐次追问;只有跨到没点过头的**新类别**才重新问。**假定一切 CLI 在非交互环境自动确认**(--dry-run 不存在就先在无害目标试行为) |
+| 高风险域 preflight(可选) | 碰钱/真实用户数据/批处理毁库时:本仓 SessionStart 写会话回执 + 高风险 Bash fail-closed(无回执不 push/不批跑);模式见 kit/guard/README「L-进场·会话回执」。IDE hook 非生产护栏(生产见 anti-hallucination dev floor vs prod API)。**真钱 / 签名命令固定由人执行**:AI 写代码与命令 → 人执行并贴回原始终端输出 → AI 逐条对照验收标准转录进 `docs/evidence/` 并关卡;phase 卡的 live 条目在原始输出回来前一律标 ⏸,**禁止以 dry-run 或推断冒充**(aster-agent S0.2/S0.3 三里程碑零伪造零事故) |
 | **runtime ≠ product surface** | 生产线/采集的运行时约束(本机常驻、礼貌限速、私网)与**产品交付终局**(用户装哪里、云上是否可用)必须分栏写进 requirements/本表——禁止把「crawl 只能本机」合并成「产品只能本机安装」(hk-sfc-licensees D19/D20) |
 
 ## §2 纪律四件套
@@ -50,8 +57,8 @@
 2. **轨道=目录+git worktree+合同**:单写会话可留主树；一旦同时有 ≥2 条写会话，主树先 clean 并退为控制轨，**每个**写会话进入独立 worktree，再用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。首次进入并行模式先运行 `agent-on worktree hooks install`，其 shared `pre-commit` / `pre-push` 覆盖本仓所有 worktree；若与已有 hook 或 `core.hooksPath` 冲突则不覆盖，改为每次 commit/push 前手工运行 `agent-on worktree check`。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前检查非零即停。
 3. **互相 Fake**:每轨用 fixture 种子造对方的假实现,自身闭环可测。
 4. **契约测试当裁判**:双端各自直接 import 同一份 fixture 断言。
-5. **报告即数据**:轨道最终回复=逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **契约悬点**(把假设显式交出来)+ commit hash;不 push。
-6. **合流顺序**:先契约后实现;悬点集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
+5. **报告即数据**:所有会话与子代理的每轮输出**统一走 agent-on `kit/output-contract.md`**(状态面板在前 → 拍板收成一节带默认值 → 结论三格 → 撤销两栏 → 球在谁那 → 之后才是过程)。轨道最终回复在该契约内必填:逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **「我按这个假设做了,你不否就当成立」**(把假设显式交出来,每条写清否掉要重做什么)+ commit hash;不 push。类别一律中文人话,机器类别名只准放括号里。
+6. **合流顺序**:先契约后实现;未验证假设集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
 
 **衍生功能不扩轨**:执行中长出可独立目标 → 新 phase + 新 worktree/lane,用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
 

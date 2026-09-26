@@ -2,9 +2,310 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]
+## [未发布]（自 v0.23.1 起攒）
 
-（自 v0.13.0 起攒）
+（空）
+
+## v0.23.1（2026-09-26）——发版推送改一条原子推送
+
+> **patch**（同一场消化收尾时发现，用户已授权本场全按推荐交付；「不用知道」——只改执行书措辞）：v0.23.0 发版时先推 main、隔十几秒再推 tag，main 上的 gate 在 tag 到达前 checkout，推荐 pin 闸报「`v0.23.0` 没有对应的 git tag」红了一次；tag 到了之后重跑才绿。起因正是 v0.23.0 自己新加的那句「打完 tag 另跑两条 push」。
+
+- `boot/settlement.md` 发版三步第 3 步与机械助手注：分支与 tag 用**一条** `git push --atomic origin HEAD:<default> <tag>` 推上去，不分两次推。
+- 留给下一条 CLI 轨：`agent-on tag-release --push` 与它打印的「下一步」提示同样是分两次推（`HEAD` 再 `<tag>`，间隔很短所以平时撞不上），改成原子推送。
+
+## v0.23.0（2026-09-26）——消化收编 09-21 孤儿批 + 闸的判据面 / 执行面 + 消化开场四检
+
+> **minor**（用户 2026-09-26 拍板，消化选择题全按推荐）：不动手不坏——新增规则、模板行与案例；CLI 三处修复都朝「少误拦、多拦住真问题」走：值守路由闸只认命令位置，`intake-lint` 对「写了 source 却认不出」的卡报错（以前静默跳过还报通过），`tag-release` 拒绝 intake 里指向未打 tag 的 `landed@vX.Y.Z`。无 breaking，不需要迁移注记。
+> 本批消化 5 份 intake / 38 卡：36 landed、2 deferred（CryptoQuant 两张单点卡，09-21 草稿已缓议）。其中 4 份是 09-21 一场没提交的消化留下的：落点 21 处躺在主树工作区五天、23 张卡预写了 `landed@v0.22.0`。本批逐卡核验收编、改正标注。宿主不让把会话挪回主树，本批按新立的「第四检出口②」在 worktree 里消化（用户在主树 stash 清场）。
+
+**补记 v0.22.0 漏记的两条**（落点随 `d83fd19` 一起发出，CHANGELOG 当时没写）：
+- `BOOTSTRAP.md` §1 定档**第四问**（条件触发）：依赖第三方测试环境的，先只读验证拿得到测试资源，拿不到就按真实环境定档（aster-agent 2026-09-14）
+- `kit/worktree-control-plane.md`「陈年树与带独有提交的树」三条（inbox-radar 2026-09-05）；本批加注：第 2 条在 v0.20.0 之后的闸下已无用处
+
+**09-21 草稿收编**（intake 2026-08-19-dartify / 2026-09-05-inbox-radar / 2026-09-06-CryptoQuant / 2026-09-14-aster-agent）：
+- **证据面 C 附6「绿不等于验到了」十二条**（L3，三项目同族）——playbook `anti-hallucination.md` C 附6 + kit `phase-card-template.md` 验收区四行 + kit `merge-checklist.md` 2e 门禁链不接管道（草稿映射表声称的 kit 落点并不存在，本批补上）
+- **真相源之外的三个盲区**（源 ≠ 通道 ≠ 仓库 / 生产切换同批改状态源并先核运行实况 / `[skip ci]` 藏红灯）——playbook `truth-hierarchy.md` 五⅞ + kit `progress-template.yaml` 两处注释 + `boot/session-handshake.md` 读取表一行
+- **AGENTS 骨架 §0.5「项目一句话 + 北极星指针」读取位**（只影响新实例化）+ §1 真钱 / 签名命令由人执行——kit `AGENTS-skeleton.md` + `boot/session-handshake.md`
+- **已开 PR 的分支追平只走服务端，功能会话同样受约束**——playbook `multi-contributor-protocol.md` §三½.8 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 2 / 4 条；草稿把 pre-push「本地 merge commit」闸写成已存在，CLI 里并没有，改标待实现
+- **升档补件时机例外**——`boot/adopt.md` §二
+- **能力探针不挂在首次结账前**——`bench/capability-probe.md` + kit `agent-on-lock-template.md` 档位行
+- 案 46 入册并改判根因（见下）
+
+**闸误拦族升 L3**（CryptoQuant / aster-agent / Dartify 三项目）：
+- playbook `multi-contributor-protocol.md` §三½.5 四张面扩成六张——**判据面**（判动作的真实目标与命令位置，不判文本）+ **执行面**（规则改了 ≠ 在跑的那份换了）+ 自检第四问；kit `guard/README.md`「执行面自检」；`boot/settlement.md` 升级第 5 步「升级后核执行面」；`anti-hallucination.md` 第六型 #17 末句
+- 干跑对照：跨仓误拦出自插件缓存 0.5.0 里的老 Python 闸（exit 2），仓里的 Rust 闸早已按目标仓判（exit 0）——09-21 草稿「闸体修复 deferred」是误诊。案 46 改根因，新案 47「规则改了，执行面没换」。**装了 agent-on 插件的机器请跑 `claude plugin update agent-on@agent-on`（重启生效）**
+- `cli/src/oncall.rs`：值守路由闸只在**命令位置**认命令名，`grep -w mail`、`ls /usr/share/teams`、`rg -n slack` 不再判成对外通信；顺手补 `git -C <path> push origin main` 漏判——kit `babysit/ROUTING.md` §6「误伤按 bug 报」
+
+**消化流程自身两漏**（Dartify 09-26，本场即现场）：
+- `boot/settlement.md` 下半场第 0 步**三检改四检**（第四检 = 主树自证 + 两条出口）；第 3 步**禁止预写版本号**；第 4 步提交与发版前核 diff 来历，并写明 `tag-release --push` 在 worktree 分支上推不到 main；上半场第 6 步开场命令写明主目录。同步 `skill/SKILL.md`、`playbook/iteration-loop.md` §四、`intake/README.md` 第 3 条、kit `promotion-card-template.md`。新案 48
+- `cli/src/tag_release.rs`：intake 里有指向未打 tag 的 `landed@vX.Y.Z` 就拒绝发版
+- `cli/src/intake_lint.rs`：一张卡都没认出来不许报通过；字段名加粗也认、多行字段读续行。对全部 intake 实测：旧版 205 张通过，新版认出 207 张（多出两张加粗卡）全部通过
+
+**Dartify 09-26 其余卡**：
+- 结账候选面加**宿主记忆**（锚点 + slug 去重，不回写记忆文件）——`boot/settlement.md` 上半场第 1 步
+- 功能会话两条交单纪律：**复核没完开 draft**、**等 CI 对准 head SHA**——playbook `multi-contributor-protocol.md` §三½.6 第 5 条 + kit `babysit/CONTRIBUTING-CLAUSE.md` 第 2 条；案 37 追复发记录
+- **独立复核要换搜索面**（否定结论先跑正对照、贴命中数）——playbook `anti-hallucination.md` 第六型 2 + `workflow-orchestration.md` 第 5 条 + kit `review-prompt-template.md`；新案 49
+- 多树并行两条：**rebase 停在半路挂住文件**、**子代理让宿主开树**——kit `worktree-control-plane.md` + `workflow-orchestration-checklist.md` + `progress-template.yaml`
+- **仪表盘 DATA 求值闸** `kit/dashboard-check.mjs`（改编自 Dartify #292）+「更新仪表盘」收尾加一步
+- **批准的三种冒牌：转述的、过期的、外延的**——playbook `multi-contributor-protocol.md` §三½.6 第 1 条 + kit `babysit/MERGE-POLICY.md` + `output-contract.md` §3；新案 50（正例）
+
+**留给下一条 CLI 轨**（卡上已标 deferred）：`agent-on doctor` 报 hook 执行面与「当前在 linked worktree」；同文件闸拦截文案报出对方 rebase 进度；pre-push「本地 merge commit」闸。
+
+**杂项**：`.gitignore` 加 `.workbuddy/`（WorkBuddy 在仓根留的本地记忆，否则 `tag-release` 的干净检查过不去）。
+
+## v0.22.0（2026-09-24）——commit 闸只看同一份未提交文件
+
+> **minor**（用户 2026-09-24 拍板）：放松了 commit / push 闸——不再用 lane 的 `owns` 挡提交。装了这个 pin 之后，过期的 `active` 不再锁住别的会话；`worktree status` / `check` 的人读输出从整面盘点改成一行。无 breaking，不需要迁移注记。`check --json` 的 `conflicts[]` 去掉 `lane` / `boundary`，改为 `other`（另一棵工作树的路径）。
+
+- **commit 闸不再读 lane 登记（`cli/` + `kit/worktree-control-plane.md` + `BOOTSTRAP.md`）**——登记过期的 `active` 把整个目录占住，agent 读到 `locked` / `OUT-OF-BOUNDS` 就不敢提交。commit / push 改为只比未提交文件：另一棵工作树里有同一路径，且那一份 7 天内被人碰过，才拦，并只说路径和那棵树。没撞上，hook 静默，`status` / `check` 打一行 `ok`。`claim` / `edit` 的重叠拒绝还在，只是不再挡提交。窗口沿用 `dormant_after_days`（默认 7）。决策快照 `snapshot/2026-09-24-gate-same-file.md`。
+
+## v0.21.0（2026-09-17）——投影漂移对账命令 `agent-on drift` + 记账 #41/#42
+
+> **minor**（用户 2026-09-17 拍板）：不动手不坏——新增 `agent-on drift` 子命令与「原件 / 投影」治理原则，默认只报不拦；既有命令行为不变，无 breaking，不需要迁移注记。
+
+- **投影漂移：「原件 / 投影」立成第一类区分 + `agent-on drift` 对账命令（#38，`cli/` + `playbook/truth-hierarchy.md` + bench 案 43 + 快照）**——PR 开于 2026-08-20，落后 main 21 个提交、CI 只红在 `cargo fmt` 一处。2026-09-17 用户在本仓维护者会话原话「所有都已经ok了哈，需要PR 合一下可以」，即硬停第 1 类（`cli/src/**`）的拍板指针；合前把 main 合进分支、补 fmt，本地 224 测试 / clippy / fmt / 文档闸全绿后再合。`drift` 默认只报不拦（本仓当前 35 行），CI 接 `--strict` 仍待办。
+- **记账 #41 并保留一条 `MISMATCH` 作为政策缺口证据（#42）**——`docs/babysit.md` 是本仓值守真正生效的那份，却不在 `policy.json` 的 `governance-surface` 里；改账换绿被拒，缺口留给另一轨补。
+
+## v0.20.0（2026-09-14）——闸只拦一件事 + 值守心跳 + 边界闸分层 + 出口面 + 常驻预授权 + 全自动合并审计
+
+> **minor**（用户 2026-09-14 拍板：v0.20.0 / minor）：放松了多条硬约束——边界闸不再连坐、值守登记会过期、合并授权 fail-open——下游行为会变，「不用知道」不成立；CLI 既有命令行为不删只改判定语义，`check` JSON 只增字段，无 breaking，不需要迁移注记。本版覆盖 v0.19.0 之后的全部 PR（#29–#40）与 2026-09-14 直落 main 的四个 commit。
+
+- **边界闸只拦一件事：本树未提交改动进了别的活轨的 owns（2026-09-14，`cli/`，用户拍板推翻 2026-08-17「连坐维持」）**——用户原话「一个类没有注册，流程就卡住了，无法 commit，全变红了。我并不想制造太多限制」。旧闸的失败条件是全场性的：任一未登记树 / 任一越界 / 任一 OVERLAP / 任一幽灵登记 → 所有 worktree 的 commit 与 push 全拦；而桌面宿主每开一个会话就自建一棵不登记的树，于是多窗口仓大部分时间是红的，红的还不是肇事者。改法：`check` 与 guard 只认一种红——`CONFLICT`（本树 **staged / unstaged / untracked** 的改动落在另一条 `active|blocked|ready` 且树还在的 lane 的 `owns` 里），且只拦当事那棵树（新 `gate_for`，PreToolUse 与 Git hook 同一把尺子）；`UNREGISTERED` / 无人持有的 `OUT-OF-BOUNDS` / 纸面 `OVERLAP` / 新增的 `MISSING`（活登记指向已删的树，出口 `worktree forget`，现在任何状态都能 forget）全部降为提示行；主树不再按身份当控制轨，只在它碰活轨地盘时拦；休眠的写者不参与冲突；只看未提交改动、不看相对 base 的已提交发散（顺手消掉「squash 后永远 changed N」与「主树本地 merge 完 push 被自己刚合的 lane 拦住」两类假红）。JSON 新增 `conflicts[]` / `missing[]` / `primary_worktree`。留下的正是闸存在的唯一理由——两个会话别同时写一个文件——`check_fails_when_two_writing_lanes_share_a_boundary`、`two_live_writers_on_one_path_still_fail` 原样通过。新增 `cli/tests/gate_scope.rs` 8 条。真仓对照：Orbit（两棵宿主自建树）旧版 FAIL → PASS；Dartify（一条登记指向已删树）旧版 FAIL → PASS。
+- **值守登记带心跳，窗口关了自动失效（2026-09-14，`cli/`）**——用户原话「值守的窗口有时候没开又会卡住」。旧判据只看登记的 worktree 目录在不在；窗口关了目录当然还在，于是全仓其他窗口的合并被一个不存在的窗口锁着（本仓实测一条登记停在 08-19，26 天后旧版仍报「在班」）。改法：登记多 `heartbeat_at`，值守窗口每一次经 guard 的工具调用自动续（一分钟内最多写一次），`agent-on oncall heartbeat` 可显式续；超过 `oncall_stale_after_minutes`（默认 90，`agent-on/config.json` 可配，`0` 关）没心跳 → 登记失效、闸 fail-open、`claim` 不用 `--force`；值守窗口安静很久但人还在，下一条命令自己续活；功能窗口被拦的文案带「值守最近心跳 N 分钟前；M 分钟没心跳自动失效」。新增 `cli/tests/oncall_liveness.rs` 7 条。
+- 档位（这两条单独看）：**minor**。放松了两条硬约束，下游行为会变，「不用知道」不成立；`check` 的 JSON 只增字段不删，无 breaking，不需要迁移注记。旧文档里的「占位 park」「回填 owns」「死锁三解」全部改口，标为 ≤ v0.19.0 考古。决策快照 `snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md`，bench 案 45。
+
+> 以下为 v0.19.0 之后经 PR 合入、封版前攒下的条目（原「未发布」节，语义预判 minor）：不动手不坏——CLI 既有命令行为不变，文档为新增与更正。但边界闸的判定语义变了（`#29`：从「有没有未落地改动」改成「有没有人在写」，分 Contract / Writing / Dormant 三档），既有 lane 的 `check` 结果可能从「跳过」变成「拦住」或反之；`#31` 又给拍板加了新的必答项（默认值的触发条件）。无 breaking，不需要迁移注记。
+
+- **边界闸分层：互斥闸只在真有人在写的轨之间成立（#29，`cli/`）**——`#23` 给闸补的事实维度落在「有没有未落地的改动」，那条判据同时是**另一个问题**的正确答案：它回答的是「有东西没救走吗」（`gc` 的 `rescue` 该管的），不是「有人正在写这里吗」（互斥闸该管的）。`rescue` 库存天然长期存在、天然互相重叠，拿它驱动互斥闸会让闸随废弃树数量单向劣化。改为三档 `GateHold`：`Contract`（登记活跃 → 持全量 owns，可预留还没写的地盘，不设时效）/ `Writing`（登记完结但仍在写且窗口内被碰过 → **只持有它实际有改动的那些路径**）/ `Dormant`（超窗口没人碰 → **不持有边界**，改挂 `RESCUE-DEBT`）。休眠判据取「未落地改动所涉文件的最新 mtime」与「base 未收的最新 commit 时间」的大者——**工作本身的年龄，不是目录的年龄**，只读盘点不会把化石树刷新。窗口默认 7 天，`agent-on/config.json` 的 `dormant_after_days` 可配，`0` 关掉休眠（配错只会让闸更紧）。**闸没有被放松**：两条真在写同一路径的轨照红、登记过期但正在写的轨对它真在改的路径照拦、活轨契约不过期、git 描述不了的树按在写处理（fail-closed）。
+- **闸的出口面升级：出口必须走得通（#30）**——连坐闸把人锁死时，文档写的三条逃生路**实测有三处硬错**：①「`check` 容忍 parked 轨与活跃轨重叠」只对**干净**的 parked 轨成立，脏 parked 轨被拉回互斥集，OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉 ②第 2 解「回填 OUT-OF-BOUNDS 清单进 owns」在多棵脏树场景下**必然**造出 OVERLAP，是把一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空 ③生命周期转移图里**根本没有 `parked→ready` 这条边**（`set-status` 实测 `invalid lane transition`），合法链是 `parked→active→ready→landed`。落点：`playbook/multi-contributor-protocol.md` 新增出口面一节、`kit/worktree-gc-pattern.md`「陈年树是债务」、`kit/merge-checklist.md`、`kit/babysit/BABYSIT-TEMPLATE.md` 死锁节改写、`bench/cases/40-gate-exit-unreachable.md` 入册。
+- **默认值补触发条件：可逆的本轮就跑，不可逆的永不自动（#31，`kit/output-contract.md`）**——在这条立下之前，「你不回就按 X 走」的诚实答案是**永远不会**：会话说完一轮就结束，没有任何东西在后台等待，用户以为自己在「让它按建议跑」，实际上是让它沉底。**一条没有触发条件的默认值等于没有默认值**。按可逆性分两条且不许合并成一个时限：**可逆项**（改代码/文档/配置、开轨、写快照，一条命令能撤的）→ **本轮就执行**，写法从问句改成通报加撤销口（`[已做] N · …。不同意说「N」，我改。`）；**不可逆 / 超授权项**（合并、tag、发布、删东西、花钱、动别人的仓）→ **永不自动**，但**不许无限挂着**，超 24 小时没拍的下一次会话握手或值守巡检必须重新举到用户面前。配套：一轮里可逆项占满拍板表 = 违约，它们该以「已做」进已验证格。源流：用户原话「如果我不回，是多长时间不回你们自动按照建议跑，我的规定是不要太久」。
+- **值守文档同步上述更正（值守轨）**——`docs/babysit.md` 的分诊手册把死锁三解换成 `#30` 查实后的口径，并补一条 `#30` 顺手报的 CLI 缺陷：`edit --status ready` 有干净树守卫、`edit --status landed` **一道都没有**，脏树与有独有 commit 的树都能被直接记成 landed；闸没被骗过（边界照占、`check` 照 FAIL），但 CLI 允许写下假账，而假账正是「为让闸变绿而改账」这条反模式的入口。另记一条两命令行为不同：`set-status` 守转移图，`worktree edit --status` **绕过**转移图（只守不变量）。
+- **常驻预授权：内容拍过板的单，合并是机械步骤（#35）**——起因是用户实测反问「在值守窗口可以不问我合不合么，直接合，那岂不是没有作用了么」。查证：值守「少让用户拍板」那半个目标在本仓**恒等于零**（`docs/babysit.md` 必须先问档第一行把所有 canonical 语义改动括进去并自注「本仓绝大多数 PR 在此」），且与前一天刚立的授权幂等（#27）口径拉反方向；更早的机器证据是默认合入档要求的激活记录在 `docs/babysit.md` §5 里**一条都没有**——机制挂了几个版本从没被启用，且不触发任何闸、不报任何错。本次按**一条判据**补维：**合并这个动作本身产生新决定吗？** 不产生 = 机械步骤。`MERGE-POLICY.md` §3 新增第 5 类「内容已拍板的单」（拍板指针四选一须在 git 里核得到 + diff 不超范围，否则整单降级），§4 划出**永不被覆盖的五类**（权限配置 · 不可逆动作 · 删远端分支/关别人 PR · 跨仓外向操作 · 带 breaking 标注），并把「批准只认本会话内输入」拆成**常驻预授权 vs 单次转述**——#169 的地基管的是转述那一栏，**一字未松**。配 `snapshot/2026-08-20-standing-preauthorization.md` 与 `bench/cases/41`。
+- **本仓同批激活（值守轨）**：`docs/babysit.md` §3 落第 6 类与不可覆盖清单、必须先问档第一行加「且核不到拍板指针」、§5 记一行激活记录（含撤销方式 = 改条款，不是在聊天里说一句）。**模板层与项目层是分开的**：`MERGE-POLICY.md` 只是把清单挂好等授权，项目层不落值就不生效——这次是用户在值守会话内明确拍板「激活」后才落的。
+- 档位（这两条单独看）：**minor**。放松了一条硬约束，下游照抄 MERGE-POLICY 后值守行为会变，「不用知道」不成立；无 breaking，不需要迁移注记。
+- 证据：`#29` 的测试由值守独立复跑（scratchpad 里 clone 出 PR 分支，非采信作者声称），全套退出码 0，新增 `cli/tests/worktree_dormant_gate.rs` **9 passed / 0 failed**；`transition_allowed` 的转移图由值守直接读源码核对，`parked→ready` 确不存在，且该函数全仓只在 `set_status` 一处被调用——`edit --status` 不经过它
+
+> 以下为 PR #37–#41 的条目（原「未发布」节的第二段，同样封进 v0.20.0；合并授权整节翻面见各条）：
+
+- **本仓装上第一道 CI（#37）** —— `.github/workflows/gate.yml` 四个 job（CLI 测试 + 承接层校验 / 文档三闸 / 外部贡献只许碰 intake / GitGuardian）。**第一次跑就照出存量问题**：三条 `worktree_schedule` 测试写死 macOS 的 `Launchd` 而 runner 是 Linux——**测试套件一直是 macOS-only，只是此前没有 CI 所以没人知道**。同批还立了「闸必须自带出口」：报错只说「谁挡你」不说「你怎么过」，被拦的人就会去问用户，那是**人肉版的恒红闸**。
+- **全自动合并 + 独立审计（#39 / #40）** —— 起因是用户实测原话「除特殊情况外我们全自动合并，不要再等我手动合了……晚上开发时如果没合，其他人的程序就没法进行」。判据翻面：**需要列举的是不许自动合的那几类，其余一切默认合**——理由是损失形状变了，未合的 PR 不是「等一等」，是别人的活被堵住。硬停五类（闸与权限自身 · 凭据密钥 · 不可逆文件 · 外部作者 · 带 breaking 标注）+ 需播报一类（改的是规矩本身）。补偿控制从「事前问」换成**事后独立复判 + 记账 + 越界告警**，配 dead-man's switch：`report` 跑不通就立即退回逐单先问，**没有审计就没有自动合**。
+  - **作者开 PR 后自跑对抗性红队**：5 视角 43 条发现 40 条存活，按严重度修 14 类，全部把失败方向改成「停」。三条最要紧的：`gh --json files` 封顶 100 条且按字典序（凑 100 个 pad 文件就能把 `policy.json` 自己挤出清单）· 闸的实体没被括住（`hooks.json` 在清单里但它指向的 guard 脚本不在）· 深扫失败被记成「扫过了且干净」。
+  - **工具上线首跑就暴露自己的设计缺陷（#40）**：它把**每一条**经用户批准、正确流程合入的硬停单都标成 `VIOLATION`；在「几乎每单都动 canonical」的仓里硬停是常态，于是常亮——**常亮的告警等于没有告警**，正是这套机制反复在防的病。改为三态：`APPROVED_HARDSTOP` / `VIOLATION`（没问就合）/ `UNVERIFIED_HARDSTOP`（合了但没记账）。
+  - **值守提的洞与作者的兜法**：三态判定依赖 `record --claimed` 而那是值守手输的——**把 `AUTO` 写成 `HARD_STOP` 就能把越界洗成合规**。作者的兜法不是再判一次档（「用户有没有真批准」不是 PR 内容能算出来的），而是**给自称加 git 可核门槛**：认 `APPROVED_HARDSTOP` 要求 `--pointer` 指向仓内文件或 `rev-parse` 得出的 commit。**诚实边界写在文档里**：指针核得到只证明凭据存在，不证明它授权了这个 diff——**门槛把洞变浅了，没填平**。
+- **本仓落值（值守轨，本条）** —— `docs/babysit.md` §3 整节替换为新口径、§2 每轮检查单接进 `precheck` / `record` / `report` 三条命令、§5 记翻面记录。**模板层与项目层是分开的**：`MERGE-POLICY.md` 改了不等于本仓生效，这一步才是。同时更正四处「本仓无 CI」——自 #37 起那是假话，并按实测重算时延目标（CI 中位约 45 秒 → `X = 1 + 5 = 6 分钟`，原写 5 分钟）。
+- 其余同批：闸分层三档 `Contract/Writing/Dormant`（#29）· 闸的出口面与「同名 FAIL 不等于同一个病」（#30/#33）· 「转述 ≠ 出处」立成纪律（#34）· 常驻预授权（#35/#36，**已被本批的整节翻面取代**）· 默认值补触发条件（#31）· Gen-1 角色体系归档与元原则第七条（#22/#24）· 输出契约三轮加固（#20/#25/#26）。
+
+## v0.19.0（2026-08-19）——输出契约三轮加固 + Gen-1 角色体系归档 + 互斥闸按事实判
+
+> **minor**：不动手不坏——不接入完全无感，既有输出契约六段的顺序与语义一字未改，CLI 既有命令行为不变。整批不是 patch，四条各自的理由都成立：①拍板新增**必填字段**「在哪拍」与**必写落款**一句话全批（#25 / #26），下游照抄契约后输出形状会变；②**放松**一条硬约束——push 自己的分支与开 PR 不再算外向硬门（#27），下游照抄 AGENTS 模板后 agent 行为会变；③`playbook/mechanisms/` **整个目录消失**（#22），下游若在活 checkout 里按路径引用会断；④互斥 owns 闸的判定从「只看登记」改成「登记或事实」（#23），既有 lane 的边界检查结果可能从「跳过」变成「拦住」。无 breaking，不需要迁移注记。
+
+- **`kit/output-contract.md` 新增「不许有第三个筐 + 在哪拍 + 一句话全批」（#22 后续轨）**——契约此前只规定了**拍板长什么样**，没规定**什么必须变成拍板**。于是会话另起一个标题就绕开了全部格式：「还挂着的三件（都是你的决定域）」「悬点（已随交单交给值守）」「顺手发现不代修」——里面每条都没有建议、没有默认值、没说用户该去哪动手，等于把裁决整包退回用户。本次补三块：
+  1. **两个筐是穷举的**（§3 首节）：没了结又出现在用户眼前的事，只能进「要你拍」（拍板表）或「不用你管」（写明谁接 + 用户不用做任何事），**第三个筐不存在**；「悬点 / 还挂着的 N 件 / 待接 / 归 X 判 / 诚实边界：本轮没动三处」是标题不是筐，换标题不免格式。判筐一句话：**用户不动手，会不会有人接？** 拿不准按「要你拍」办。另立一条：**「归值守判」不是答案**——先问「值守收到这条它自己能做完吗」，做不完就是踢空。
+  2. **拍板第 6 件「在哪拍」**（五件 → 六件）：三选一且不许自创第四个——`在这里回我` / `在这里回我，我转值守` / `得去值守窗口说`（外向硬门专用，必须把 `oncall status` 的在班地址一起贴出来，因为**转投送指令不送授权**）。配套新增「拍板不吃上下文」一节：窗口再长也能在这里拍，长的是拍完要干的活；**该不该换窗口归会话判，不许退给用户**。
+  3. **一句话全批的固定落款**（必写）：「默认值 = 建议值」这条 v0.17.0 就有了，但只写给会话看——**用户不知道存在的出口等于没有出口**。此后拍板表下必须跟一行「回一句『都按你的建议』就行，不回也一样」；有默认≠建议的条目时落款改两行并**点名例外**（全批句在用户脑子里是清台，藏一条没被覆盖的 = 暗坑）。反向也硬：不许为求稳把可默认的写成例外，那等于注销全批句。
+  配套改动：§1 映射表拍板行五件改六件并挂落款要求、交接给值守行标注为「不用你管」筐的落点；§4「不叫悬点」扩成「也不许拿它当标题」并划清三格里假设格的边界（**要别人动手才能了结的不属于本格**）；§10 项目宪法样板句与派工词样板句各补一句；§11 自查加四条。新增两处实测原文改写示范（❌ 散文 → ✅ 六列表 + 落款）。
+- 源流：2026-08-19 用户实测原话——「我完全不知道应该干啥……我应该在哪里做决定？」「如果窗口的上下文已经很长了该怎么办？」「我能不能直接回复一句『都按照你的建议』？」「就这块的结构化表达，之前在这个库里已经要求过一次了吧，怎么还是不行呢？」**最后一句是本条的真正诊断**：上一轮（#15 / #20）只加固了「拍板怎么写」，没堵住「不写成拍板」这条路。
+- 证据：`git diff --numstat` → `146 8 kit/output-contract.md`；内部锚点全解析通过（脚本核对 5 个 `](#…)` 对 32 个标题 slug，零 MISS）
+- **`kit/output-contract.md` 新增「引用文档一律说人话（禁止裸 §编号）」（#20）**——契约原本只禁机器**类别名**（`NOW` / `STALE` / 「悬点」），漏了同族的另一半：**文档小节编号**。于是会话守着规矩照样能对用户说「按 §四，AGENTS.md §13 电网表加一行」，把「先去开那份文件」的成本原样转给用户。本次补硬规矩：给用户看的正文**不许出现单独的 `§N`**，引用必须写成「哪份文件里管什么的那一节」，编号只准跟在人话后面当索引，或藏进可点链接（`文件:行号` 形式的 markdown 链接在会话窗口可直接跳转）。配四行 ❌/✅ 对照表与整句改写示范。**唯二例外**：①文档内部自引用 ②会话之间的机器消息（转投模板 / 交单 / 派工词，收件人是 AI）——分界线只有一条：**这句话会不会出现在用户眼前**。自查清单加一条。零下游改动（七处引用本页，不各自抄）。
+- 源流：2026-08-19 用户实测原话「什么 4、13，这都是什么？我都不知道」。**值守本班的每一份报告都在犯这条**（裸写 `§2.6` / `§3` / `§7`），本条合入后即时改口。
+- 证据：`git diff --numstat` → `41 0 kit/output-contract.md`，删除列为 0；合入 `2026-08-19T12:38:59Z`，merge `2c9b101`
+- **外向硬门重划边界：push 自己的分支与开 PR 不在内（#27）**——起因是一条功能会话把活干完、commit 完，停在「要我推上去开 PR 吗？推 GitHub 是外向操作，等你点头」。查证：那句话**既不出自本仓，也不出自项目宪法**（Dartify `AGENTS.md` 全文 175 行零次出现「外向」），是宿主 Claude Code 每个会话自带的通用安全句被当成了项目制度；而该项目宪法的 worktree 生命周期一节恰恰**要求**本地独有工作 48h 内上远端。**本仓自己也给了误读的抓手**：`kit/AGENTS-lite.md` / `kit/AGENTS-skeleton.md` 字面把 `push` 列进「首次须用户确认」，而 `kit/babysit/ROUTING.md` 路由表把「开 PR」划给功能会话自己做、`SETUP.md` 实测放行清单写着「普通 `git push` 一般无需放行」——同一套方法论两处口径拉反方向。本次按**一条判据**统一：改的是**本轨内部状态**（提交 / 推自己的分支 / 开 PR / 跑测试 → 自己做不问）还是**全场共享状态 / 外部世界**（merge · tag · release · 直推受保护分支 · force-push · 删远端分支 · 关别人的 PR · 对外发言 · 部署 · 建资源 · 改共享云配置 · 数据库迁移 · 花钱 → 用户点头）。配**授权幂等**：同一项目内同类动作一次点头长期有效，不逐次追问（逐次问 = 噪音淹掉真正该问的那次），跨到没点过头的新类别才重新问。并写进一条会话自查：**答不出文件名的规矩不是制度**，宿主通用句粒度必然比项目粗，项目宪法更精确时以项目宪法为准。
+- 双落点（L3）：**playbook** = `playbook/multi-contributor-protocol.md` 新增「外向硬门的边界（push 与开 PR 不在内）」一节（判据表 + 三条配套）；**kit** = `kit/AGENTS-skeleton.md` 硬约束表「外向操作」行、`kit/AGENTS-lite.md` 铁律 3 与 §0 口径、`kit/worktree-gc-pattern.md` 孤本抢救第 1 步（删掉「获得外向操作授权后」——孤本抢救要等授权，正好把这条机制的目的抵消掉）。口径面同步：`README.md` 三条底线、`boot/adopt.md` 三不变量、`AGENTS.md`「不做的事」（原句「不 push / 不建远程仓 / 不动前身仓」与自举纪律 6「交付轮次必须 push + 打 tag」直接打架，本次改正：不建远程仓与不动前身仓保留为硬门，push 自己的分支与开 PR 摘出）。
+- 入册：`bench/cases/39-harness-boilerplate-as-project-rule.md`（L2：宿主通用安全句被当成项目制度）。决策快照：`snapshot/2026-08-19-outward-gate-boundary.md`。
+- 诚实边界：**本条没有机械闸**，靠纪律与措辞；宿主通用句仍会每个会话塞进来。真要机械化得由宿主配置或项目 hook 承载，不在本仓范围。
+- 档位（本条单独看）：**minor**。它**放松**了一条硬约束——push 自己的分支与开 PR 不再算外向硬门，下游项目照抄 AGENTS 模板后 agent 行为会变，「不用知道」不成立。无 breaking，不需要迁移注记。**整批题头的档位由封版轨/值守合成**，本轨不写共享题头（本轮实测教训：功能轨改批次题头 = 与并行封版轨在同一行上撞语义冲突，而本地 merge 追平又会被 owns 闸拦下——那一行不归功能轨）。
+
+- **互斥 owns 闸改按事实判（#23，`cli/`）**——**这是安全缺陷不是登记缺陷**。边界闸原本只认 lane 的登记状态，注释里明写「与 parked/landed 轨的重叠被有意容忍」；而 `landed` 是终态、`worktree edit` 又没有改状态的口子，于是**一条复用旧树继续在写的 landed 轨会被互斥检测整条跳过**——两条真正在并行写的轨可以同时占同一路径，双方 `check` 还都是绿的。修法：闸的判据改成「登记是活的 **或** 那棵树事实上还在写（有未提交改动 / 有 base 没收进去的提交）」；git 描述不了那棵树时按「在写」算（fail-closed）。顺带给 `worktree edit` 开了 `--status`，`landed` 终态导致的「登记改不回来」一并解决（新增 `cli/tests/worktree_owns_gate.rs` 八条用例）。**实证**：本仓当时确有两条轨同时 owns `README.md` 而双方 check 皆 PASS（值守轨为封版临时扩 owns，与另一条 landed 但仍在写的轨重叠），没撞只是因为两边当时没同时改那个文件。
+- **Gen-1 角色体系空转审视：机制七篇归档（#22 / #24）**——`playbook/mechanisms/` 七篇定义的 Gen-1 抽象角色（Reviewer / Checker / Curator / Worker / state-manager）**在真实运行中从未生效**：零机械闸、零下游消费者、`review_status` 等状态字段从未进过发给项目的模板、被三篇文档当作「相关文件」引用的 `agents/state-manager.md` **全仓从未存在**；导入后 43 天无人改动，是本仓自设「空转两周即机械化或删除」阈值的 3 倍。整体移入 `legacy/gen1-role-model/`（纯改名，内容零改动），该目录 README 列明「活下来的部分去了哪」逐条对照。唯一被反复验证有效的部分（Error Signal 最小强度四项：What / Where / 证据 / 建议修法，**缺一项视为无效反馈退回重写**）收编进 `kit/review-prompt-template.md`。#24 把这次清理背后的判断尺子落成**元原则第七条**：想设新角色前先问它落在「**权限收口点 / 一次性派工词 / 机械闸**」哪一格，三格都落不进 = 装饰，别设；角色名只配当这三格的可读别名（`maintainer`=①、值守 `oncall`=①+③、独立审查员=②），并同步进新项目问卷的泛化决策节。现役角色因此只剩三个，且都带闸。
+- **「在哪拍」的指路改给窗口标题（#26）**——#25 落地当轮即暴露的同族洞：新加的「得去值守窗口说」要求贴在班登记里的 session 字段，而那是**机器会话名**，`SendMessage` 认、人不认；用户当场回问「我咋知道这个 worktree 是哪条对话」。补三级取值：**窗口标题优先**（会话列表工具的 `title`，用 `cwd` 跟在班登记的 worktree 路径对上号）> 目录名 + 分支 + 它在干什么 > 只剩机器名时明说自己只有机器名，别拿它当指路交差；机器会话名一律退到括号里不当主语。自查一句：**把这行念给一个没开终端的人听，他找得到那个窗口吗？**
+
+### 本批的诚实边界（值守封版时补记）
+
+- **值守实跑合并在本版成为常态**：#20 / #22 / #23 / #24 / #25 / #26 / #27 七条全部由值守会话执行 `gh pr merge`，用户只在值守会话内拍板；`v0.19.0` tag 亦由值守代打。v0.16.1 节记的「值守实跑合并首次发生」到本版已是日常。
+- **本节由值守轨代记**：本批七条 PR 的作者会话大多已消失，`CHANGELOG.md` / `AGENTS.md` / `README.md` 三个封版文件由值守临时扩 owns 一轮写完，用完即收窄。这是权宜不是常态。
+- **#27 的档位理由是作者写的，值守只做合成**：作者按本仓新立的「功能轨不写共享批次题头」把理由挂在自己的条目下，题头由封版轨合成——本版题头的四条理由即由此而来。
+- **本批有一条 PR 的检查没跑**：#24 与 #27 合并时 `gh pr checks` 报 `no checks reported`（GitGuardian 未在该 head 触发），state 为 `CLEAN` 非 `UNSTABLE`。值守按「`CLEAN` 表示无待决检查」判为可合。#26 则相反，卡在 `IN_PROGRESS` 十余分钟，值守等到 `SUCCESS` 才合。
+
+### 证据
+
+- 合入：#20 `2c9b101` · #21 `45ca4b0` · #22 `fdbfe8f` · #23 `105d6f2` · #24 `b0d0de8` · #25 `67ee62a` · #26 `d158e36` · #27 `cfd1f3a`
+- #23 的测试值守独立复跑（scratchpad 里 clone 出 PR 分支单独跑，非采信作者声称）：`cargo test` **退出码 0**，新增 `worktree_owns_gate.rs` **8 passed / 0 failed**
+- #22 的七篇归档确为纯改名：`git diff` 每篇 `+0/-0`
+- 封版时坐标：`origin/main` 含上列八笔 merge，`gh pr list --state open` 空，`agent-on worktree check` → `RESULT: PASS`
+
+## v0.18.0（2026-08-19）——跨窗口指令路由：三权唯一 + 误投转投 + 机械闸
+
+> **minor**：不动手不坏——不跑 `agent-on oncall claim` 则路由闸整条 fail-open，所有既有行为一字未变；跑了才多一层退出码。无 breaking，不需要迁移注记。既有六段输出契约、合入授权两张清单、四条值守不变量均未改。但新增了三条唯一权的硬要求（合并 / 对外通信 / 跨窗口中转），下游项目照抄治理条款时行为会变，所以不是 patch。
+
+### 用户可见主线
+
+- **`kit/babysit/ROUTING.md`（新）——「谁执行」的唯一真相**：①**三权唯一**（此前只有合并权唯一）——合并权 / **对外通信权**（PR·Issue 评论、Teams/Slack/邮件/webhook）/ **跨窗口中转权**（窗口之间传话经值守）在值守在班期间统一归值守，功能窗口唯一出站通道 = 给值守交单·回执；②**路由表**（八类指令 → 归谁 → 收到的窗口怎么办），含反向误投（功能活派到值守 → 转回作者轨，值守零代修不变）；③**转投四步**（不执行 → 判归属 → 【转投】模板 SendMessage → 给用户一行「已转投、球在值守那」，格式与 output-contract 面板四字段同构）；④边界情形一条判据：改的是**本轨内部状态**还是**全场共享状态**；⑤拿不准 = 当作值守的（fail-closed 分诊）。
+- **`agent-on oncall` 五命令（新，`cli/src/oncall.rs`）**：`claim / status / whoami / route / release`。在班登记落 **common git dir 的 `agent-on/oncall.json`**，与 lane 台账同处，因此**每棵 worktree 读到同一份**——`docs/babysit.md` 的「在班值守地址」行是每树一份的文件副本，功能窗口在自己分支上读到的可能是任意旧版本，机器寻址从此以登记为准（人读的交接快照照旧写）。`status --json` 给值守/脚本，`whoami` 回答「本窗口是不是值守」。
+- **`oncall route --path <文件>`——转投的第二跳**：功能窗口只需知道值守地址，「这文件归哪条轨」是值守的活（ROUTING §5）。本命令把它从肉眼扫 lane 表变成一条命令，并**按生命周期分组**：只把 live（active/blocked/ready）轨当派工对象，landed/parked 的命中折叠显示——那些轨背后多半已无窗口，派过去等于把活扔进关掉的终端；一条 live 都没有时直说「别直接派」，让值守回到用户那里。本仓实测：`docs/babysit.md` 命中三条轨、`cli/src/landing.rs` 命中三条，**全场无一条 live**（正是下面「顺手发现」那个死角的直接后果）。
+- **PreToolUse 路由闸（`cli/src/guard.rs` + `hooks/hooks.json`）**：`Bash` 与新增的 `SendMessage` 两个 matcher 共用同一个 guard。三态——**无人在班 fail-open** / 值守窗口放行 / 功能窗口 `exit 2` 且 stderr 给出：类别 + 在班地址 + 填空版【转投】模板 + 两个逃生门（`oncall release --force` 让值守下班、`oncall claim --force` 本窗口接班，**都改在班登记因而留痕**）。拦的形状：`gh pr merge`·`gh api -X PUT …/pulls/…`·push tag / push main·`gh pr close`·`gh release create`·`gh pr comment`·`gh issue create`·chat webhook（Slack/Teams/Discord/Telegram/Google Chat）·`sendmail` 等；放行的形状：`gh pr create`·一切 `gh` 只读·功能分支 push·交单/回执 SendMessage。
+- **SendMessage 闸判据收窄（#17 合入后由值守 review 发现，同批修正）**：原逻辑是「功能窗口发给任何非值守地址一律 block」，把**会话内部通信**（lead ↔ 自己的子代理、background 子代理回 `main`）一并扫了进去——三权管的是**窗口之间**，从来不管一条会话内部怎么传话。判据因此反向：从「拦一切非值守地址」改成**「拦已知是别的窗口的地址」**，依据取自 lane 台账——窗口会话名由其 worktree 目录派生（`worktree-output-clarity-e02325` → `…-02`），前缀匹配到**别的** lane 的 worktree 目录名才算真窗口；`main`、`researcher` 等匹配不到的一律放行。修正不是加豁免名单（名单永远列不全），误伤面从「所有内部通信」缩到零，横向串联照样拦得住。
+- **治理与自举同步**：`AGENTS.md` 新增自举纪律 9（本仓自己守）· `kit/babysit/CONTRIBUTING-CLAUSE.md` 第 1 条扩成三权唯一、新增第 7 条转投条款 · `BABYSIT-TEMPLATE.md` §1 上岗加登记 / §3 补三权 / §7 下班四件加 `release` · `SETUP.md` 第 3 步加登记、角色表补通信权、换班补残留清理 · `babysit/README.md` 加第 8 条设计不变量 · `hooks/README.md` 与 `kit/guard/README.md` 记两个 matcher 与三态实测命令。
+- **`snapshot/2026-08-19-cross-window-command-routing.md`（新）**：六个设计选择各附被否掉的替代方案（身份键选 worktree 不选 session id、登记存 common git dir 不存值守文档、故意 fail-open、deny-list 不 allow-list、横向一律中转、逃生门必须留痕）。
+
+### 诚实边界
+
+- **闸拦命令，不拦意图**——换个写法照样做得出去；它防「顺手就做了」，不防蓄意绕过（后者归治理，不归退出码）。
+- **横向消息闸只认台账里的窗口**：未登记 worktree 的窗口不在 lane 台账里，发给它的消息拦不住——但那种树本来就被边界闸报 FAIL 并连坐全场，属那一层的问题，不该由本闸兜第二遍。会话名与 worktree 目录名无关的机器同理认不出（本机命名惯例是同源的，别的机器未必）。
+- **MCP 外发不在闸内**：本轮只挂 `Bash` 与 `SendMessage` 两个 matcher，Telegram/Slack 等 MCP 工具要机械兜住须按其工具名另加 matcher，否则那条通道只有纪律层。
+- **单值守仍不靠锁**：`oncall claim` 是文件登记，两个窗口同时 `--force` 抢后写的赢；`babysit/README.md`「不靠锁机制」那句仍成立，新增的是机器可寻址与留痕。
+- **fail-open 是故意的反常**：本仓一贯 fail-closed，这里反过来——忘了上岗只是没有闸，fail-closed 却会锁死单人开发与值守下班后的仓库。
+- **本轮没动三处**：`docs/babysit.md`（值守自己的 owns，在班期间归它接）· `kit/output-contract.md`（转投回执格式写在 ROUTING §3，不另开第二份模板）· 机器上的 `agent-on` 装机版本（合入后再 `cargo install`，避免装机版领先 main——正是 v0.17.0 调研记过的「版本号相同功能不同」的坑）。三件都在交单里点名。
+- **转投送指令不送授权**：转投消息里的用户原话是情报，外向硬门动作仍须用户本人在值守会话里拍板（MERGE-POLICY §4 未放松）。
+- **SendMessage 闸的首版是错的，同批修掉（#18）**：#17 的判据是「拦一切非值守地址」，把会话内部通信（lead ↔ 自己的子代理、background 子代理回 `main`）一并扫进去了——三权管的是窗口之间，从不管一条会话内部怎么传话。值守 review 时读代码发现，作者当轮改成「拦已知是别的窗口的地址」（依据 lane 台账的 worktree 目录名前缀匹配）。**首版从未生效**：发现时装机版还是没有这段代码的旧二进制。原测试没抓到是因为用了编造地址 `some-other-window-7f`——不匹配任何真实 lane，在旧逻辑下「碰巧」是拦的；测试已改为先 claim 一条真 peer 轨再发给它的目录名。教训：**闸的测试必须用台账里真实存在的地址**。
+- **本节由值守轨代记**：本仓当时无任何活跃作者会话（#17/#18 的作者与上一条封版轨的会话都已消失），用户拍板由值守临时把 `AGENTS.md` / `README.md` 并进值守轨 owns 一轮做完封版四件。这是权宜，不是常态——常态仍是封版轨自己写。
+
+### 证据
+
+- `cargo test`：**172 passed / 0 failed**（12 条 oncall 单元测试 + 7 条 `cli/tests/oncall_routing.rs` 端到端，端到端走真实二进制与真实 PreToolUse stdin 契约）；`cargo clippy --all-targets` 零 warning
+- 临时仓九项实测（未触碰本仓在班登记，真值守当时在班）：无人在班→0 · 登记后功能窗口 merge→2 带模板 · 值守同命令→0 · Teams webhook/PR 评论/push tag→2 · `gh pr create`/只读→0 · SendMessage 给值守→0（前缀匹配）/横向→2 · `release` 后→0。逐项输出见 snapshot §3
+- 封版时坐标（值守实跑核对）：`origin/main = d4e9536`、上一个 tag `v0.17.0 → f2b2e90`、`v0.17.0..origin/main` = 7 笔（5 笔内容：`3b2a2ea` / `e1d1144` / `84960d0` / `8e514ff` / `5811d1e`，加 2 个 merge：`059d70e` / `d4e9536`）、`gh pr list --state open` 空
+- **本版的机制已在值守窗口实跑**：`cargo install` 自值守树（`d4e9536`）装机后 `agent-on oncall --help` 列出五命令；`oncall claim --session worktree-output-clarity-e02325` 登记成功，`oncall whoami` → 「本窗口是值守」。装机前 `oncall status` 为「无人在班」，闸全程 fail-open——**本版内闸从未拦过任何在跑窗口**
+- 顺手发现不代修（snapshot §5）：landed 轨的 worktree 换题目复用时，`set-status active` 报 `invalid lane transition`、`forget` 拒绝（worktree 仍在）、lane id 不能改名——三条路全堵，只能 `edit` 改 goal/owns 而 status 卡在 landed；副作用是 landed 不算 live，`owns` 重叠闸对该轨不设防
+
+## v0.17.0（2026-08-19）——跨窗口值守调研 + 输出契约四处增补
+
+> **minor**：不动手不坏——`kit/output-contract.md` 是**纯新增子节**，既有六段的顺序与语义一字未改，不接入就完全无感。但它加了三条新硬要求（默认值 = 建议值 / Summary 单尾 / 跨窗口编号），下游项目照抄契约时行为会变，所以不是 patch。无 breaking，不需要迁移注记。CLI / playbook / bench / boot / babysit 组件零改动。
+
+### 用户可见主线
+
+- **`kit/output-contract.md` 四处新增（#15）**：
+  1. **「表格是允许的渲染形式，不是第二份模板」**——段的顺序与语义是硬的、排版不是；给出**唯一一张**允许的映射表（「需要我拍板的」→ §3 且默认值列不许省 / 「你做的事情」→ §4 已验证格且第三列必须是证据指针 / 「交接给值守」→ 非值守窗口专用，插在 §4 与 §5 之间）。明确点名非值守窗口最容易漏掉撤销面与球在谁那。
+  2. **末尾 Summary 块**（长轮次可选，**五行固定顺序**：已完成 / 待拍板 / 交接值守 / 下一步建议 / 球在谁那）+ 两条硬要求：Summary 不许引入新信息（正文找不到的东西 = 违约）、**「球在谁那」并进 Summary 末行不另起——两个尾巴 = 违约**。短轮次不许加。
+  3. **跨窗口引用编号 = `<会话名>#<任务 id>`**——不发明新编号，直接拼 Claude Code 两层现成命名空间（会话名来自 `~/.claude/sessions/<pid>.json`，任务 id 来自 `~/.claude/tasks/<sessionId>/<n>.json`），因此**天然可寻址**：会话名同时是 SendMessage 收件地址与 prompt 里 `@` 点名的 typeahead 键。前置纪律：功能会话必须把工作拆进 todo，不拆就没有 `#N`。
+  4. **「默认值默认等于建议值」**——第 4 条的默认值默认就写第 3 条的建议值；只有**不可逆**（删除 / force-push / 外向发布 / 花钱 / 动别人的东西）与**超出已授权范围**两种情况允许降级，且必须括号写明降级理由。配套：§6 收尾合并规则一行、§8 自查清单加一行。
+- **`snapshot/2026-08-19-babysit-cross-window-research.md`（新，#15）**——跨窗口值守调研快照：一句话结论「**缺口不在设计，在强制点与状态可读性**」；实测推翻需求方四条前提（契约模板已是需求超集、缺的是机械强制点；interactive 会话没有 `status`/`state` 字段，状态只存在于 background 会话；真相之页是按需只读快照不驻后台；隔离已强、缺的是调度）；官方四种并行模式对照与两条与本仓控制面直接冲突的实况；社区 babysit-pr 生态对照与复用判定（不同物种）；四件改进按投入产出排序；终极目标的诚实天花板。
+
+### 诚实边界
+
+- **「默认值 = 建议值」是用户实测催生的**，原话「为什么我不回按照不是建议的来，看起来很奇怪」。此前值守每轮写「建议 A / 不回按 B 走」，系统性让沉默等于较差结果，正好抵消拍板前移的收益。
+- **本版只落了调研四件里的一件**：`<会话名>#<任务 id>` 编号约定进了契约；Stop hook + 退出码 2 的机械强制、merge conflict 的事前/事中两层、执行轨 background 化（唯一有真实代价的一条）**都没做**。
+- **待同步项未随本版落地**：`kit/babysit/BABYSIT-TEMPLATE.md` §6 与 `docs/babysit.md` §6 都引用 output-contract，#15 未动它们（不在其轨 `owns` 内），归后续消化会话按 #15 的 §9 索引对表。本版不假装它已收口。
+- **调研快照是快照，不是机制**：机制真相仍在 `docs/babysit.md`（循环体）/ `kit/babysit/MERGE-POLICY.md`（授权与时延）/ `kit/output-contract.md`（一轮怎么说话）/ 两份控制面。
+- 本节由 v0.17.0 封版轨代记（tag 债务补记的常态：功能笔已合入，封版笔另起）；条目照 `v0.16.1..origin/main` 的实际 diff 写。
+
+### 证据
+
+- 版内 diff：`kit/output-contract.md` +58 / `snapshot/2026-08-19-babysit-cross-window-research.md` +205，两文件共 **+263 −0**，无删除、无既有行改写
+- 合入：PR #15「docs(babysit): 跨窗口值守调研快照 + output-contract 三处增补」`2026-08-19T07:38:05Z`，merge `12b2e35`；`v0.16.1..origin/main` = 5 笔（4 功能笔 + 1 merge）
+- 封版时坐标：`origin/main = 12b2e35`、最新 tag `v0.16.1 → 06106d9`、`gh pr list --state open` 空
+
+## v0.16.1（2026-08-19）——值守文档接契约 + 推荐 pin 补更（tag 债务补记）
+
+> **patch**：不用知道——只动 agent-on **本仓自己**的值守实例化文件 `docs/babysit.md` 与三处推荐 pin 文案，下游项目不接入则完全无感；kit / playbook / bench / CLI 零改动。本节是**补记**：#13 已于 2026-08-19 02:30 合入 main，按自举纪律 6「push 结束 tag 必须钉 HEAD」补打 tag。
+
+### 用户可见主线
+
+- **本仓值守文档升到新契约（#13，`docs/babysit.md`）**——该文件实例化自 v0.15.0 模板，早于 `kit/babysit/MERGE-POLICY.md` 与 `kit/output-contract.md` 落地，照原样跑会「每条 canonical PR 都来问一次」，「少让我拍板」那半个目标不生效。本次补齐五处：§2.1 **门铃即起跑**（交单消息送达即唤醒，当轮就跑收单 + 追平，不等定时唤醒；门铃丢了最多晚一个心跳，队列仍从 `gh pr list` 完整重建）· §2.2 内容分类**按实际 diff 判不按标题判** · §2.6 **「值守加速」一个口令**切 3–5 分钟 + 连续 3 轮 noop 自动回落，§2.7 **时延目标**默认合入档中位 ≤ 5 分钟（本仓无 CI，`X = CI 中位 + 5 分钟` 的 CI 项为 0），单条超时记 §5、班次中位超时算事故进 §7 交接 · §3 授权分级改成**两张显式清单**（默认合入档 5 类 + 四条前置条件 + 必须先问档全列，并写死「用户没明确授权过则默认合入档不生效」） · §6 汇报纪律统一走 `kit/output-contract.md` + 值守特有四条。
+- **推荐 pin 补更（本批）**——`AGENTS.md` 从 `v0.15.0`、`README.md` 头部与速览表从 `v0.12.1` 一并抬到 **`v0.16.1`**；README 路线图补 v0.16 一行。此前三处各自停在不同版本，是 v0.13–v0.16 四次发版累积的文案欠账，本批一次清掉。
+
+### 诚实边界
+
+- 本版**没有新能力**：#13 只改本仓自己的值守手册（实例化文件，非 kit canonical），pin 是文案。要看 v0.16 的实际交付看 v0.16.0 节。
+- **值守实跑合并首次发生在本版**：#12（merge `1459c39`，`2026-08-19T02:30:02Z`）与 #13（merge `813c87a`，`02:30:46Z`）均由值守会话执行 `gh pr merge`，用户只在值守会话内各拍一次板；`v0.16.0` tag 亦由值守代打。v0.16.0 节「本版内值守实跑合并零次」只对 v0.16.0 的版内容成立，**到本版为止已被推翻**。（两笔 merge 的 GitHub actor 都是仓库账号本身，API 分不出「人手合」与「值守合」；此处以值守当班记录 + 两笔相隔 44 秒的串行特征为准。）
+- 本节由 v0.16.1 封版轨代记（tag 债务补记的常态：功能笔已合入，封版笔另起）；条目照 `b74fd64` 的实际 diff 写。
+
+### 证据
+
+- 债务坐标：`git log --oneline v0.16.0..origin/main` → 2 笔（`b74fd64` 功能笔 + `813c87a` merge #13），tag 前非空即债务；#13 合入时刻 `2026-08-19T02:30:46Z`，文件清单 `docs/babysit.md` 一份（+33 −5）
+- 封版时坐标：`origin/main = 813c87a`、`gh pr list --state open` 空
+
+## v0.16.0（2026-08-19）——契约层收口 + CLI 两件 + 真相之页开发史
+
+> 六笔已合入 main：#9 / #10 / #8（kit 契约与文档）+ #7 / #6（CLI 两件）+ #11（真相之页开发史）。**minor**：不动手不坏——kit 纯增补 + 既有模板改为引用；CLI 新增一个子命令与一处静默缺陷修复,既有命令行为不变；dashboard 模板新增一个 tab,既有五 tab 不变。
+
+### 每轮输出契约 + 值守合入授权（#9,kit)
+
+- **`kit/output-contract.md`（新）**——每轮输出契约的**唯一真相**,所有会话与子代理同读一份。硬顺序:状态面板 → 拍板 → 结论三格 → 撤销两栏 → 球在谁那 → **之后**才是过程叙述。面板固定四字段 `轨名 │ 一句话状态 │ 我要不要动 │ 下一动作归谁`,类别一律中文人话(「可以合了」「等 CI」「别删,有孤本」),`NOW`/`STALE`/`REAPABLE` 这类机器名**只准放括号里当索引**。拍板收成一节:编号、每条 ≤3 行、**必带「你不回我就按 X 走」**、写清不拍卡住谁;**一轮最多 3 条**,超出自己排序只问最阻塞的,其余写默认值先走——不把裁决成本整体转给用户。
+- **「契约悬点」正式改名**为「我按这个假设做了,你不否就当成立」,每条必写**否掉要重做什么**;机制不变(假设必须显式交出来),只换成用户读得懂的说法。结论分三格(已验证附证据指针 / 未验证假设 / 已推翻),同轮自我反复不进正文,只留最终结论 + 一行「此前 X 的说法已作废」。撤销面固定两栏(可以删附一条待执行命令 / 不能删附原因与抢救动作),**`unknown` 一律进「不能删」**。具名角色表(值守 / 作者会话 / 控制轨 / 用户),禁止无主语的「应该有人去…」。
+- **`kit/babysit/MERGE-POLICY.md`（新）**——合入授权与时延的**唯一真相**:**门铃即起跑**(交单消息送达即唤醒,当轮就跑追平 + 挂 CI 链,不等定时 tick;队列真相源仍是 open PR 列表,门铃丢了最多晚一个心跳、不漏单);**「值守加速」一个口令**切 3–5 分钟、连续 3 轮 noop 自动回落,用户不改任何配置文件;**默认合入档 5 类**与**必须先问档**两张清单都显式写死(按**实际 diff** 判不按标题判,清单外 fail-closed);**时延目标 `X = CI 中位时长 + 5 分钟`**(无 CI 仓 5 分钟),逐项给依据,单条超时记遗留、班次中位超时**算事故进下班交接**;打回作者时必须同时写「这单已不占你注意力」。
+- **八处接线到同一份契约,不各自展开**:`track-prompt-template`(完成报告段 + 铁律 6 + 旋钮表)/ `explore-prompt-template`(完成报告段)/ `review-prompt-template`(裁决输出改三格)/ `AGENTS-skeleton` §10.5「报告即数据」/ `landing-control-plane`(新节「给人看的时候换中文人话」)/ `babysit/README` / `babysit/BABYSIT-TEMPLATE`(§2.1 门铃、§2.6 口令、§3 授权分级改引用、§6 汇报纪律改走契约、§4 最后一处「悬点」改名)/ `CONTRIBUTING-CLAUSE` 第 5 条②(授权分级改成两张清单显式写死 + 时延目标 + 未授权则不生效)。
+- 两份新文件各带**「搬到别的项目」自包含接入清单**——不依赖 kit 索引与模板接线,没装 agent-on CLI 也能用。
+
+### CLI 两件（#7 / #6）
+
+- **`agent-on worktree edit`（新,#7）**——lane 就地重划 goal / owns / branch / base,免得每次重划都去手改 `.git/agent-on/lanes/*.json`;owns 仍过活跃轨重叠闸。(`cli/src/{main,worktree}.rs` + `cli/tests/worktree_edit.rs`,+458 行)
+- **`worktree claim --owns` 逗号列表修复（#6）**——此前传逗号分隔列表会被**整串存成单条边界**(静默缺陷:边界看似登记成功,实际一条也没生效);入口自动分割 + 回归测试。(`cli/src/main.rs` + `cli/tests/worktree_hooks.rs`)
+
+### kit 文档收口（#10 / #8）
+
+- **kit 索引两行（#10）**——`kit/README.md` 补 `output-contract.md` 与 `babysit/MERGE-POLICY.md` 两行索引,外加「四条不许省的纪律」后的第五条汇报纪律(每轮输出走 output-contract)。索引行与文件必须同批落地,此前被 #5 占用 CHANGELOG 故延到本批;#10 同时写下本节的初版(自 v0.15.0 起攒的三笔)。
+- **重划节改指 `worktree edit`（#8）**——`kit/worktree-control-plane.md`「重划与死锁三解」的重划入口由「JSON 直改」改为 `agent-on worktree edit`,JSON 直改降级为 fallback(无 CLI 或被活跃轨重叠闸拦住时);死锁第 2 条注明 `edit` 与 claim 同闸、该条仍只能 JSON 直改;「已知雷」的逗号串改成「0.12.x 装机版」历史注记 + 指向 #6/#7 的修复与 `edit --owns` 改错路径。文档随 CLI 能力同批更新,不留悬空说明。
+
+### 真相之页「开发史」（#11,kit）
+
+- **`kit/dashboard-template.html` 新增第六 tab「开发史」**——日历热力图(每格一天,颜色=当日主力平台,深浅=提交量,点格子锚点跳当天明细)+ 倒序逐日时间线(类型徽章 功能/DEBUG/拍板/文档/收件 + 平台徽章 Claude Code/Codex/Grok/未标注)。与「里程碑」分工明确:里程碑人挑大事记,开发史机器转录全量流水。
+- 真相源 = `git log` 机械转录,模板内附重绘命令与转录规则(类型读 commit 前缀,平台读 `Co-Authored-By` 署名,读不到标「未标注」);顶部数据源清单与页脚补「开发史 ← git log」行;配色全取既有变量;`instantiated-from` 版本戳由硬编码 `v0.4` 改为占位符。
+- **这是 PR #1 的救回**:原分支从 v0.12.0 时代长出(落后 35),其 CHANGELOG 条目写进了此后已随四次发版定稿的 [未发布] 段而逐字冲突死锁。#11 把唯一的功能文件原样落到 fresh `origin/main` 上(逐字取自原提交 `5720a40`,无二次编辑),不 force-push、不改写原分支历史;PR #1 已于 `2026-08-19T02:01:04Z` 关闭。
+
+### 诚实边界
+
+- **默认合入档不是无人自动合并**:它是用户显式预授权的清单,拍板前移了一次,仍然是人拍的;**用户没明确授权过则不生效**,全部按「必须先问」办。
+- #9 只改契约与调度参数(模板 / 治理条款 / 派工词 / 汇报纪律),**kit 侧 CLI 零改动**;把面板渲染做进 `landing status --human` 是未挂的后续,需单独拍板。
+- `.claude/settings.local.json`(SETUP §1 允许集)在 #9 写下本节时尚未建,故本批六条 PR **全部由用户手合**,值守未参与任何一次合并;该文件已于封版前建好(两条 allow 规则与 SETUP §1 逐字一致),值守首班同日上岗,但「值守实跑合并」在本版内仍是零次——下一版才有实测数据。
+- 本节 CLI 两件由 #9 作者代记以便封版(封版必须描述版内全部改动),条目照两笔 commit 的实际 diff 写;**各作者封版前核对自己那笔**。
+
+### 证据
+
+- 合入时刻:#9 `2026-08-19T01:26:54Z`、#7 `01:27:07Z`、#6 `01:27:22Z`、#11 `01:59:58Z`、#10 `02:00:10Z`、#8 `02:00:22Z`;每笔过 `agent-on worktree check` RESULT: PASS
+- 封版时坐标(值守首班实跑核对):`origin/main = cf94ae9`、`gh pr list --state open` 空、`git log --oneline v0.15.0..origin/main | wc -l` → 15、`intake/` 41 卡全部已标去向
+- 契约自查器对交付轮次输出跑 **10/10 PASS**;面板渲染器直接吃 `agent-on worktree gc --dry-run --json` + `gh pr list --json` 机械生成四字段面板,`unknown` 确实落进「不能删」栏
+- 跨轨顺序留痕:`#4` lane 核远端后 ready → landed 释放 babysit 四文件 → #9 追平 origin/main 并扩 owns 后才接线;`kit/README.md` 索引两行等 `#5` 落地后同批补(索引行与文件同 PR,先加会造成悬空引用)
+
+## v0.15.0（2026-08-17）——值守消化批 + 交单协议 + 本仓值守自举
+
+> **minor**：不动手不坏。playbook / bench / kit 纯增补与措辞升级，新 kit 模板一份；agent-on 自身接入值守（docs/babysit.md + AGENTS 第 8 条）不影响下游项目；CLI 零改动。
+
+### 用户可见主线
+
+- **消化批（一卡一 commit，11 卡全收口）**：协作篇 §三½.6 值守合并调度（排队经济学 O(N²)→O(N) / 批准来源转述≠批准 / 调度员打回边界）+ §三½.1 字面匹配盲区（提及≠记账）+ §三½.5 闸三张面升**四张面**（新增出口面：报错即工单）；worktree-control-plane 新节「重划与死锁三解」（lane JSON 直改 = 重划机制、占位 park = 连坐逃生门【2026-08-17 拍板：维持连坐】、`--owns` 逗号雷 workaround）；bench 案 37（等 CI 的信号源）/ 案 38（全 job 秒死 = 账单层）+ 案 34 同步升四面；anti-hallucination #17 扩句（权限自改是硬墙，三模态全拦是防自我解锁设计）+ #19 新条（数字纪律：禁为数字编造解释 / 截断输出须确认全集 / 内容农场污染剔除）
+- **kit/deep-research-prompt-template.md（新）**：调研域派工 prompt——v1 骨架 + v2 四条执行纪律（仓内审计先行 / 授权推翻前提 / 数字纪律 / 对抗自核验）+ 失效对照表；workflow-orchestration-checklist 调研派工行与 kit/README 索引接线
+- **babysit 交单协议补强**（PR #4，kit/babysit 三件）：交单消息三型——【交单】外新增【撤单/HOLD】与【READY】，值守以最新一条为准、不凭旧交单行动；在班值守地址写进交接快照，交单方读文档不猜 ListAgents 名字
+- **本仓值守自举**：`docs/babysit.md`（agent-on 实例化——无 CI 仓核对面三查、三面账本巡检【发版硬门 / intake 积压 / lane 卫生】、本仓四条实测分诊）+ AGENTS 自举纪律第 8 条（值守在班合并权唯一，不在班回退维护者自合 + 必 tag）；推荐 pin v0.12.1→v0.15.0（补 v0.13 / v0.14 两批漏更欠账）；README 对表（38 卡 / 调研模板 / 路线 v0.13–v0.15 行）
+
+### 诚实边界
+
+- 连坐策略维持、CLI 零改动；「逃生门」是文档化姿势不是新机制。CLI 两欠账（`--owns` 逗号分割、`worktree edit`）已立后台任务卡，不在本批
+- 本仓无 CI workflows：docs/babysit.md 的合并核对面为 mergeable / GitGuardian / guard 三查；模板中的 CI watch 链在本仓标注不适用
+- `.claude/settings.local.json`（SETUP §1 允许集）截至本批仍未建——值守首班上岗前须用户手跑；本批合并两次撞分类器即为此因（anti-hallucination #17「两步即停」实录）
+- 消化预算线内全收口：承接层五份值守相关文件零 pending；更早批次此前已收口
+
+### 证据
+
+- 消化九笔 + 自举一笔 + #4 四文件，每笔 commit 过 pre-commit + PreToolUse 双闸（`agent-on worktree check` RESULT: PASS）
+- 分诊选择题四题用户拍板：正文四处全采纳 / kit 新件全采纳 / 连坐维持+写清逃生门 / CLI 立后台任务卡
+- 消化中连坐两次实测（当日累计四棵未登记树全靠占位 park 解开），姿势即本批「重划与死锁三解」第 3 条；PreToolUse 先评估整条命令（claim 与 commit 必须拆条）为当日新发现，已入该节
+- 消化来源：intake `2026-08-16-dartify.md`（6 卡）/ `2026-08-17-dartify.md`（4 卡）/ `2026-08-16-dartify-worktree-guard-field-report.md` / `2026-08-17-dartify-deep-research-prompt.md`（1 卡）——原地标注全部 landed@同批；交单协议证据：Dartify PR #176 实战（HOLD/READY 临场发明 + 收件人错投靠代转补救）
+
+## v0.14.0（2026-08-17）——值守合并调度（babysit merge dispatcher）
+
+> **minor**：不动手不坏。纯新增 kit 组件与文档接线，存量项目不接入则行为不变；CLI 零改动。
+
+### 用户可见主线
+
+- **kit/babysit/ 四件**：`BABYSIT-TEMPLATE.md`（值守文档模板 §0–§7：GOAL / 首轮启动 / 每轮检查单 / 权限三档 / 分诊手册 / 已知遗留 / 汇报纪律 / 交接下班）+ `SETUP.md`（三步接入：权限用户手跑 → 治理条款 → 复制模板启动，含角色分工与换班 SOP）+ `CONTRIBUTING-CLAUSE.md`（治理条款范本，含交单模板）+ `README.md`（定位、排队经济学、五条设计不变量）
+- **定位**：多会话并行下远端公共态（main / PR 队列 / CI / 账本）的值班经理。排队经济学：up-to-date 硬门下 N 会话各自追平自合 = O(N²) 次 rebase，值守串行调度 = O(N)——合并权中央化不是偏好，是硬门下的最优解
+- **landing 的执行半场**：landing v1 只读出 NOW / 波次当排序输入，值守做「追平 → CI → 拍板 → merge → 记账 → 回执」串行执行；auto-merge 挂点的有人拍板实现，无人自动合并仍然不做
+- **五条设计不变量**：会话是班次、文档是资产 / 队列真相源 = open PR 列表（SendMessage 交单只是门铃）/ 追平只走服务端 update-branch / 串行 + 连锁追平 / 批准只认本会话用户输入（同行转述 ≠ 批准）
+- **接线**：`landing-control-plane.md` 补「执行半场」节、`worktree-control-plane.md` 补「值守与 lane 的分工」节、BOOTSTRAP §5 与 `boot/adopt.md` 增量接管段各加一句接入指引；README 补 v0.13 路线行欠账
+
+### 诚实边界
+
+- 不做无人自动合并：需拍板类永远等用户；单值守互斥靠治理条款与接班仪式，不靠锁（在班心跳 / 队列标签化 = v2 挂点，零真实需求前不建）
+- 值守零代修：真缺陷打回作者四件套（证据指针 + 缺陷定位 + 修复选项 + SendMessage），billing 类事故推通知等管理员
+- 权限最小集只两条 allow（merge + 服务端 update-branch），被拦哪条补哪条，不放 `gh:*`；agent 改不了自己的权限配置（三模态实测全拦），SETUP 把它做成用户手跑步
+- 本批只消化 babysit 落点：08-16 六卡 / 08-17 四卡的 playbook、bench、anti-hallucination 落点仍 pending（各卡已原地标注）
+
+### 证据
+
+- Dartify 值守夜班（08-16）：单 /loop 会话 9 连合（#150–#153 / #155 / #158 / #160–#162），每条走追平→CI→合；#150 两轮追平（76ec1df→75a0ca8）实证连锁追平；途中处置 org 级 Actions billing 瘫痪 ~6.5h（job annotation 取证 + 推通知 + 每轮探针）；治理条款入 Dartify CONTRIBUTING §四（PR #163）
+- Dartify 三单实战（08-17，#164 / #165 / #169）：run id 按 workflowName 过滤修正抓错（31956970664→31956970653）；#169 真红打回作者四件套后 15 分钟修绿（3e41feb），值守零代修；转述指令仍向本人复核后执行，作者回执「你另行向用户核拍板是对的——该省的从来不是这步」
+- 跨 lane 追平边界实测：本地推别人分支被 worktree guard 正确拦下，`gh api -X PUT …/update-branch` 输出 "Updating pull request branch." 干净通过
+- 消化来源：intake `2026-08-16-babysit-merge-dispatcher.md` 与 `2026-08-16-babysit-kit-template-draft.md`（两专题件全部落位）+ `2026-08-16-dartify.md` 六卡 / `2026-08-17-dartify.md` 四卡的 babysit 落点
 
 ## v0.13.0（2026-08-16）——Landing 控制面 v1：合流协调 + 生命周期分类
 

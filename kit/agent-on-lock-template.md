@@ -8,7 +8,7 @@
 ## pin
 agent-on @ v0.2.0 (<commit-hash>)   <!-- tag+commit 双记;只有口令「agent-on 升级」允许改这一行 -->
 本地路径:<本机可写 clone 的绝对路径或 ~/…>   <!-- B 工作仓:任意路径皆可,Windows/mac 不限;空=未登记,settle 会拒绝。也可用 ~/.config/agent-on/config.json 的 work_root 或 AGENT_ON_ROOT 全局登记。示例:/Users/you/src/agent-on 或 D:\dev\agent-on -->
-model:<初始化时的模型,如 claude-opus-4-8> / 保费档位:<高|中|低,见 bench/capability-probe.md>   <!-- 握手对表会核这行;模型换代 = 提示重跑 capability-probe 调档,别让保费/资产之分空转 -->
+model:<初始化时的模型,如 claude-opus-4-8> / 保费档位:<高|中|低,见 bench/capability-probe.md>   <!-- 握手对表会核这行;模型换代 = 提示重跑 capability-probe 调档,别让保费/资产之分空转。**未跑探针的档位是预设值,必须写成「未跑探针·预设 X 档」**,不许写成实测结论;要实测就说口令「跑能力探针」——探针(~1 小时)**不挂在首次结账前**,'结账预算 = 一句口令 + 零确认' -->
 
 
 ## last_settlement

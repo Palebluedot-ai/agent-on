@@ -1,0 +1,33 @@
+# 职责边界欠账基线（棘轮，只许变短）
+#
+# 每一行 = 一份还没写职责边界声明的 canonical 文档。闸只拦「新增违规」与「补齐后没划掉」，
+# 不逼任何人一次补完存量。补一份就从这里删一行；`python3 .github/scripts/check_docs.py --fix-baseline` 代劳。
+# 反向加行 = 放松闸，需要在 PR 里写明理由。
+docs/babysit.md
+kit/AGENTS-lite.md
+kit/AGENTS-skeleton.md
+kit/README.md
+kit/abdc/decision-brief-template.md
+kit/abdc/experiment-card-template.md
+kit/abdc/review-packet-template.md
+kit/abdc/track-memo-template.md
+kit/babysit/BABYSIT-TEMPLATE.md
+kit/babysit/CONTRIBUTING-CLAUSE.md
+kit/babysit/SETUP.md
+kit/explore-prompt-template.md
+kit/guard/README.md
+kit/merge-checklist.md
+kit/milestone-template.md
+kit/phase-card-template.md
+kit/prd-template.md
+kit/requirement-pack-template.md
+kit/review-prompt-template.md
+kit/thoughts-and-ideas-template.md
+kit/track-prompt-template.md
+playbook/anti-hallucination.md
+playbook/architect-lens.md
+playbook/freedom-vs-discipline.md
+playbook/model-playbook.md
+playbook/multi-contributor-protocol.md
+playbook/orchestration-future.md
+playbook/sop.md

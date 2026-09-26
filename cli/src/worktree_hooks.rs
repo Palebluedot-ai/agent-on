@@ -17,13 +17,6 @@ struct HookInstallState {
     pre_push: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct LaneSummary {
-    id: String,
-    worktree: String,
-    status: String,
-}
-
 fn git_output(cwd: &Path, args: &[&str]) -> Result<Output, String> {
     Command::new("git")
         .arg("-C")
@@ -713,7 +706,7 @@ fn install_inner(repo: &Path) -> Result<String, String> {
     }
 
     Ok(format!(
-        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: worktree check + primary control-track guard\npre-push: worktree check\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
+        "WORKTREE HOOKS: installed\nrepo: {}\nGit hooks: managed here for all worktrees via shared core.hooksPath\npre-commit: blocks only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days\npre-push: same one-tree rule\nPreToolUse: plugin-managed; this command did not edit ~/.claude or ~/.codex (verify host trust once with `/hooks`)\nstatus: `agent-on worktree hooks status`\nrollback: `agent-on worktree hooks uninstall`\n",
         root.display()
     ))
 }
@@ -914,81 +907,6 @@ fn shared_repo_root(cwd: &Path) -> Result<PathBuf, String> {
     primary_worktree(cwd).map(|path| canonical(&path))
 }
 
-fn active_lanes(cwd: &Path, primary: &Path) -> Result<Vec<LaneSummary>, String> {
-    let directory = managed_root(cwd)?.join("lanes");
-    if !directory.exists() {
-        return Ok(Vec::new());
-    }
-    let mut lanes = Vec::new();
-    for entry in fs::read_dir(&directory)
-        .map_err(|e| format!("read lane registry {}: {e}", directory.display()))?
-    {
-        let path = entry
-            .map_err(|e| format!("read lane registry entry: {e}"))?
-            .path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
-            continue;
-        }
-        let raw = fs::read_to_string(&path)
-            .map_err(|e| format!("read lane record {}: {e}", path.display()))?;
-        let lane: LaneSummary = serde_json::from_str(&raw)
-            .map_err(|e| format!("parse lane record {}: {e}", path.display()))?;
-        if matches!(lane.status.as_str(), "active" | "blocked" | "ready")
-            && canonical(Path::new(&lane.worktree)) != canonical(primary)
-        {
-            lanes.push(lane);
-        }
-    }
-    lanes.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(lanes)
-}
-
-fn git_path(cwd: &Path, name: &str) -> Result<PathBuf, String> {
-    let raw = PathBuf::from(git(cwd, &["rev-parse", "--git-path", name])?);
-    Ok(if raw.is_absolute() {
-        raw
-    } else {
-        cwd.join(raw)
-    })
-}
-
-fn control_operation_in_progress(cwd: &Path) -> Result<Option<&'static str>, String> {
-    for (name, label) in [
-        ("MERGE_HEAD", "merge"),
-        ("SQUASH_MSG", "squash merge"),
-        ("CHERRY_PICK_HEAD", "cherry-pick"),
-        ("REVERT_HEAD", "revert"),
-        ("rebase-merge", "rebase"),
-        ("rebase-apply", "rebase/am"),
-        ("sequencer", "sequencer"),
-    ] {
-        if git_path(cwd, name)?.exists() {
-            return Ok(Some(label));
-        }
-    }
-    Ok(None)
-}
-
-fn primary_control_guard_inner(repo: &Path) -> Result<Option<String>, String> {
-    let current = canonical(&repo_root(repo)?);
-    let primary = canonical(&primary_worktree(&current)?);
-    if current != primary {
-        return Ok(None);
-    }
-    let lanes = active_lanes(&current, &primary)?;
-    if lanes.is_empty() || control_operation_in_progress(&current)?.is_some() {
-        return Ok(None);
-    }
-    let summary = lanes
-        .iter()
-        .map(|lane| format!("{} [{}]", lane.id, lane.status))
-        .collect::<Vec<_>>()
-        .join(", ");
-    Ok(Some(format!(
-        "primary worktree is a control track while live execution lanes exist: {summary}\nmove ordinary changes to a claimed worktree, or finish/park the live lanes first. Merge, squash-merge, cherry-pick, revert, and rebase control commits are detected and allowed automatically"
-    )))
-}
-
 fn clear_inherited_git_local_env() {
     // Git exports repository-local variables to hooks. They are valid for the
     // invoking worktree only and can poison the all-worktree audit (notably a
@@ -1015,24 +933,9 @@ fn clear_inherited_git_local_env() {
     }
 }
 
-/// Shared fail-closed gate for Git hooks and AI-tool PreToolUse guards.
-///
-/// Exit 0 allows the operation. A non-zero result covers both a policy block
-/// and an inability to prove safety; the returned detail is ready for a hook
-/// protocol to wrap and report.
-pub(crate) fn primary_control_guard(repo: &Path) -> (i32, String) {
-    match primary_control_guard_inner(repo) {
-        Ok(Some(reason)) => (1, reason),
-        Ok(None) => (0, String::new()),
-        Err(error) => (
-            1,
-            format!(
-                "cannot verify the primary control-track boundary: {error}\nnext: run `agent-on worktree hooks status` and `agent-on worktree status`"
-            ),
-        ),
-    }
-}
-
+/// Git-hook entry: the same one-tree verdict the PreToolUse guard uses. The
+/// hook runs inside the worktree being committed/pushed, so `repo` is that
+/// tree, and only that tree's own conflict or audit failure stops it.
 pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
     if !HOOK_NAMES.contains(&hook) {
         return (
@@ -1046,20 +949,9 @@ pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
 
     clear_inherited_git_local_env();
 
-    let (check_code, check_output) = crate::worktree::run_audit(repo, false, true);
-    if check_code != 0 {
-        return (
-            1,
-            format!(
-                "BLOCKED by Agent-On {hook}: worktree check failed\n{check_output}next: run `agent-on worktree status` and fix the reported lane registration/boundary problem\n"
-            ),
-        );
-    }
-    if hook == "pre-commit" {
-        let (guard_code, reason) = primary_control_guard(repo);
-        if guard_code != 0 {
-            return (1, format!("BLOCKED by Agent-On pre-commit: {reason}\n"));
-        }
+    let (code, detail) = crate::worktree::gate_for(repo);
+    if code != 0 {
+        return (1, format!("BLOCKED by Agent-On {hook}:\n{detail}"));
     }
     (0, String::new())
 }
@@ -1383,7 +1275,7 @@ mod tests {
     }
 
     #[test]
-    fn primary_guard_blocks_business_commit_but_allows_squash_marker() {
+    fn hook_blocks_primary_only_when_it_enters_a_live_lane_and_never_mid_squash() {
         let (tmp, root) = fixture();
         let lane = tmp.path().join("lane");
         run(
@@ -1408,9 +1300,36 @@ mod tests {
         };
         assert_eq!(crate::worktree::claim_lane(&lane, &claim).0, 0);
 
-        let blocked = primary_control_guard_inner(&root).unwrap().unwrap();
-        assert!(blocked.contains("lane-a [active]"), "{blocked}");
-        fs::write(git_path(&root, "SQUASH_MSG").unwrap(), "squash\n").unwrap();
-        assert!(primary_control_guard_inner(&root).unwrap().is_none());
+        // A file only the primary has dirty is not a block, owns or not.
+        fs::write(root.join("README.md"), "note\n").unwrap();
+        let (code, out) = run_hook(&root, "pre-commit");
+        assert_eq!(code, 0, "{out}");
+        fs::create_dir_all(root.join("app")).unwrap();
+        fs::write(root.join("app/x.txt"), "intrude\n").unwrap();
+        let (code, out) = run_hook(&root, "pre-commit");
+        assert_eq!(code, 0, "{out}");
+        fs::create_dir_all(lane.join("app")).unwrap();
+        fs::write(lane.join("app/x.txt"), "lane also\n").unwrap();
+        let (code, out) = run_hook(&root, "pre-commit");
+        assert_eq!(code, 1, "{out}");
+        assert!(
+            out.contains("blocked: app/x.txt is also uncommitted in"),
+            "{out}"
+        );
+        assert!(
+            out.contains(&fs::canonicalize(&lane).unwrap().display().to_string()),
+            "{out}"
+        );
+
+        // A squash merge in flight is the lane's work arriving, never judged.
+        let marker = PathBuf::from(git(&root, &["rev-parse", "--git-path", "SQUASH_MSG"]).unwrap());
+        let marker = if marker.is_absolute() {
+            marker
+        } else {
+            root.join(marker)
+        };
+        fs::write(marker, "squash\n").unwrap();
+        let (code, out) = run_hook(&root, "pre-commit");
+        assert_eq!(code, 0, "{out}");
     }
 }

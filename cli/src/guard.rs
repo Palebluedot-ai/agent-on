@@ -313,6 +313,13 @@ pub(crate) fn inside_agent_on(p: &Path, agent_on: &Path) -> bool {
 
 /// Core decision given parsed tool payload JSON.
 pub fn guard_decision(data: &Value) -> i32 {
+    // Cross-window routing runs first: it also judges non-git tools
+    // (SendMessage) and non-git commands (gh, chat webhooks).
+    let routed = crate::oncall::route_decision(data);
+    if routed != 0 {
+        return routed;
+    }
+
     let cmd = tool_command(data);
     if !cmd.contains("git") {
         return 0;
@@ -352,50 +359,27 @@ pub fn guard_decision(data: &Value) -> i32 {
         }
     }
 
-    // Commit/push are the only PreToolUse points that pay for a full lane
-    // audit. Other git writes keep the existing cross-repo check only.
+    // Commit/push are the only PreToolUse points that pay for a worktree
+    // audit, and the audit judges *this* worktree only: an uncommitted path
+    // that another worktree also has uncommitted, touched within 7 days.
+    // Other git writes keep the cross-repo check only.
     let mut audit_repos = BTreeSet::new();
-    let mut commit_repos = BTreeSet::new();
     for dir in &parsed.commit_push_dirs {
         if let Some(root) = existing_repo_root(dir) {
-            audit_repos.insert(root.clone());
-            if parsed.commit_dirs.contains(dir) {
-                commit_repos.insert(root);
-            }
-        }
-    }
-
-    for repo in &commit_repos {
-        let (code, reason) = crate::worktree_hooks::primary_control_guard(repo);
-        if code != 0 {
-            eprintln!(
-                "⛔ 主树控制轨检查未通过，已拦截 git commit。\n\
-{}\n\
-下一步:把业务改动移到已 claim 的 worktree；合流操作会由 Agent-On 自动识别并放行。\n\
-自查:`agent-on worktree status --repo {}`\n\
-被拦命令: {cmd}\n",
-                reason.trim_end(),
-                repo.display()
-            );
-            return 2;
+            audit_repos.insert(root);
         }
     }
 
     for repo in &audit_repos {
-        let (code, report) = worktree::run_audit(repo, false, true);
+        let (code, detail) = worktree::gate_for(repo);
         if code != 0 {
             eprintln!(
-                "⛔ Worktree 边界检查未通过，已拦截 git commit/push。\n\
-检查目标: {}\n\
+                "⛔ 边界闸：本树有未提交文件，另一棵工作树 7 天内也改过同一文件。\n\
+本树: {}\n\
 {}\n\
-下一步:\n\
-  1. 运行 `agent-on worktree status --repo {}` 查看 lane / owns。\n\
-  2. 把 OUT-OF-BOUNDS 文件移回所属 lane，或由控制轨重新划分 owns。\n\
-  3. 若检查器本身报错，先修复报错；不要用跳过 hook 掩盖 unknown。\n\
 被拦命令: {cmd}\n",
                 repo.display(),
-                report.trim_end(),
-                repo.display()
+                detail.trim_end()
             );
             return 2;
         }
@@ -605,7 +589,8 @@ mod tests {
     }
 
     #[test]
-    fn blocks_codex_commit_when_lane_owns_is_violated() {
+    fn allows_codex_commit_escaping_own_owns_when_nobody_holds_the_path() {
+        // A file only this tree has dirty is not a conflict.
         let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let (_tmp, _root, wt) = lane_fixture();
         fs::write(wt.join("README.md"), "escaped\n").unwrap();
@@ -619,6 +604,42 @@ mod tests {
                 "workdir": wt
             }
         });
+        assert_eq!(guard_decision(&data), 0);
+        env::remove_var("AGENT_ON_ROOT");
+        env::remove_var("CODEX_PROJECT_DIR");
+    }
+
+    #[test]
+    fn blocks_codex_commit_only_when_another_tree_has_the_same_fresh_file() {
+        let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
+        let (tmp, root, wt) = lane_fixture();
+        let intruder = tmp.path().join("intruder");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "session/intruder",
+                intruder.to_str().unwrap(),
+                "main",
+            ],
+        );
+        fs::write(intruder.join("app/base.txt"), "intrude\n").unwrap();
+        env::set_var("AGENT_ON_ROOT", "/nonexistent/agent-on-guard-test");
+        env::set_var("CODEX_PROJECT_DIR", &intruder);
+        env::remove_var("CLAUDE_PROJECT_DIR");
+        let data = json!({
+            "tool_name": "exec_command",
+            "tool_input": {
+                "cmd": "git commit -m intrude",
+                "workdir": intruder
+            }
+        });
+        // The lane owns `app` but has not touched this file. That is not a block.
+        assert_eq!(guard_decision(&data), 0);
+        fs::write(wt.join("app/base.txt"), "lane also\n").unwrap();
         assert_eq!(guard_decision(&data), 2);
         env::remove_var("AGENT_ON_ROOT");
         env::remove_var("CODEX_PROJECT_DIR");

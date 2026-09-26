@@ -28,7 +28,8 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 
 | 要复述的 | 从哪读 |
 |---|---|
-| 项目总目标、硬约束、In-Scope / 暂停禁令 | 项目根 `AGENTS.md` |
+| 项目总目标、硬约束、In-Scope / 暂停禁令 | 项目根 `AGENTS.md`(**项目一句话 + 北极星指针读 §0.5 槽位**;该节为空 = 骨架未填,开场点名让它补,不要自己猜一句总目标) |
+| **状态源与现实打架吗**(有常驻调度器 / 定时发送的项目) | 除了读 `progress.yaml`,当场核一次**运行实况**(调度器状态 / 最近一次 run 日志);**文件与实况冲突时以实况为准并当场点明**——生产切换(加载调度器、切通道、启停发送)漏改状态源是最常见的成因(truth-hierarchy 五⅞.2) |
 | 当前 phase、phase_status、锁定的 `Next` | `docs/state/progress.yaml`(单一状态写者,最权威) |
 | 最近发生了什么、上次卡在哪 | 最新 snapshot(`docs/snapshots/` 里时间戳最新那份)、`loop-notes.md` |
 | 当前阶段具体在干什么 | 当前那张 phase 卡(`docs/phases/phase-*.md`) |
@@ -38,6 +39,7 @@ BOOTSTRAP.md 把「第一次开项目」管好了。但项目一旦跑起来,真
 | **仪表盘还新鲜吗**(M/L) | `dashboard.html` 头部「最后更新」日期 vs progress.yaml 最近变更——落后就提一句「仪表盘陈旧,要我更新吗」 |
 | **速记区有没有没整理的想法** | `thoughts-and-ideas.md` 的📥速记区——非空就在开场提一句「想法收集箱有新内容,要我整理吗」,别让零散想法烂在速记区 |
 | **工作树有没有蔓延 + 结账回执是否困死枝** | `git worktree list`——死枝 ≥3 个就开场提醒清理(会话生命周期与 worktree 生命周期天然脱钩,不巡就烂);**顺手核 lock 最近 `last_settlement` 对应 commit**:`git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为假 → 回执困在 feature/worktree 死枝,当场 cherry-pick/合入 main 或重做回执,别让账本只活在旁支(IPONews `acf6e4a` 实证;与 settlement 上半场 step5 default-branch 硬门同族) |
+| **有没有超过 24 小时没拍的不可逆项** | 上一轮输出的拍板表（最新 snapshot / `loop-notes.md` 里留的那张）——**不可逆项的默认值永远是「不动」，所以它不会自己了结**；超过 24 小时未拍的，开场必须原样重新举出来，一条一行，不许静默沉底（规则见 [output-contract 的「默认值什么时候生效」一节](../kit/output-contract.md)）。可逆项不进这道复读——它们本轮就已执行完 |
 | **本会话在哪条执行轨、能写什么** | 已启用多 worktree 时先跑 `agent-on worktree status`;若当前是非主 worktree 且未登记,**不开始写**——先由控制轨给出单一目标/互斥文件域/依赖,再 `worktree claim`。已登记则复述 lane id、goal、owns、depends_on;发现 OUT-OF-BOUNDS/OVERLAP 先回控制轨裁决。只读会话无需 claim。 |
 
 **顺序建议**:先 `AGENTS.md` 定主线 → 再 `progress.yaml` 定当前位置 → 再最新 snapshot 补「刚才发生了什么」。三份读完,三步复述就齐了。读不到 `progress.yaml` 或它和 snapshot 打架,别硬猜——按真相源仲裁次序(见 [../playbook/truth-hierarchy.md](../playbook/truth-hierarchy.md)),以 Canonical 层的 `progress.yaml` 为准,并把冲突当场跟用户点明。

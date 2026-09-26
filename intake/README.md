@@ -6,7 +6,7 @@
 
 1. **一次结账 = 一个新文件**:`<YYYY-MM-DD>-<项目名>.md`,append-only,不动他人文件——多项目并发在 git 层物理不撞
 2. 每张卡按 [../kit/promotion-card-template.md](../kit/promotion-card-template.md) 六项齐,缺一拒收
-3. 消化后**原地**标注去向:`landed@<commit>` / `rejected(原因)` / `deferred`——不设 archive,标注即收口
+3. 消化后**原地**标注去向:`landed@<commit>` / `rejected(原因)` / `deferred`——不设 archive,标注即收口。**只引用已经存在的 commit 或 tag**,写不出 hash 写 `landed@同批（落点）`,禁止预写版本号(`agent-on tag-release` 会拒)
 4. **目录即仪表盘**:`ls` 一眼数出未消化文件数;≥3 份 = 该开消化会话了(结账收尾自动播报)
 5. 本目录只有两类写者:结账会话(新建自己的文件)、消化会话(标注去向);**git 动作(add/commit/push)只归 agent-on 仓会话**——结账会话落盘即止(跨仓边界硬规矩 2026-07-13,消化开场负责收件 commit)
 

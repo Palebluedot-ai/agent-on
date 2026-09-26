@@ -194,7 +194,7 @@ impl FakeScheduleEnv {
 }
 
 #[test]
-fn real_pre_commit_blocks_primary_business_commit_and_allows_squash_merge() {
+fn real_pre_commit_blocks_only_writes_into_a_live_lane_and_allows_squash_merge() {
     let fixture = Fixture::new();
     must_run(
         &fixture.root,
@@ -246,8 +246,25 @@ fn real_pre_commit_blocks_primary_business_commit_and_allows_squash_merge() {
         combined(&linked_status)
     );
 
-    fs::write(fixture.root.join("README.md"), "ordinary main edit\n").unwrap();
-    must_run(&fixture.root, "git", &["add", "README.md"]);
+    // A file only the primary has dirty goes through. The lane's owns do not
+    // reserve ground the lane is not actually editing.
+    fs::write(fixture.root.join("NOTES.md"), "ordinary main edit\n").unwrap();
+    must_run(&fixture.root, "git", &["add", "NOTES.md"]);
+    must_run(&fixture.root, "git", &["commit", "-m", "allowed main edit"]);
+
+    fs::write(fixture.root.join("app/base.txt"), "primary only\n").unwrap();
+    must_run(&fixture.root, "git", &["add", "app/base.txt"]);
+    must_run(
+        &fixture.root,
+        "git",
+        &["commit", "-m", "lane is not editing this"],
+    );
+    must_run(&fixture.root, "git", &["reset", "--hard", "HEAD~1"]);
+
+    // The same fresh file in both trees is the one thing the hook stops.
+    fs::write(lane.join("app/base.txt"), "lane also\n").unwrap();
+    fs::write(fixture.root.join("app/base.txt"), "primary intrudes\n").unwrap();
+    must_run(&fixture.root, "git", &["add", "app/base.txt"]);
     let blocked = run(&fixture.root, "git", &["commit", "-m", "must be blocked"]);
     assert!(!blocked.status.success(), "commit unexpectedly succeeded");
     let blocked_text = combined(&blocked);
@@ -256,28 +273,33 @@ fn real_pre_commit_blocks_primary_business_commit_and_allows_squash_merge() {
         "{blocked_text}"
     );
     assert!(
-        blocked_text.contains("primary worktree is a control track"),
+        blocked_text.contains("blocked: app/base.txt is also uncommitted in"),
         "{blocked_text}"
     );
-    must_run(&fixture.root, "git", &["restore", "--staged", "README.md"]);
-    must_run(&fixture.root, "git", &["restore", "README.md"]);
+    must_run(
+        &fixture.root,
+        "git",
+        &["restore", "--staged", "app/base.txt"],
+    );
+    must_run(&fixture.root, "git", &["restore", "app/base.txt"]);
+    must_run(&lane, "git", &["checkout", "--", "app/base.txt"]);
 
+    // A file only the lane has dirty does not stop its commit.
     fs::write(lane.join("README.md"), "escaped lane edit\n").unwrap();
     must_run(&lane, "git", &["add", "README.md"]);
-    let escaped = run(&lane, "git", &["commit", "-m", "escape owns"]);
-    assert!(!escaped.status.success(), "out-of-bound commit succeeded");
-    let escaped_text = combined(&escaped);
-    assert!(
-        escaped_text.contains("OUT-OF-BOUNDS: README.md"),
-        "{escaped_text}"
-    );
-    must_run(&lane, "git", &["restore", "--staged", "README.md"]);
-    must_run(&lane, "git", &["restore", "README.md"]);
+    must_run(&lane, "git", &["commit", "-m", "drift, not conflict"]);
+    let status = combined(&fixture.must_agent_on(&lane, &["worktree", "status"]));
+    assert_eq!(status, "ok\n");
 
     fs::write(lane.join("app/feature.txt"), "feature\n").unwrap();
     must_run(&lane, "git", &["add", "app/feature.txt"]);
     must_run(&lane, "git", &["commit", "-m", "feature"]);
     must_run(&lane, "git", &["push", "-u", "origin", "lane/a"]);
+    // `ready` still asks the lane to be inside its own owns; widen it first.
+    fixture.must_agent_on(
+        &lane,
+        &["worktree", "edit", "--owns", "app", "--owns", "README.md"],
+    );
     fixture.must_agent_on(&lane, &["worktree", "set-status", "ready"]);
 
     must_run(&fixture.root, "git", &["merge", "--squash", "lane/a"]);
@@ -290,73 +312,105 @@ fn real_pre_commit_blocks_primary_business_commit_and_allows_squash_merge() {
 }
 
 #[test]
-fn real_pre_push_blocks_failed_worktree_check() {
+fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody() {
     let fixture = Fixture::new();
     fixture.install();
+    let lane = fixture._tmp.path().join("lane-a");
     let orphan = fixture._tmp.path().join("orphan");
-    must_run(
-        &fixture.root,
-        "git",
+    for (path, branch) in [(&lane, "lane/a"), (&orphan, "orphan")] {
+        must_run(
+            &fixture.root,
+            "git",
+            &[
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                path.to_str().unwrap(),
+                "main",
+            ],
+        );
+    }
+    fixture.must_agent_on(
+        &lane,
         &[
             "worktree",
-            "add",
-            "-b",
-            "orphan",
-            orphan.to_str().unwrap(),
+            "claim",
+            "--id",
+            "lane-a",
+            "--goal",
+            "change app",
+            "--base",
             "main",
+            "--owns",
+            "app",
         ],
     );
 
+    // An unregistered worktree elsewhere in the repo is not this tree's
+    // problem: the primary commits and pushes as usual.
     fs::write(fixture.root.join("README.md"), "push check\n").unwrap();
     must_run(&fixture.root, "git", &["add", "README.md"]);
-    let commit = run(&fixture.root, "git", &["commit", "-m", "must stop early"]);
-    assert!(
-        !commit.status.success(),
-        "unregistered worktree commit succeeded"
+    must_run(
+        &fixture.root,
+        "git",
+        &["commit", "-m", "not stopped by the orphan"],
     );
+    must_run(&fixture.root, "git", &["push", "origin", "main"]);
+
+    // The orphan is stopped only when the lane also has that same file dirty:
+    // at commit, and — if it bypassed that — at push while both copies are
+    // still uncommitted.
+    fs::write(lane.join("app/base.txt"), "lane also\n").unwrap();
+    fs::write(orphan.join("app/base.txt"), "orphan intrudes\n").unwrap();
+    must_run(&orphan, "git", &["add", "app/base.txt"]);
+    let commit = run(&orphan, "git", &["commit", "-m", "must stop"]);
+    assert!(!commit.status.success(), "intruding commit succeeded");
     let commit_text = combined(&commit);
     assert!(
         commit_text.contains("BLOCKED by Agent-On pre-commit"),
         "{commit_text}"
     );
-    assert!(commit_text.contains("UNREGISTERED:"), "{commit_text}");
-    must_run(
-        &fixture.root,
-        "git",
-        &["commit", "--no-verify", "-m", "prepare push"],
+    assert!(
+        commit_text.contains("blocked: app/base.txt is also uncommitted in"),
+        "{commit_text}"
     );
-    let pushed = run(&fixture.root, "git", &["push", "origin", "main"]);
+    must_run(&orphan, "git", &["restore", "--staged", "app/base.txt"]);
+    must_run(&orphan, "git", &["restore", "app/base.txt"]);
+    fs::write(orphan.join("notes.md"), "orphan notes\n").unwrap();
+    must_run(&orphan, "git", &["add", "notes.md"]);
+    must_run(&orphan, "git", &["commit", "-m", "own notes"]);
+    // The intrusion comes back unstaged while the push is attempted.
+    fs::write(orphan.join("app/base.txt"), "orphan intrudes again\n").unwrap();
+    let pushed = run(&orphan, "git", &["push", "-u", "origin", "orphan"]);
     assert!(!pushed.status.success(), "push unexpectedly succeeded");
     let pushed_text = combined(&pushed);
     assert!(
         pushed_text.contains("BLOCKED by Agent-On pre-push"),
         "{pushed_text}"
     );
-    assert!(pushed_text.contains("UNREGISTERED:"), "{pushed_text}");
-
-    let remote_head = String::from_utf8_lossy(
-        &must_run(
-            &fixture.root,
-            "git",
-            &[
-                "--git-dir",
-                fixture.remote.to_str().unwrap(),
-                "rev-parse",
-                "refs/heads/main",
-            ],
-        )
-        .stdout,
-    )
-    .trim()
-    .to_string();
-    let local_parent =
-        String::from_utf8_lossy(&must_run(&fixture.root, "git", &["rev-parse", "HEAD^"]).stdout)
-            .trim()
-            .to_string();
-    assert_eq!(
-        remote_head, local_parent,
-        "remote advanced despite hook block"
+    assert!(
+        pushed_text.contains("blocked: app/base.txt is also uncommitted in"),
+        "{pushed_text}"
     );
+    let remote_orphan = run(
+        &fixture.root,
+        "git",
+        &[
+            "--git-dir",
+            fixture.remote.to_str().unwrap(),
+            "rev-parse",
+            "refs/heads/orphan",
+        ],
+    );
+    assert!(
+        !remote_orphan.status.success(),
+        "remote branch appeared despite hook block"
+    );
+
+    // Taking the intrusion back out of the working tree reopens the push.
+    must_run(&orphan, "git", &["restore", "app/base.txt"]);
+    must_run(&orphan, "git", &["push", "-u", "origin", "orphan"]);
 }
 
 #[test]
@@ -760,4 +814,111 @@ fn unreachable_old_path_cleans_scheduler_but_reports_git_facet_unknown() {
         ],
     );
     assert!(cleanup.status.success(), "{}", combined(&cleanup));
+}
+
+#[test]
+fn claim_splits_comma_separated_owns_into_separate_boundaries() {
+    let fixture = Fixture::new();
+    let lane = fixture._tmp.path().join("lane-comma");
+    must_run(
+        &fixture.root,
+        "git",
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "lane/comma",
+            lane.to_str().unwrap(),
+            "main",
+        ],
+    );
+    let claimed = fixture.must_agent_on(
+        &lane,
+        &[
+            "worktree",
+            "claim",
+            "--id",
+            "lane-comma",
+            "--goal",
+            "comma-separated owns",
+            "--base",
+            "main",
+            "--owns",
+            "a.md,b.md,c.md,d.md",
+            "--owns",
+            r#""x\054y.md""#,
+        ],
+    );
+    assert!(
+        combined(&claimed).contains("owns: a.md, b.md, c.md, d.md, x,y.md"),
+        "{}",
+        combined(&claimed)
+    );
+    let record =
+        fs::read_to_string(fixture.root.join(".git/agent-on/lanes/lane-comma.json")).unwrap();
+    for boundary in ["\"a.md\"", "\"b.md\"", "\"c.md\"", "\"d.md\"", "\"x,y.md\""] {
+        assert!(record.contains(boundary), "{record}");
+    }
+    assert!(!record.contains("a.md,b.md"), "{record}");
+
+    fs::write(lane.join("a.md"), "in-bounds change\n").unwrap();
+    let check = fixture.must_agent_on(&lane, &["worktree", "check"]);
+    let check_text = combined(&check);
+    assert_eq!(check_text, "ok\n");
+}
+
+#[test]
+fn claim_splits_comma_separated_depends_on_into_lane_ids() {
+    let fixture = Fixture::new();
+    let mut lanes = Vec::new();
+    for id in ["dep-a", "dep-b", "lane-after"] {
+        let path = fixture._tmp.path().join(id);
+        must_run(
+            &fixture.root,
+            "git",
+            &[
+                "worktree",
+                "add",
+                "-b",
+                &format!("lane/{id}"),
+                path.to_str().unwrap(),
+                "main",
+            ],
+        );
+        lanes.push(path);
+    }
+    for (path, id, owns) in [
+        (&lanes[0], "dep-a", "docs/a"),
+        (&lanes[1], "dep-b", "docs/b"),
+    ] {
+        fixture.must_agent_on(
+            path,
+            &[
+                "worktree", "claim", "--id", id, "--goal", "dep lane", "--base", "main", "--owns",
+                owns,
+            ],
+        );
+    }
+    fixture.must_agent_on(
+        &lanes[2],
+        &[
+            "worktree",
+            "claim",
+            "--id",
+            "lane-after",
+            "--goal",
+            "waits on both deps",
+            "--base",
+            "main",
+            "--owns",
+            "docs/after",
+            "--depends-on",
+            "dep-a,dep-b",
+        ],
+    );
+    let record =
+        fs::read_to_string(fixture.root.join(".git/agent-on/lanes/lane-after.json")).unwrap();
+    assert!(record.contains("\"dep-a\""), "{record}");
+    assert!(record.contains("\"dep-b\""), "{record}");
+    assert!(!record.contains("dep-a,dep-b"), "{record}");
 }

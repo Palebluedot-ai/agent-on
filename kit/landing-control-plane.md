@@ -25,6 +25,17 @@ agent-on landing plan      # 读快照 → 状态表 + 合流波次
 
 三条命令都支持 `--json` 与 `--repo <path>`。`status` / `plan` 不联网；没有快照时报错并提示先 `refresh`。快照有年龄标注，过旧时 `status` 会提醒但不擅自联网。
 
+## 给人看的时候换中文人话（硬要求）
+
+下面所有类别名（`NOW` / `STALE` / `reused-valid` / `REAPABLE` …）都是**机器索引**，是缓存键与判定逻辑的名字。它们可以原样出现在 `--json` 与命令的等宽输出里，但**会话把结果转述给用户时必须换成中文人话**，机器名只准放括号里当索引：
+
+```text
+❌  auth-api  NOW  全绿，依赖根节点，可合          ← 用户看不出要自己干什么
+✅  auth-api  #182 全绿可合，等你一句话  │ 要拍板 │ 值守
+```
+
+对照表与面板字段的唯一定义在 [output-contract.md](output-contract.md) §2；本页不另抄一份。**同一份事实两种说法**：命令输出面向机器与排查，会话输出面向拍板。
+
 ## 数据模型与缓存
 
 快照写在仓库 common git dir 的 `agent-on/landing/snapshot.json`——与 lane 合同同级，所有本机 worktree 共见、不进 commit、丢失可重建。它是缓存，不是第二套 canonical 真相；PR 权威永远在托管平台。
@@ -175,3 +186,7 @@ WAVE 2  #184（等 #182）
 - 快照里的 `category == NOW` + `evidence != invalidated` 是唯一合法的自动合流入口条件；
 - 合流后必须触发一次 `refresh`，让 base 移动走增量失效，而不是清空全表；
 - 自动化仍须遵守 [worktree 控制面](worktree-control-plane.md) 的权限边界：删树、删分支、`--force` 永远人工。
+
+## 执行半场：值守（babysit）
+
+v1 的三条命令是规划半场（只读侦察）；在班执行由[值守合并调度](babysit/README.md)承担——landing 出 NOW / 波次当排序输入，值守做「追平 → CI → 拍板 → merge → 记账 → 回执」的串行执行，合完触发一次 `refresh` 走增量失效。上面 auto-merge 挂点描述的入口条件（`NOW` + 证据有效），值守就是它的**有人拍板**实现；无人自动合并仍然不做。

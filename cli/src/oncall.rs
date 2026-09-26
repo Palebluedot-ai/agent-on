@@ -1,0 +1,1456 @@
+//! Single on-call registry + cross-window command routing.
+//!
+//! One window is on call at a time. Merging, outbound communication, and
+//! window-to-window messaging belong to that window only. Every other window
+//! reroutes such commands instead of running them.
+//!
+//! Storage lives beside the lane registry in the common git dir, so every
+//! worktree of the repo reads the same record (a per-worktree file copy such
+//! as `docs/babysit.md` cannot serve as the address book — each worktree
+//! carries its own stale copy of it).
+
+use crate::worktree;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+const RECORD_VERSION: u8 = 1;
+
+/// How long an on-call window may stay silent before its registration expires
+/// and the routing gate fails open. A babysit loop idles 20–30 minutes between
+/// rounds and every round runs guarded commands, so 90 minutes is three missed
+/// rounds — a closed window, not a slow one. `oncall_stale_after_minutes` in
+/// `<common git dir>/agent-on/config.json` overrides it; `0` disables expiry.
+pub(crate) const DEFAULT_ONCALL_STALE_AFTER_MINUTES: u64 = 90;
+
+/// Activity refreshes the heartbeat at most this often, so a busy on-call
+/// window does not rewrite the registry on every tool call.
+const HEARTBEAT_MIN_INTERVAL_SECS: i64 = 60;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct OncallRecord {
+    version: u8,
+    /// SendMessage address of the on-call window (session name or a prefix of it).
+    pub(crate) session: String,
+    /// Lane id of the on-call window, when it registered one.
+    #[serde(default)]
+    pub(crate) lane: String,
+    /// Absolute worktree root of the on-call window — the identity key.
+    pub(crate) worktree: String,
+    pub(crate) started_at: String,
+    /// Last moment the on-call window proved it was there: a guarded tool
+    /// call from its worktree, or `agent-on oncall heartbeat`. Empty on
+    /// records written before heartbeats existed; `started_at` stands in.
+    #[serde(default)]
+    pub(crate) heartbeat_at: String,
+    #[serde(default)]
+    pub(crate) note: String,
+}
+
+/// What the current window is, relative to the on-call registry.
+#[derive(Debug, Clone)]
+pub(crate) enum Role {
+    /// Nobody registered, or the registered worktree is gone (stale) — the
+    /// routing gate fails open and the repo's no-on-call rules apply.
+    Nobody,
+    /// This window is the on-call window.
+    Oncall(OncallRecord),
+    /// Someone else is on call; this window is a feature window.
+    Feature(OncallRecord),
+}
+
+/// Class of command that belongs to the on-call window only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Action {
+    /// Merge / remote public-state writes: merge, update-branch, close, tags, releases.
+    Merge,
+    /// Outbound communication to humans or other systems: PR/issue comments,
+    /// chat webhooks, mail.
+    Outbound,
+    /// Window-to-window messaging that is not addressed to the on-call window.
+    CrossWindow,
+}
+
+impl Action {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Action::Merge => "合并 / 远端公共态写入",
+            Action::Outbound => "对外通信",
+            Action::CrossWindow => "跨窗口沟通",
+        }
+    }
+}
+
+fn oncall_path(cwd: &Path) -> Result<PathBuf, String> {
+    Ok(worktree::common_git_dir(cwd)?
+        .join("agent-on")
+        .join("oncall.json"))
+}
+
+fn canon(p: &Path) -> PathBuf {
+    fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
+}
+
+pub(crate) fn load(cwd: &Path) -> Result<Option<OncallRecord>, String> {
+    let path = oncall_path(cwd)?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    let record: OncallRecord =
+        serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
+    if record.version != RECORD_VERSION {
+        return Err(format!(
+            "unsupported on-call record version {} in {} (expected {})",
+            record.version,
+            path.display(),
+            RECORD_VERSION
+        ));
+    }
+    Ok(Some(record))
+}
+
+fn save(cwd: &Path, record: &OncallRecord) -> Result<(), String> {
+    let path = oncall_path(cwd)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| "invalid on-call registry path".to_string())?;
+    fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
+    let raw =
+        serde_json::to_string_pretty(record).map_err(|e| format!("serialize on-call: {e}"))?;
+    fs::write(&path, format!("{raw}\n")).map_err(|e| format!("write {}: {e}", path.display()))
+}
+
+pub(crate) fn stale_after_minutes(cwd: &Path) -> u64 {
+    worktree::config_u64(
+        cwd,
+        "oncall_stale_after_minutes",
+        DEFAULT_ONCALL_STALE_AFTER_MINUTES,
+    )
+}
+
+fn last_seen(record: &OncallRecord) -> Option<DateTime<Utc>> {
+    for stamp in [&record.heartbeat_at, &record.started_at] {
+        if let Ok(parsed) = DateTime::parse_from_rfc3339(stamp) {
+            return Some(parsed.with_timezone(&Utc));
+        }
+    }
+    None
+}
+
+/// Minutes since the on-call window was last seen; `None` when the record
+/// carries no parsable timestamp (read as "just now" so a garbled record
+/// tightens the gate rather than opening it).
+pub(crate) fn silence_minutes(record: &OncallRecord) -> Option<i64> {
+    last_seen(record).map(|seen| (Utc::now() - seen).num_minutes().max(0))
+}
+
+/// Has the window been silent past the configured window? `0` never expires.
+fn is_expired(record: &OncallRecord, stale_after_minutes: u64) -> bool {
+    if stale_after_minutes == 0 {
+        return false;
+    }
+    silence_minutes(record)
+        .map(|minutes| minutes as u64 > stale_after_minutes)
+        .unwrap_or(false)
+}
+
+/// A registration is evidence of somebody being on call only while the window
+/// behind it can be shown to exist: its worktree is still there, and it has
+/// been heard from inside the expiry window. Otherwise it is nobody, so a
+/// closed window can never keep the repo's merges locked.
+fn is_stale(cwd: &Path, record: &OncallRecord) -> bool {
+    !Path::new(&record.worktree).exists() || is_expired(record, stale_after_minutes(cwd))
+}
+
+/// Why the registration no longer counts, for messages.
+fn stale_reason(cwd: &Path, record: &OncallRecord) -> String {
+    if !Path::new(&record.worktree).exists() {
+        return "worktree 不存在".to_string();
+    }
+    format!(
+        "值守窗口 {} 分钟没有心跳，超过 {} 分钟的失效窗口（config `oncall_stale_after_minutes`，0 = 不失效）",
+        silence_minutes(record).unwrap_or(0),
+        stale_after_minutes(cwd)
+    )
+}
+
+/// Record that the on-call window is alive right now. Rate-limited so routine
+/// activity costs at most one registry write per minute; `force` bypasses the
+/// limit for the explicit `oncall heartbeat` command.
+fn touch_heartbeat(cwd: &Path, record: &mut OncallRecord, force: bool) -> Result<bool, String> {
+    let now = Utc::now();
+    if !force {
+        if let Some(seen) = last_seen(record) {
+            if (now - seen).num_seconds() < HEARTBEAT_MIN_INTERVAL_SECS {
+                return Ok(false);
+            }
+        }
+    }
+    record.heartbeat_at = now.to_rfc3339();
+    save(cwd, record)?;
+    Ok(true)
+}
+
+/// Any guarded tool call from the on-call worktree proves the window is there.
+/// Matched on the raw record, not on [`role_at`], so a live window whose
+/// registration lapsed during a long silence re-arms itself with its next
+/// command instead of staying expired while someone is plainly at the keyboard.
+/// A record another window has since overwritten does not match and is left
+/// alone. Errors are swallowed: a heartbeat must never block a tool call.
+fn refresh_if_oncall(cwd: &Path) {
+    let Ok(Some(mut record)) = load(cwd) else {
+        return;
+    };
+    let Ok(here) = worktree::repo_root(cwd).map(|p| canon(&p)) else {
+        return;
+    };
+    if canon(Path::new(&record.worktree)) != here {
+        return;
+    }
+    let _ = touch_heartbeat(cwd, &mut record, false);
+}
+
+pub(crate) fn role_at(cwd: &Path) -> Role {
+    let Ok(Some(record)) = load(cwd) else {
+        return Role::Nobody;
+    };
+    if is_stale(cwd, &record) {
+        return Role::Nobody;
+    }
+    let here = worktree::repo_root(cwd)
+        .map(|p| canon(&p))
+        .unwrap_or_else(|_| canon(cwd));
+    if canon(Path::new(&record.worktree)) == here {
+        Role::Oncall(record)
+    } else {
+        Role::Feature(record)
+    }
+}
+
+// ---------------------------------------------------------------- classify
+
+fn tokens(cmd: &str) -> Vec<String> {
+    shlex::split(cmd).unwrap_or_else(|| cmd.split_whitespace().map(str::to_string).collect())
+}
+
+fn base_name(token: &str) -> String {
+    Path::new(token)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(token)
+        .to_ascii_lowercase()
+}
+
+/// Sub-commands after `gh <noun>` that belong to the on-call window.
+fn gh_action(words: &[String]) -> Option<Action> {
+    let noun = words.first()?.as_str();
+    let verb = words.get(1).map(String::as_str).unwrap_or("");
+    match (noun, verb) {
+        ("pr", "merge") | ("pr", "close") | ("pr", "reopen") => Some(Action::Merge),
+        ("release", "create") | ("release", "edit") | ("release", "delete") => Some(Action::Merge),
+        ("pr", "comment") | ("pr", "review") => Some(Action::Outbound),
+        ("issue", "comment") | ("issue", "create") | ("issue", "close") | ("issue", "reopen") => {
+            Some(Action::Outbound)
+        }
+        ("api", _) => gh_api_action(&words[1..]),
+        _ => None,
+    }
+}
+
+fn is_write_method(method: &str) -> bool {
+    matches!(
+        method.to_ascii_uppercase().as_str(),
+        "PUT" | "POST" | "PATCH" | "DELETE"
+    )
+}
+
+/// Flags whose *next* token is a value, not the endpoint path.
+const GH_API_VALUE_FLAGS: &[&str] = &[
+    "-f",
+    "--field",
+    "-F",
+    "--raw-field",
+    "-H",
+    "--header",
+    "-q",
+    "--jq",
+    "-t",
+    "--template",
+    "--input",
+    "--hostname",
+    "-p",
+    "--preview",
+    "--cache",
+];
+
+/// `gh api` is only on-call territory when it writes remote public state.
+/// Read calls and GraphQL queries (which also use POST) stay open.
+fn gh_api_action(args: &[String]) -> Option<Action> {
+    let mut writes = false;
+    let mut endpoint: Option<&str> = None;
+    let mut i = 0;
+    while i < args.len() {
+        let arg = args[i].as_str();
+        if arg == "-X" || arg == "--method" {
+            if let Some(method) = args.get(i + 1) {
+                writes |= is_write_method(method);
+            }
+            i += 2;
+            continue;
+        }
+        if let Some(method) = arg.strip_prefix("--method=") {
+            writes |= is_write_method(method);
+            i += 1;
+            continue;
+        }
+        if GH_API_VALUE_FLAGS.contains(&arg) {
+            i += 2;
+            continue;
+        }
+        if arg.starts_with('-') {
+            i += 1;
+            continue;
+        }
+        if endpoint.is_none() {
+            endpoint = Some(arg);
+        }
+        i += 1;
+    }
+    if !writes {
+        return None;
+    }
+    let path = endpoint?;
+    if path.contains("/pulls/") || path.contains("/merges") || path.ends_with("/merge") {
+        return Some(Action::Merge);
+    }
+    if path.contains("/comments") || path.contains("/reviews") || path.contains("/issues") {
+        return Some(Action::Outbound);
+    }
+    None
+}
+
+fn git_push_action(args: &[String]) -> Option<Action> {
+    let mut refs = Vec::new();
+    for arg in args {
+        if arg == "--tags" || arg == "--follow-tags" {
+            return Some(Action::Merge);
+        }
+        if !arg.starts_with('-') {
+            refs.push(arg.as_str());
+        }
+    }
+    // refs[0] is the remote; the rest are refspecs.
+    for spec in refs.iter().skip(1) {
+        let dst = spec.rsplit(':').next().unwrap_or(spec);
+        let name = dst.trim_start_matches('+');
+        if name.starts_with("refs/tags/") {
+            return Some(Action::Merge);
+        }
+        let short = name.trim_start_matches("refs/heads/");
+        if matches!(short, "main" | "master") {
+            return Some(Action::Merge);
+        }
+        // v1.2.3 style tag pushed by short name
+        if name.starts_with('v') && name[1..].starts_with(|c: char| c.is_ascii_digit()) {
+            return Some(Action::Merge);
+        }
+    }
+    None
+}
+
+const CHAT_HOSTS: &[&str] = &[
+    "hooks.slack.com",
+    "slack.com/api",
+    "webhook.office.com",
+    "outlook.office.com",
+    "office.com/webhook",
+    "discord.com/api/webhooks",
+    "discordapp.com/api/webhooks",
+    "api.telegram.org",
+    "chat.googleapis.com",
+    "graph.microsoft.com/v1.0/teams",
+    "graph.microsoft.com/v1.0/chats",
+];
+
+const MAIL_COMMANDS: &[&str] = &["sendmail", "mail", "mailx", "mutt", "msmtp"];
+const CHAT_COMMANDS: &[&str] = &["slack", "teams", "msteams", "slack-cli"];
+
+/// Tokens that end one command and put the next word in command position.
+const SEPARATORS: &[&str] = &["&&", "||", ";", "|", "|&", "&"];
+
+fn is_separator(tok: &str) -> bool {
+    SEPARATORS.contains(&tok)
+}
+
+/// `cd /tmp; mail x` — shlex leaves the `;` glued to the word before it.
+fn ends_command(tok: &str) -> bool {
+    tok.len() > 1 && (tok.ends_with(';') || tok.ends_with('&') || tok.ends_with('|'))
+}
+
+/// `FOO=1 cmd`: a leading assignment is not the command.
+fn is_assignment(tok: &str) -> bool {
+    match tok.split_once('=') {
+        Some((name, _)) => {
+            !name.is_empty()
+                && !name.starts_with(|c: char| c.is_ascii_digit())
+                && name.chars().all(|c| c == '_' || c.is_ascii_alphanumeric())
+        }
+        None => false,
+    }
+}
+
+/// Wrappers run the command that follows their own options. Returns the index
+/// of the wrapped command, or `None` when `name` is not a wrapper.
+fn skip_wrapper(name: &str, toks: &[String], at: usize) -> Option<usize> {
+    let value_flags: &[&str] = match name {
+        "env" => &["-u", "--unset", "-C", "--chdir"],
+        "sudo" | "doas" => &[
+            "-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt", "-C", "-D",
+            "--chdir", "-R", "--chroot", "-T", "-U",
+        ],
+        "xargs" => &[
+            "-I",
+            "-n",
+            "--max-args",
+            "-L",
+            "--max-lines",
+            "-P",
+            "--max-procs",
+            "-d",
+            "--delimiter",
+            "-s",
+            "--max-chars",
+            "-E",
+            "-a",
+            "--arg-file",
+        ],
+        "timeout" => &["-s", "--signal", "-k", "--kill-after"],
+        "nice" => &["-n", "--adjustment"],
+        "command" | "exec" | "nohup" | "time" => &[],
+        _ => return None,
+    };
+    let mut j = at + 1;
+    while j < toks.len() && !is_separator(&toks[j]) {
+        let t = toks[j].as_str();
+        if value_flags.contains(&t) {
+            j += 2;
+            continue;
+        }
+        if t.starts_with('-') || (name == "env" && is_assignment(t)) {
+            j += 1;
+            continue;
+        }
+        break;
+    }
+    if name == "timeout" && j < toks.len() && !is_separator(&toks[j]) {
+        j += 1; // the duration
+    }
+    Some(j)
+}
+
+/// Arguments of the command at `at`, up to the end of that command.
+fn args_after(toks: &[String], at: usize) -> Vec<String> {
+    let mut args = Vec::new();
+    if ends_command(&toks[at]) {
+        return args;
+    }
+    for tok in &toks[at + 1..] {
+        if is_separator(tok) {
+            break;
+        }
+        if ends_command(tok) {
+            args.push(tok.trim_end_matches([';', '&', '|']).to_string());
+            break;
+        }
+        args.push(tok.clone());
+    }
+    args
+}
+
+/// What one command (its program name and arguments) does, if on-call-only.
+fn classify_command(name: &str, rest: &[String]) -> Option<Action> {
+    match name {
+        "gh" => {
+            let words: Vec<String> = rest
+                .iter()
+                .filter(|t| !t.starts_with('-'))
+                .cloned()
+                .collect();
+            // `gh api` keeps its flags: the method matters.
+            if words.first().map(String::as_str) == Some("api") {
+                let mut with_flags = vec!["api".to_string()];
+                with_flags.extend(
+                    rest.iter()
+                        .skip_while(|t| t.as_str() != "api")
+                        .skip(1)
+                        .cloned(),
+                );
+                gh_action(&with_flags)
+            } else {
+                gh_action(&words)
+            }
+        }
+        "git" => {
+            // Global options before the subcommand; `-C <path>` must not be
+            // mistaken for it.
+            let mut j = 0;
+            while j < rest.len() {
+                let arg = rest[j].as_str();
+                if matches!(
+                    arg,
+                    "-C" | "-c" | "--git-dir" | "--work-tree" | "--namespace"
+                ) {
+                    j += 2;
+                    continue;
+                }
+                if arg.starts_with('-') {
+                    j += 1;
+                    continue;
+                }
+                break;
+            }
+            if rest.get(j).map(String::as_str) == Some("push") {
+                git_push_action(&rest[j + 1..])
+            } else {
+                None
+            }
+        }
+        "curl" | "wget" | "http" | "httpie" => {
+            let joined = rest.join(" ").to_ascii_lowercase();
+            CHAT_HOSTS
+                .iter()
+                .any(|host| joined.contains(host))
+                .then_some(Action::Outbound)
+        }
+        "osascript" => {
+            let joined = rest.join(" ").to_ascii_lowercase();
+            (joined.contains("messages") || joined.contains("mail")).then_some(Action::Outbound)
+        }
+        other => (MAIL_COMMANDS.contains(&other) || CHAT_COMMANDS.contains(&other))
+            .then_some(Action::Outbound),
+    }
+}
+
+/// Which on-call-only action this shell command performs, if any.
+///
+/// Only words in **command position** name a program: the first word, the
+/// first word after `&& || ; | &`, and the first word after a wrapper such as
+/// `env` / `sudo` / `timeout N` / `xargs`. Arguments are data — `grep mail`
+/// is a local search, not mail (Dartify 2026-09-26).
+///
+/// This is a deny-list: it catches the known shapes, not every possible one.
+/// Commands inside `bash -c "…"`, `$(…)` or subshells are not seen. The
+/// discipline layer (kit/babysit/ROUTING.md) covers the rest.
+pub(crate) fn classify_bash(cmd: &str) -> Option<Action> {
+    let toks = tokens(cmd);
+    let mut i = 0;
+    let mut at_command = true;
+    while i < toks.len() {
+        let tok = toks[i].as_str();
+        if is_separator(tok) {
+            at_command = true;
+            i += 1;
+            continue;
+        }
+        if !at_command {
+            at_command = ends_command(tok);
+            i += 1;
+            continue;
+        }
+        if is_assignment(tok) {
+            i += 1;
+            continue;
+        }
+        let name = base_name(tok.trim_end_matches([';', '&', '|']));
+        if name == "command" && matches!(toks.get(i + 1).map(String::as_str), Some("-v" | "-V")) {
+            // `command -v mail` looks a program up; nothing runs.
+            at_command = false;
+            i += 1;
+            continue;
+        }
+        if let Some(next) = skip_wrapper(&name, &toks, i) {
+            i = next;
+            continue;
+        }
+        if let Some(hit) = classify_command(&name, &args_after(&toks, i)) {
+            return Some(hit);
+        }
+        at_command = ends_command(tok);
+        i += 1;
+    }
+    None
+}
+
+/// Session names carry a per-window suffix, so the registered address is often
+/// a prefix of the real name (or the other way round).
+pub(crate) fn addresses_match(a: &str, b: &str) -> bool {
+    let (a, b) = (a.trim(), b.trim());
+    !a.is_empty() && !b.is_empty() && (a.starts_with(b) || b.starts_with(a))
+}
+
+/// Addresses that are never a window: the lead of this session, and the
+/// conventional名字 for a session's own root conversation.
+const SESSION_INTERNAL: &[&str] = &["main", "parent", "lead"];
+
+/// Does `to` address **another window of this repo**?
+///
+/// Judged against the lane registry rather than a deny-list of names: a
+/// window's session name is derived from its worktree directory (this repo's
+/// on-call window is `worktree-output-clarity-e02325` → session
+/// `worktree-output-clarity-e02325-02`), so a recipient that prefix-matches
+/// some *other* lane's worktree basename is a real window. Anything that
+/// matches nothing — a subagent name, `main`, a teammate inside this session
+/// — is session-internal traffic the on-call gate has no business touching.
+///
+/// Returns the lane id that the address resolves to.
+fn other_window(cwd: &Path, to: &str) -> Option<String> {
+    let to = to.trim();
+    if to.is_empty() || SESSION_INTERNAL.contains(&to.to_ascii_lowercase().as_str()) {
+        return None;
+    }
+    let here = worktree::repo_root(cwd).map(|p| canon(&p)).ok();
+    for record in worktree::load_records(cwd).ok()? {
+        let path = PathBuf::from(&record.worktree);
+        if here.as_deref() == Some(canon(&path).as_path()) {
+            continue; // this window itself
+        }
+        let base = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        if !base.is_empty() && addresses_match(to, base) {
+            return Some(record.id);
+        }
+    }
+    None
+}
+
+// ------------------------------------------------------------------ commands
+
+pub fn claim(
+    cwd: &Path,
+    session: &str,
+    lane: Option<&str>,
+    note: &str,
+    force: bool,
+) -> (i32, String) {
+    let result = (|| -> Result<String, String> {
+        if session.trim().is_empty() {
+            return Err("--session cannot be empty (值守窗口的 SendMessage 地址)".to_string());
+        }
+        let here = worktree::repo_root(cwd)?;
+        let here_canon = canon(&here);
+        if let Some(existing) = load(cwd)? {
+            let same = canon(Path::new(&existing.worktree)) == here_canon;
+            if !same && !is_stale(cwd, &existing) && !force {
+                return Err(format!(
+                    "已有值守在班：{} (worktree {}，自 {}，最近心跳 {} 分钟前)；同一时间至多一个值守。\n\
+交接请用 --force，或让在班窗口先跑 `agent-on oncall release`；它的窗口若已关闭，{} 分钟没心跳后登记会自动失效",
+                    existing.session,
+                    existing.worktree,
+                    existing.started_at,
+                    silence_minutes(&existing).unwrap_or(0),
+                    stale_after_minutes(cwd)
+                ));
+            }
+        }
+        let lane_id = match lane {
+            Some(v) => v.to_string(),
+            None => worktree::lane_id_for_worktree(cwd).unwrap_or_default(),
+        };
+        let now = Utc::now().to_rfc3339();
+        let record = OncallRecord {
+            version: RECORD_VERSION,
+            session: session.trim().to_string(),
+            lane: lane_id,
+            worktree: here_canon.display().to_string(),
+            started_at: now.clone(),
+            heartbeat_at: now,
+            note: note.to_string(),
+        };
+        save(cwd, &record)?;
+        Ok(format!(
+            "ONCALL CLAIMED\nsession: {}\nlane: {}\nworktree: {}\nsince: {}\n\
+功能窗口从此可用 `agent-on oncall status` 读到交单地址；合并 / 对外通信 / 跨窗口消息归本窗口。\n\
+心跳：本窗口每次经 guard 的工具调用自动续；{} 分钟没动静登记自动失效、闸 fail-open（`agent-on oncall heartbeat` 可手动续）。\n",
+            record.session,
+            if record.lane.is_empty() {
+                "-"
+            } else {
+                &record.lane
+            },
+            record.worktree,
+            record.started_at,
+            stale_after_minutes(cwd)
+        ))
+    })();
+    match result {
+        Ok(text) => (0, text),
+        Err(e) => (1, format!("ERROR: {e}\n")),
+    }
+}
+
+/// Explicit liveness proof from the on-call window (a belt for loops that
+/// might go a round without a guarded tool call). Any other window is refused:
+/// only the window itself can vouch for being there.
+pub fn heartbeat(cwd: &Path) -> (i32, String) {
+    let result = (|| -> Result<String, String> {
+        let Some(mut record) = load(cwd)? else {
+            return Err("无人在班，没有可续的心跳；上岗用 `agent-on oncall claim`".to_string());
+        };
+        let here = canon(&worktree::repo_root(cwd)?);
+        if canon(Path::new(&record.worktree)) != here {
+            return Err(format!(
+                "本窗口不是值守（在班登记是 {}，worktree {}）；心跳只能由值守窗口自己续",
+                record.session, record.worktree
+            ));
+        }
+        touch_heartbeat(cwd, &mut record, true)?;
+        Ok(format!(
+            "ONCALL HEARTBEAT: {} @ {}（失效窗口 {} 分钟）\n",
+            record.session,
+            record.heartbeat_at,
+            stale_after_minutes(cwd)
+        ))
+    })();
+    match result {
+        Ok(text) => (0, text),
+        Err(e) => (1, format!("ERROR: {e}\n")),
+    }
+}
+
+pub fn release(cwd: &Path, force: bool) -> (i32, String) {
+    let result = (|| -> Result<String, String> {
+        let Some(existing) = load(cwd)? else {
+            return Ok("ONCALL: 本来就无人在班，无需下班\n".to_string());
+        };
+        let here = canon(&worktree::repo_root(cwd)?);
+        let same = canon(Path::new(&existing.worktree)) == here;
+        if !same && !is_stale(cwd, &existing) && !force {
+            return Err(format!(
+                "在班值守是 {}（worktree {}），本窗口不是它。\n\
+确实要替它下班（窗口已关 / 交接）请加 --force——这一步会留痕在班登记，不要静默绕过",
+                existing.session, existing.worktree
+            ));
+        }
+        let path = oncall_path(cwd)?;
+        fs::remove_file(&path).map_err(|e| format!("remove {}: {e}", path.display()))?;
+        Ok(format!(
+            "ONCALL RELEASED: {}（worktree {}）\n合并 / 对外通信闸即刻 fail-open，回退本仓「值守不在班」规则。\n",
+            existing.session, existing.worktree
+        ))
+    })();
+    match result {
+        Ok(text) => (0, text),
+        Err(e) => (1, format!("ERROR: {e}\n")),
+    }
+}
+
+pub fn status(cwd: &Path, json: bool) -> (i32, String) {
+    let record = match load(cwd) {
+        Ok(v) => v,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let role = role_at(cwd);
+    if json {
+        let value = match (&record, &role) {
+            (Some(r), _) => serde_json::json!({
+                "present": !is_stale(cwd, r),
+                "stale": is_stale(cwd, r),
+                "worktree_missing": !Path::new(&r.worktree).exists(),
+                "expired": is_expired(r, stale_after_minutes(cwd)),
+                "session": r.session,
+                "lane": r.lane,
+                "worktree": r.worktree,
+                "since": r.started_at,
+                "heartbeat_at": r.heartbeat_at,
+                "silence_minutes": silence_minutes(r),
+                "stale_after_minutes": stale_after_minutes(cwd),
+                "note": r.note,
+                "self_is_oncall": matches!(role, Role::Oncall(_)),
+            }),
+            (None, _) => serde_json::json!({
+                "present": false,
+                "stale": false,
+                "self_is_oncall": false,
+            }),
+        };
+        return (0, format!("{value}\n"));
+    }
+    match record {
+        None => (
+            0,
+            "ONCALL: 无人在班——合并 / 对外通信闸 fail-open，按本仓「值守不在班」规则办。\n\
+上岗：agent-on oncall claim --session <本窗口会话名>\n"
+                .to_string(),
+        ),
+        Some(r) if is_stale(cwd, &r) => (
+            0,
+            format!(
+                "ONCALL: 登记已失效（{}）：{} → {}\n\
+闸按无人在班处理；直接 `agent-on oncall claim` 即可接班（不需要 --force），或清理登记：agent-on oncall release --force\n",
+                stale_reason(cwd, &r),
+                r.session,
+                r.worktree
+            ),
+        ),
+        Some(r) => {
+            let mine = matches!(role, Role::Oncall(_));
+            (
+                0,
+                format!(
+                    "ONCALL: {}{}\nlane: {}\nworktree: {}\nsince: {}\nheartbeat: {} 分钟前（{} 分钟没心跳自动失效）{}\n\
+交单地址 = 上面的 session；合并 / 对外通信 / 跨窗口消息统一归它。\n",
+                    r.session,
+                    if mine { "（就是本窗口）" } else { "" },
+                    if r.lane.is_empty() { "-" } else { &r.lane },
+                    r.worktree,
+                    r.started_at,
+                    silence_minutes(&r).unwrap_or(0),
+                    stale_after_minutes(cwd),
+                    if r.note.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\nnote: {}", r.note)
+                    }
+                ),
+            )
+        }
+    }
+}
+
+/// Which window a path belongs to — the second hop of a reroute.
+///
+/// The feature window only needs the on-call address; working out *which*
+/// lane owns the file is the on-call window's job (ROUTING §5). This turns
+/// that lookup from "read the lane table by eye" into one command.
+pub fn route(cwd: &Path, path: &str, json: bool) -> (i32, String) {
+    let rel = match relative_to_repo(cwd, path) {
+        Ok(v) => v,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let records = match worktree::load_records(cwd) {
+        Ok(v) => v,
+        Err(e) => return (1, format!("ERROR: {e}\n")),
+    };
+    let hits: Vec<_> = records
+        .iter()
+        .filter(|r| worktree::owns_path(&r.owns, &rel))
+        .collect();
+    let oncall = load(cwd).ok().flatten().filter(|r| !is_stale(cwd, r));
+
+    if json {
+        let value = serde_json::json!({
+            "path": rel,
+            "owners": hits.iter().map(|r| serde_json::json!({
+                "lane": r.id,
+                "worktree": r.worktree,
+                "branch": r.branch,
+                "status": r.status,
+                "owns": r.owns,
+                "live": worktree::ownership_live(&r.status),
+            })).collect::<Vec<_>>(),
+            "oncall_session": oncall.as_ref().map(|r| r.session.clone()),
+        });
+        return (0, format!("{value}\n"));
+    }
+
+    if hits.is_empty() {
+        return (
+            0,
+            format!(
+                "ROUTE {rel}\n无主：没有任何 lane 的 owns 覆盖它。\n\
+值守动作：报用户（新开一条轨？并进某条现有轨？），别自己动手改。\n"
+            ),
+        );
+    }
+
+    // A path is routinely inside several lanes' owns — but only a live lane
+    // (active/blocked/ready) has a window behind it worth messaging. Landed
+    // and parked hits are history, and dispatching to them sends work into a
+    // closed window.
+    let (live, history): (Vec<_>, Vec<_>) = hits
+        .iter()
+        .partition(|r| worktree::ownership_live(&r.status));
+
+    let line = |r: &&&worktree::LaneRecord| -> String {
+        let mine = oncall
+            .as_ref()
+            .map(|o| canon(Path::new(&o.worktree)) == canon(Path::new(&r.worktree)))
+            .unwrap_or(false);
+        let boundary = r
+            .owns
+            .iter()
+            .find(|b| worktree::owns_path(std::slice::from_ref(*b), &rel))
+            .cloned()
+            .unwrap_or_default();
+        format!(
+            "- lane {} [{}]{}\n  worktree: {}\n  branch: {}\n  命中边界: {}（该轨共 {} 条 owns）\n",
+            r.id,
+            r.status,
+            if mine { "（值守自己的轨）" } else { "" },
+            r.worktree,
+            r.branch,
+            boundary,
+            r.owns.len()
+        )
+    };
+
+    let mut out = format!("ROUTE {rel}\n");
+    if live.is_empty() {
+        out.push_str(
+            "活跃轨：无——命中的都是 landed / parked 的历史轨，它们背后多半已经没有窗口了。\n",
+        );
+        for r in &history {
+            out.push_str(&line(r));
+        }
+        out.push_str(
+            "值守动作：**别直接派给上面任何一条**。报用户：新开一条轨，还是让某条历史轨 `worktree edit` 重划过来。\n",
+        );
+        return (0, out);
+    }
+    for r in &live {
+        out.push_str(&line(r));
+    }
+    if !history.is_empty() {
+        out.push_str(&format!(
+            "（另有 {} 条 landed / parked 历史轨也覆盖此路径，已折叠——`agent-on worktree status` 看全量）\n",
+            history.len()
+        ));
+    }
+    out.push_str(
+        "值守动作：SendMessage 派给上面活跃轨的会话，并给原窗口回一条「已派给 X」（ROUTING §5）。\n",
+    );
+    (0, out)
+}
+
+/// Normalise `path` to a repo-relative path, the form lane `owns` uses.
+fn relative_to_repo(cwd: &Path, path: &str) -> Result<String, String> {
+    let repo = worktree::repo_root(cwd)?;
+    let repo = canon(&repo);
+    let raw = Path::new(path);
+    let abs = if raw.is_absolute() {
+        canon(raw)
+    } else {
+        canon(&cwd.join(raw))
+    };
+    match abs.strip_prefix(&repo) {
+        Ok(rel) => Ok(rel.to_string_lossy().replace('\\', "/")),
+        // A path that does not exist on disk cannot be canonicalised; fall back
+        // to treating it as already repo-relative.
+        Err(_) => Ok(path.trim_start_matches("./").to_string()),
+    }
+}
+
+pub fn whoami(cwd: &Path, json: bool) -> (i32, String) {
+    let role = role_at(cwd);
+    if json {
+        let value = match &role {
+            Role::Nobody => serde_json::json!({"role": "none", "is_oncall": false}),
+            Role::Oncall(r) => {
+                serde_json::json!({"role": "oncall", "is_oncall": true, "session": r.session})
+            }
+            Role::Feature(r) => {
+                serde_json::json!({"role": "feature", "is_oncall": false, "oncall_session": r.session})
+            }
+        };
+        return (0, format!("{value}\n"));
+    }
+    let text = match &role {
+        Role::Nobody => "NONE: 无人在班；值守闸 fail-open\n".to_string(),
+        Role::Oncall(r) => format!(
+            "ONCALL: 本窗口是值守（{}）；合并 / 对外通信 / 跨窗口消息归你\n",
+            r.session
+        ),
+        Role::Feature(r) => format!(
+            "FEATURE: 本窗口不是值守；在班值守 = {}（{}）\n\
+合并 / 对外通信 / 跨窗口消息一律转投它\n",
+            r.session, r.worktree
+        ),
+    };
+    (0, text)
+}
+
+// -------------------------------------------------------------- guard entry
+
+fn tool_name(data: &Value) -> String {
+    data.get("tool_name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+fn tool_cwd(data: &Value) -> PathBuf {
+    let input = data.get("tool_input").unwrap_or(&Value::Null);
+    let raw = data
+        .get("cwd")
+        .or_else(|| input.get("workdir"))
+        .or_else(|| input.get("cwd"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    match raw {
+        Some(v) => PathBuf::from(v),
+        None => std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+    }
+}
+
+fn message_recipient(data: &Value) -> String {
+    let input = data.get("tool_input").unwrap_or(&Value::Null);
+    input
+        .get("to")
+        .or_else(|| input.get("recipient"))
+        .or_else(|| input.get("agent"))
+        .or_else(|| input.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+/// The block message is the routing protocol in executable form: it names the
+/// on-call address, hands over a fill-in reroute template, and lists the two
+/// legitimate escape hatches (both of which change the registry, so they leave
+/// a trace).
+fn block_text(cwd: &Path, action: Action, record: &OncallRecord, what: &str) -> String {
+    format!(
+        "⛔ 跨窗口指令路由拦截（值守专属动作：{}）\n\
+本窗口不是值守窗口。合并 / 对外通信 / 跨窗口消息在值守在班期间唯一归值守（kit/babysit/ROUTING.md）。\n\
+在班值守：{}（worktree {}，自 {}）\n\
+值守最近心跳：{} 分钟前；{} 分钟没心跳登记自动失效、本闸随即 fail-open（值守窗口已关时等它过期即可，或走下面的 2）。\n\
+被拦内容：{}\n\
+\n\
+下一步三选一：\n\
+  1）转投（默认）——不执行本条，改用 SendMessage 发给值守，模板：\n\
+     to: \"{}\"\n\
+     【转投】来源窗口 <本轨 lane>｜用户原话：<原样引用>｜请求动作：<一句话>｜回执给：<本窗口会话名>\n\
+     然后给用户一行回执：这条归值守、已转投、球在值守那。\n\
+  2）用户就是要在本窗口做 → 先让值守下班：agent-on oncall release --force\n\
+  3）本窗口接班当值守 → agent-on oncall claim --session <本窗口会话名> --force\n\
+绕闸（改权限 / 换等价命令偷跑）不在选项里。\n",
+        action.label(),
+        record.session,
+        record.worktree,
+        record.started_at,
+        silence_minutes(record).unwrap_or(0),
+        stale_after_minutes(cwd),
+        what,
+        record.session
+    )
+}
+
+/// Cross-window routing gate. Runs before the git boundary guard.
+/// Returns 0 (allow) or 2 (block, reason on stderr).
+pub(crate) fn route_decision(data: &Value) -> i32 {
+    let name = tool_name(data);
+    let cwd = tool_cwd(data);
+
+    // Every guarded call from the on-call window is proof of life.
+    refresh_if_oncall(&cwd);
+
+    // SendMessage-style tools: only the recipient matters.
+    if name.contains("SendMessage") || name.contains("send_message") {
+        let to = message_recipient(data);
+        if to.is_empty() {
+            return 0;
+        }
+        let Role::Feature(record) = role_at(&cwd) else {
+            return 0;
+        };
+        if addresses_match(&to, &record.session) {
+            return 0; // the one allowed outbound channel: 交单 / 回执给值守
+        }
+        // Only *another window* is cross-window traffic. A subagent name or
+        // `main` is session-internal — the three rights are about windows
+        // talking to windows, not about a lead talking to its own subagent.
+        let Some(peer) = other_window(&cwd, &to) else {
+            return 0;
+        };
+        eprintln!(
+            "{}",
+            block_text(
+                &cwd,
+                Action::CrossWindow,
+                &record,
+                &format!("SendMessage → {to}（该地址对应另一条轨：{peer}）")
+            )
+        );
+        return 2;
+    }
+
+    // Everything else is judged as a shell command.
+    let input = data.get("tool_input").unwrap_or(&Value::Null);
+    let cmd = input
+        .get("command")
+        .or_else(|| input.get("cmd"))
+        .or_else(|| data.get("command"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if cmd.is_empty() {
+        return 0;
+    }
+    // Cheap pattern match first: only a hit pays for reading the registry.
+    let Some(action) = classify_bash(cmd) else {
+        return 0;
+    };
+    let Role::Feature(record) = role_at(&cwd) else {
+        return 0;
+    };
+    eprintln!("{}", block_text(&cwd, action, &record, cmd));
+    2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::process::Command;
+    use tempfile::TempDir;
+
+    fn run(cwd: &Path, args: &[&str]) {
+        let out = Command::new(args[0])
+            .current_dir(cwd)
+            .args(&args[1..])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// repo (main worktree) + one extra worktree, mirroring one on-call window
+    /// and one feature window.
+    fn fixture() -> (TempDir, PathBuf, PathBuf) {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().join("repo");
+        fs::create_dir_all(&root).unwrap();
+        run(&root, &["git", "init", "-b", "main"]);
+        run(&root, &["git", "config", "user.email", "t@example.com"]);
+        run(&root, &["git", "config", "user.name", "T"]);
+        fs::write(root.join("README.md"), "x\n").unwrap();
+        run(&root, &["git", "add", "."]);
+        run(&root, &["git", "commit", "-m", "init"]);
+        let wt = tmp.path().join("feature");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "feature",
+                wt.to_str().unwrap(),
+                "main",
+            ],
+        );
+        (tmp, root, wt)
+    }
+
+    #[test]
+    fn merge_commands_are_oncall_only() {
+        assert_eq!(classify_bash("gh pr merge 17 --merge"), Some(Action::Merge));
+        assert_eq!(
+            classify_bash("gh api -X PUT repos/o/r/pulls/17/update-branch"),
+            Some(Action::Merge)
+        );
+        assert_eq!(
+            classify_bash("git push origin v0.18.0"),
+            Some(Action::Merge)
+        );
+        assert_eq!(classify_bash("git push --tags"), Some(Action::Merge));
+        assert_eq!(classify_bash("git push origin main"), Some(Action::Merge));
+        assert_eq!(classify_bash("gh pr close 3"), Some(Action::Merge));
+    }
+
+    #[test]
+    fn outbound_commands_are_oncall_only() {
+        assert_eq!(
+            classify_bash("gh pr comment 17 --body hi"),
+            Some(Action::Outbound)
+        );
+        assert_eq!(
+            classify_bash("curl -X POST https://hooks.slack.com/services/xxx -d @-"),
+            Some(Action::Outbound)
+        );
+        assert_eq!(
+            classify_bash("curl -H 'Content-Type: application/json' https://webhook.office.com/webhookb2/abc -d '{}'"),
+            Some(Action::Outbound)
+        );
+        assert_eq!(
+            classify_bash("gh issue create --title x"),
+            Some(Action::Outbound)
+        );
+    }
+
+    #[test]
+    fn feature_window_work_is_never_classified() {
+        // Opening a PR is the feature window's delivery act, not the on-call's.
+        assert_eq!(classify_bash("gh pr create --fill"), None);
+        assert_eq!(classify_bash("gh pr list --state open"), None);
+        assert_eq!(classify_bash("gh pr view 17 --json mergeable"), None);
+        assert_eq!(classify_bash("gh pr checks 17"), None);
+        assert_eq!(classify_bash("git push -u origin claude/my-lane"), None);
+        assert_eq!(classify_bash("git commit -m 'x'"), None);
+        assert_eq!(classify_bash("cargo test"), None);
+        // GraphQL queries use POST but read nothing public-state-ish.
+        assert_eq!(
+            classify_bash("gh api graphql -f query='{viewer{login}}'"),
+            None
+        );
+        // Reading via gh api stays open.
+        assert_eq!(classify_bash("gh api repos/o/r/pulls/17"), None);
+    }
+
+    #[test]
+    fn chained_commands_are_scanned_past_the_first_segment() {
+        assert_eq!(
+            classify_bash("git fetch origin -q && gh pr merge 17 --merge"),
+            Some(Action::Merge)
+        );
+    }
+
+    /// Dartify 2026-09-26: a local grep for an icon name was routed as
+    /// "outbound". Arguments are data; only command position names a program.
+    #[test]
+    fn argument_position_names_are_not_commands() {
+        for cmd in [
+            "grep -rn -w mail /tmp/x",
+            "grep -n IconData /tmp/x | grep mail",
+            "ls /usr/share/teams",
+            "rg -n slack docs/",
+            "echo git push origin main",
+            "cat notes.txt | grep 'gh pr merge 17'",
+            "command -v mail",
+            "which sendmail",
+        ] {
+            assert_eq!(classify_bash(cmd), None, "{cmd}");
+        }
+    }
+
+    #[test]
+    fn command_position_names_still_route() {
+        for cmd in [
+            "mail -s hi a@b.c < x",
+            "echo x | mail a@b.c",
+            "cat list | xargs mail -s hi",
+            "xargs -I {} mail {}",
+            "env FOO=1 mail a@b.c",
+            "FOO=1 mail a@b.c",
+            "sudo -u bob mail a@b.c",
+            "timeout 5 mail a@b.c",
+            "nohup slack-cli send hi",
+            "cd /tmp; mail a@b.c",
+        ] {
+            assert_eq!(classify_bash(cmd), Some(Action::Outbound), "{cmd}");
+        }
+        for cmd in [
+            "FOO=1 git push origin main",
+            "git -C /repo push origin main",
+            "sudo gh pr merge 3",
+        ] {
+            assert_eq!(classify_bash(cmd), Some(Action::Merge), "{cmd}");
+        }
+    }
+
+    #[test]
+    fn claim_registers_and_second_window_is_rejected_without_force() {
+        let (_tmp, root, wt) = fixture();
+        let (code, out) = claim(&root, "oncall-window-a", None, "", false);
+        assert_eq!(code, 0, "{out}");
+        let (code, out) = claim(&wt, "feature-window-b", None, "", false);
+        assert_eq!(code, 1, "{out}");
+        assert!(out.contains("已有值守在班"), "{out}");
+        let (code, out) = claim(&wt, "feature-window-b", None, "", true);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("ONCALL CLAIMED"), "{out}");
+    }
+
+    #[test]
+    fn whoami_separates_oncall_from_feature_window() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let (_, out) = whoami(&root, false);
+        assert!(out.starts_with("ONCALL:"), "{out}");
+        let (_, out) = whoami(&wt, false);
+        assert!(out.starts_with("FEATURE:"), "{out}");
+        release(&root, false);
+        let (_, out) = whoami(&wt, false);
+        assert!(out.starts_with("NONE:"), "{out}");
+    }
+
+    #[test]
+    fn gate_blocks_merge_from_feature_window_only() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let payload = |cwd: &Path| {
+            json!({
+                "tool_name": "Bash",
+                "cwd": cwd.display().to_string(),
+                "tool_input": {"command": "gh pr merge 17 --merge"}
+            })
+        };
+        assert_eq!(route_decision(&payload(&wt)), 2);
+        assert_eq!(route_decision(&payload(&root)), 0);
+    }
+
+    #[test]
+    fn gate_fails_open_when_nobody_is_on_call() {
+        let (_tmp, _root, wt) = fixture();
+        let payload = json!({
+            "tool_name": "Bash",
+            "cwd": wt.display().to_string(),
+            "tool_input": {"command": "gh pr merge 17 --merge"}
+        });
+        assert_eq!(route_decision(&payload), 0);
+    }
+
+    #[test]
+    fn gate_fails_open_when_registered_worktree_is_gone() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        // simulate the on-call worktree disappearing without release
+        let mut record = load(&wt).unwrap().unwrap();
+        record.worktree = wt.join("gone-forever").display().to_string();
+        save(&wt, &record).unwrap();
+        let payload = json!({
+            "tool_name": "Bash",
+            "cwd": wt.display().to_string(),
+            "tool_input": {"command": "gh pr merge 17 --merge"}
+        });
+        assert_eq!(route_decision(&payload), 0);
+        let (_, out) = status(&wt, false);
+        assert!(out.contains("登记已失效"), "{out}");
+    }
+
+    #[test]
+    fn sendmessage_to_oncall_passes_and_sideways_is_blocked() {
+        let (tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        // A third window, registered in the lane table — this is what makes an
+        // address recognisably "another window".
+        let peer = tmp.path().join("peer-lane-3f21");
+        run(
+            &root,
+            &[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                "peer",
+                peer.to_str().unwrap(),
+                "main",
+            ],
+        );
+        let (code, out) = worktree::claim_lane(
+            &peer,
+            &worktree::ClaimOpts {
+                id: "peer-lane".to_string(),
+                goal: "g".to_string(),
+                base: Some("main".to_string()),
+                owns: vec!["peer".to_string()],
+                depends_on: Vec::new(),
+                parked: false,
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+
+        let msg = |to: &str| {
+            json!({
+                "tool_name": "SendMessage",
+                "cwd": wt.display().to_string(),
+                "tool_input": {"to": to, "message": "x"}
+            })
+        };
+        // 交单通道：功能窗口 → 值守，放行（含带后缀的真实会话名）
+        assert_eq!(route_decision(&msg("oncall-window-a")), 0);
+        assert_eq!(route_decision(&msg("oncall-window-a-02")), 0);
+        // 横向：功能窗口 → 另一个已登记的窗口，拦
+        assert_eq!(route_decision(&msg("peer-lane-3f21")), 2);
+        assert_eq!(route_decision(&msg("peer-lane-3f21-07")), 2);
+    }
+
+    #[test]
+    fn session_internal_messaging_is_not_the_gates_business() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let msg = |to: &str| {
+            json!({
+                "tool_name": "SendMessage",
+                "cwd": wt.display().to_string(),
+                "tool_input": {"to": to, "message": "x"}
+            })
+        };
+        // A lead talking to its own subagent, or a background subagent
+        // reporting to `main`, is not cross-window traffic. Blocking these
+        // was collateral damage of the earlier "block everything that is not
+        // the on-call address" rule.
+        assert_eq!(route_decision(&msg("main")), 0);
+        assert_eq!(route_decision(&msg("researcher")), 0);
+        assert_eq!(route_decision(&msg("Explore")), 0);
+    }
+
+    #[test]
+    fn oncall_window_may_message_anyone() {
+        let (_tmp, root, _wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let msg = json!({
+            "tool_name": "SendMessage",
+            "cwd": root.display().to_string(),
+            "tool_input": {"to": "some-other-window-7f", "message": "x"}
+        });
+        assert_eq!(route_decision(&msg), 0);
+    }
+
+    #[test]
+    fn route_names_the_lane_that_owns_the_path() {
+        let (_tmp, root, wt) = fixture();
+        let (code, out) = worktree::claim_lane(
+            &wt,
+            &worktree::ClaimOpts {
+                id: "lane-a".to_string(),
+                goal: "g".to_string(),
+                base: Some("main".to_string()),
+                owns: vec!["app".to_string()],
+                depends_on: Vec::new(),
+                parked: false,
+            },
+        );
+        assert_eq!(code, 0, "{out}");
+
+        let (code, out) = route(&root, "app/page.rs", false);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("lane-a"), "{out}");
+        assert!(out.contains(wt.display().to_string().as_str()), "{out}");
+
+        // Unowned path: the on-call window must escalate, not improvise.
+        let (code, out) = route(&root, "docs/orphan.md", false);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("无主"), "{out}");
+
+        // Once the lane lands, the same path still matches — but dispatching
+        // to it would send work into a window that is very likely closed.
+        // active → ready → landed is the only legal path into the terminal state
+        let (code, out) = worktree::set_lane_status(&wt, Some("lane-a"), "ready");
+        assert_eq!(code, 0, "{out}");
+        let (code, out) = worktree::set_lane_status(&wt, Some("lane-a"), "landed");
+        assert_eq!(code, 0, "{out}");
+        let (_, out) = route(&root, "app/page.rs", false);
+        assert!(out.contains("活跃轨：无"), "{out}");
+        assert!(out.contains("别直接派"), "{out}");
+    }
+
+    #[test]
+    fn release_from_other_window_needs_force() {
+        let (_tmp, root, wt) = fixture();
+        claim(&root, "oncall-window-a", None, "", false);
+        let (code, out) = release(&wt, false);
+        assert_eq!(code, 1, "{out}");
+        let (code, out) = release(&wt, true);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("ONCALL RELEASED"), "{out}");
+    }
+}

@@ -33,7 +33,7 @@
 
 **L 全装**:M 之外补——`contracts/fixtures/`(下次接口两侧并行前冻结)+ run 台账(`ledger/run-card-logging.md` 规范,从下次编排 run 起记)。
 
-**已有多 worktree 的增量接管（不分档，出现即处理）**：按 `kit/worktree-control-plane.md` 做恢复六步。仍要继续的写轨逐棵补 claim（单一 goal + 互斥 owns + depends_on + base）；边界撞车时只留一条 active，其余 blocked/parked；只读会话不 claim。先 push/commit 消除孤本，再按依赖合流；只有 `reclaim=safe` 才建议人工拆树。接管只登记**当前活跃工作**，不为已结束历史伪造 lane。
+**已有多 worktree 的增量接管（不分档，出现即处理）**：按 `kit/worktree-control-plane.md` 做恢复六步。仍要继续的写轨逐棵补 claim（单一 goal + 互斥 owns + depends_on + base）；边界撞车时只留一条 active，其余 blocked/parked；只读会话不 claim。先 push/commit 消除孤本，再按依赖合流；只有 `reclaim=safe` 才建议人工拆树。接管只登记**当前活跃工作**，不为已结束历史伪造 lane。多会话 PR 排队成常态或分支保护开 up-to-date 硬门时，按 `kit/babysit/SETUP.md` 三步开值守合并调度（合并权中央化，功能会话开 PR 即交付）。
 
 ### 收尾验收(对用户交付)
 
@@ -51,6 +51,7 @@
 |---|---|
 | S 档项目开始碰真实数据/真实用户 | S→M:按上面 M 档清单补件;AGENTS-lite 换 skeleton 时**保留已填的暂停项禁令原文** |
 | 要碰钱/安全/对外服务,或首次多 agent 并行 | M→L:补 contracts/fixtures(并行前冻契约)+ run 台账;TDD 从「建议」变「铁律」 |
+| **补件时机**(上两行的通用例外) | 升档信号触发时用户正赶一个具体里程碑(如首次真实冒烟):允许**先改禁令与风控、把补件排到该里程碑通过之后**。两个条件缺一即静默降档:① **当场**在 lock 的 `local_deviations` 登记「补件延后」;② **同一会话内**里程碑通过即补齐,并把该行改成「已补件」。**跨会话仍未补 = 静默降档,按事故处理**。(aster-agent 2026-09-06 实证:升档改禁令 → 冒烟 → 补件共约 50 分钟,登记同步更新) |
 
 升档记一行进 `agent-on.lock.md` 的 local_deviations(日期 + S→M/M→L + 触发信号)——档位变化本身就是回流信号,下次结账带给 agent-on(哪类项目常升档,说明定档三问该修)。
 
@@ -63,7 +64,7 @@
 1. **禁止静默降档**:AI **不得**因「感觉太重」或省 token 自行拆掉 M/L 件。降档必须有用户**显式批准**(口令示例:「按 agent-on 降到 S」「这个项目降档到 M」)+ 目标档位点名。
 2. **只删不用的件、不重播**:降档 = 从现有骨架**减法**;禁止 `git` 清仓重跑 BOOTSTRAP、禁止从 kit **整包重拷覆盖**已填 AGENTS/lock/loop-notes。
 3. **闭环三件永不删**:`agent-on.lock.md`、`loop-notes.md`、`thoughts-and-ideas.md`(及 AGENTS 映射/lite 底线)——S 也要结账回流。
-4. **三不变量不降档可删**:完成=贴证据、暂停项禁令、外向先确认(及 M/L 上的单一状态写者/契约纪律)——降档减的是**装备重量**,不是诚实。
+4. **三不变量不降档可删**:完成=贴证据、暂停项禁令、外向**硬门**先确认——硬门指 merge/tag/发布/部署/删远端/对外发言那一类,提交、推自己的分支、开 PR 不在内(M/L 另加单一状态写者/契约纪律)。降档减的是**装备重量**,不是诚实。
 5. **登记 lock**:每次降档在 `local_deviations` 追加一行:`日期 | L→M 或 M→S | 用户批准摘要 | 删了哪些路径 | 状态=done`。
 
 ### 3.2 信号 → 动作(须用户批准后执行)

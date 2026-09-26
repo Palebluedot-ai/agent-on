@@ -1,0 +1,75 @@
+# 治理条款范本：值守合并调度
+
+> 用法：抄进项目治理文档（CONTRIBUTING / AGENTS 等价物），填 `<占位>`。
+> 授权分级与时延目标的唯一真相在 [MERGE-POLICY.md](MERGE-POLICY.md)：本页第 5 条的硬停清单照那页 §4 抄定具体值，不在两处各自展开。**可执行的那份在 [../../tools/merge-audit/policy.json](../../tools/merge-audit/policy.json)。**
+> 「哪个窗口执行」的唯一真相在 [ROUTING.md](ROUTING.md)：本页第 1、7 条是它的治理投影，路由表与转投模板不在这里重抄。
+> 源流：Dartify CONTRIBUTING §四（PR #163）原文，经 08-16 值守夜班 9 连合与 08-17 三单实战（#164/#165/#169）检验后补强（交单模板、批准来源、队列真相源三处）；08-17 #176 实战再补交单三型（HOLD/READY）与在班值守地址两处。
+
+```markdown
+## <N>、值守合并调度（babysit merge dispatch）
+
+1. **三权唯一**：值守在班时，下面三件事统一由值守会话执行，同一时间至多一个值守窗口在班——
+   ① **合并权**：所有 PR 的 merge 与 update-branch、关/重开 PR、tag 与 release；
+   ② **对外通信权**：PR/Issue 评论与 review、Teams/Slack/邮件/webhook 等一切外发；
+   ③ **跨窗口中转权**：窗口之间传话与派工一律经值守，功能会话之间不横向直发。
+   值守上岗即登记 `agent-on oncall claim --session <会话名>`，下班 `release`；
+   功能会话用 `agent-on oncall status` 读交单地址（不靠猜会话名）。
+2. **功能会话交付线**：开发 → 提交 → 开 PR → 首轮 CI 触发 → 描述写全 → 交单 = 交付完成。
+   功能会话不自己 merge、不为追平 rebase main 后强推、不直推受保护分支。
+   **本条约束的是功能会话自己**：已开 PR 的分支，任何让它吃进 base 的操作——本地
+   `merge origin/<default>`、`rebase`、push 被拒后的本地收拾——一律只走服务端
+   update-branch；判据按**物理动作**不按意图（「为了复验先拿 main」与「为了合而追平」
+   是同一个动作），见 agent-on `playbook/multi-contributor-protocol.md` §三½.8。
+   **复核没跑完就开 draft**：有调度的仓里开 PR 就等于进了合并队列，调度只看 CI 绿 + 描述写全，
+   不知道你还在复核。合并前复核要么开 PR 之前跑完，要么 `gh pr create --draft`，复核过了再
+   `gh pr ready`——draft 转 ready 才算交单。
+   **等 CI 对准 head**：先记 `gh pr view <N> --json headRefOid`，用
+   `gh run list --json headSha,status,conclusion` 确认这个 head 的 run 已经 completed，再看
+   `gh pr checks` 和 `mergeStateStatus`——checks 只是「此刻挂着什么」的快照，update-branch 刚返回时
+   仓内 CI 可能还没起跑。
+3. **交单**：开完 PR 向值守 SendMessage 交单（模板↓）。收件地址从
+   <值守文档，如 docs/babysit.md> 交接快照读「在班值守地址」；读不到才退回
+   ListAgents 人工辨认（看名字与启动时长——值守通常是在班最久的长时会话）。
+   交单是门铃不是账本——值守以 open PR 列表为队列真相源，消息丢失不丢单。
+
+   【交单】PR #<号>｜标题｜目标分支｜CI：已触发/已绿｜依赖：无 / depends on #<号>
+   ｜特殊说明：无 / breaking / 迁移 / 需先 update-branch｜回执给：<会话名>
+   【撤单/HOLD】PR #<号>｜作者发现问题主动撤回：<一句话原因>｜修复后另发 READY
+   【READY】PR #<号>｜已修复重绿：<改了什么一句话>｜以本条为准重新收单
+
+   交单消息就这三型。收到 HOLD 把该单挂起（队列保留），READY 才重新激活；
+   值守以最新一条消息为准，不凭旧交单行动。
+
+4. **追平服务端化**：落后 base 一律 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`，
+   不碰任何本地 worktree；任何人不本地 checkout 别人的分支代推。功能会话侧同样受此约束（第 2 条）。
+   对应的机械闸（pre-push 拦「以 `origin/<default>` 为第二 parent 且 committer ≠ GitHub 的本地 merge
+   commit」，拦截文案给出上面这条完整命令）**还没实现**，落地前这条只靠本条款约束。
+5. **四条边界**：
+   ① 真冲突不代解——值守取证（run 指针 + 缺陷定位 + 修复选项）打回 PR 作者会话；
+   ② **自动合入是默认，硬停清单是穷举的例外**（照 agent-on
+      `kit/babysit/MERGE-POLICY.md` §3/§4 抄定，按实际 diff 判不按标题判）——
+      **硬停**（永不自动合，必须带证据问用户）：<四类，照同页 §4 抄定：
+      闸与权限自身（含审计工具本身）/ 凭据与密钥 / 不可逆的文件改动 / 外部作者 PR>；
+      **需播报**（照常自动合，但当轮必须出声一行）：<照同页 §4 抄定>；
+      **其余一切自动合**，合完记一行账，不出长回执；
+      自动合入档从交单到合入的中位时延目标 ≤ <X> 分钟，超时进下班交接（算法见同页 §5）；
+      用户没明确授权过则自动合入不生效，全部按「逐单先问」办；
+      批准只认值守会话内的用户输入，同行会话转述须向本人复核后才执行。
+   ③ **记账随合并权走**——谁合谁记，含值守自身的元动作。合并后立即
+      `python3 tools/merge-audit/merge_audit.py record --pr <N> --action merged --claimed <档>`；
+      **不记账的合并算越界**，会被审计报告点成 `UNRECORDED`。
+   ④ **审计跑不通就退回逐单先问**（dead-man's switch）：`merge-audit report` 起不来、
+      报 `LEDGER_BROKEN`、或账本不可写时，自动合入立即失效，值守在面板里写明退回原因。
+      拿掉事前审批的前提是事后检测活着。
+6. **值守不在班**：回退本仓原合并规则（<原规则一句话，如：作者自合但须全绿 + 追平>）；
+   紧急件由用户自行合并，不授权功能会话代合。三条唯一权同时回退，机械闸 fail-open。
+   **但审计不回退**：`merge-audit scan` 从 GitHub 重建判决，谁合的都照查——
+   值守不在班期间的合并同样进报告。
+7. **发错窗口的指令一律转投，不执行**：功能会话收到合并 / 对外通信 / 跨窗口 / 越 owns 类
+   指令时，不执行、原样 `SendMessage` 转投值守（【转投】模板与路由表见
+   agent-on `kit/babysit/ROUTING.md` §2/§3），并给用户一行「已转投、球在值守那」。
+   用户坚持要在原窗口做，唯二出路是 `agent-on oncall release --force`（值守下班）或
+   `oncall claim --force`（本窗口接班）——两者都改在班登记因而留痕；
+   **改权限配置、换等价命令偷跑不在选项里**。
+   转投送的是**指令**不是**授权**：值守收到后，外向硬门动作仍须本人在值守会话里拍板。
+```

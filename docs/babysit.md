@@ -1,0 +1,178 @@
+# 值守文档（babysit loop）——agent-on
+
+> instantiated-from: kit/babysit/BABYSIT-TEMPLATE.md @ v0.15.0。实例化文件是本仓自己的 canonical——升级永远显式，不从 kit 重拷覆盖。
+> 启动：新开一条干净会话，跑 `/loop 读 docs/babysit.md 全文并执行本轮值守`（要固定节奏就 `/loop 5m 读 docs/babysit.md 全文并执行本轮值守`）。
+> 读法：§1 只在首轮做，§2 是循环体。**会话是班次，文档是资产**——手册的进化写回本文件随 git 走，不留在聊天记录里。
+
+## §0 GOAL（一句话）
+
+看住 `Palebluedot-ai/agent-on` 的公共资源：main、PR 队列、发版硬门（tag 债务）、intake 积压、lane 控制面卫生。
+红了分诊、欠账播报、授权内（§3）的 PR 串行消化、拿不准的报告等拍板。
+多会话并行是本仓常态——值守只看场子，不抢功能会话的活，**不代消化**（消化是独立口令与会话）；**在班期间合并权唯一归值守**（治理条款见 AGENTS.md 自举纪律第 8 条）。
+
+## §1 首轮启动（只做一次，后续轮跳过）
+
+1. **单值守核对 + 上岗登记**：向用户确认没有第二个值守窗口在班。确认后两件都做：
+   - **机器可寻址（真相源）**：`agent-on oncall claim --session <本窗口会话名>`。登记落 common git dir，每棵 worktree 读到同一份；功能窗口跑 `agent-on oncall status` 就能拿到交单地址，不必读本文档。已有人在班时命令会拒绝——那就是「已有第二个值守」的机器证据，别 `--force` 抢，先问用户。读不到自己的精确会话名时用 **worktree 目录名前缀**注册（闸是双向前缀匹配，能匹配到带后缀的完整会话名）。
+   - **人可读（副本）**：把地址写进下方交接快照「在班值守地址」行。**这行是每棵树一份的文件副本，功能窗口在自己分支上读到的可能是任意旧版本**——它给人看，机器寻址一律以 `oncall status` 为准。下班清掉，接班覆盖。
+2. **开 worktree**（一会话一 worktree 铁律）。值守平时只读不 claim；要写文件（本文档）时按最小 owns（`docs/babysit.md`）claim 值守轨。
+3. **权限自检**：跑一次 `gh pr merge --help` 级别的无害探测确认 allow 规则已配；没配则把 `kit/babysit/SETUP.md` §1 的 settings 命令贴给用户手跑（本仓实测：未建 settings 时 `gh pr merge` 与 `gh api -X PUT` 被分类器间歇拦，两步不过即停——机制红线，agent 改不了自己的权限）。
+4. **核背景坐标（别信交接文档，自己跑）**：`git fetch origin -q && git rev-parse origin/main`、`gh pr list --state open`、最新 tag（`git tag --sort=-v:refname | head -1`）、上一班快照声称的关键事实逐条验证。
+5. **读规矩原文**：AGENTS.md（自举纪律 6/7/8 + 迭代闭环职责）、kit/merge-checklist 0c、boot/settlement.md 收尾四件。合并方式：merge commit（`--merge`）；版本批题头 `merge(vX.Y.Z): …`。**本仓 2026-08-20 起有 CI**（PR #37 装的 `.github/workflows/gate.yml`，四个 job：CLI 测试+承接层校验 / 文档三闸 / 外部贡献只许碰 intake / GitGuardian）。仍**无 required checks、无 up-to-date 硬门**——CI 红不会在 GitHub 层阻止合并，**由值守把关**：红了按 §4 分诊或打回，不合。核对面见 §2.2。
+6. `agent-on landing refresh` 取证建快照，之后每轮 `landing plan` 离线看队列。
+
+### 交接快照（上一班下班时更新；本班核对，不信任）
+
+```text
+时间：2026-08-19 10:1x（首班上岗，§1 全项自核；用户当日拍板三条全 A）
+在班值守地址：会话名前缀 `worktree-output-clarity-e02325-*`（ListAgents 按前缀匹配；
+              精确后缀本会话读不到自己，交单前用 ListAgents 确认一次）
+main：cf94ae9f4a1d6304daee8309bc9ee3b7872b1b59
+open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
+最新 tag：v0.15.0；v0.16.0 封版 PR 在途（CHANGELOG 补 #8/#10/#11 + 本文档），
+          合入后由值守代打 tag（语义已拍板：minor / v0.16.0）
+在途后台链：无
+```
+
+## §2 每轮检查单（循环体）
+
+1. **收单**：`git fetch origin -q && gh pr list --repo Palebluedot-ai/agent-on --state open`。
+   **队列真相源 = open PR 列表**；SendMessage 交单只是门铃 + 特殊说明通道。交单消息三型：交单 / 撤单 HOLD / READY；收到 HOLD 的单挂起，等 READY 再进入分流。
+   **门铃即起跑**：交单消息送达即唤醒本会话，**当轮就跑**收单 + 追平，不等下一次定时唤醒；门铃丢了最多晚一个心跳、不漏单（队列从 `gh pr list` 完整重建）。机制见 `kit/babysit/MERGE-POLICY.md` §1。
+   `agent-on landing refresh && agent-on landing plan` 拿 NOW / 波次当排序输入。
+2. **逐 PR 核对面（本仓 2026-08-20 起有 CI，四查 + 一次机器分档）**：
+   **先跑 `python3 tools/merge-audit/merge_audit.py precheck --pr <N>`**——退出码 `0` 自动合 / `10` 合但当轮播报一行 / `20` 硬停不许合 / `2` **判不了，当硬停处理**。工具的判定是独立的，不看值守自称。
+   - `gh pr view <N> --json mergeable,mergeStateStatus`：须 MERGEABLE / CLEAN（DIRTY → 服务端追平或按 §4 分诊）
+   - GitGuardian（外部 app check）：须 pass
+   - 内容分类：按 §3 两张清单判，**按实际 diff 判不按标题判**。本仓几乎所有 PR 都动 canonical（kit/playbook/bench/boot/cli/skill/hooks/AGENTS/BOOTSTRAP）→ 落在「必须先问」；默认合入档在本仓刻意窄（见 §3）
+   - 真缺陷 = 打回四件套（证据指针 + 定位 + 修复选项 + SendMessage 作者会话），值守零代修
+3. **合并流程（严格串行，一次只合一条）**：
+   1. 落后 base → 服务端追平 `gh api -X PUT repos/Palebluedot-ai/agent-on/pulls/<N>/update-branch`；绝不本地 checkout / push 功能分支
+   2. **CI 中位约 45 秒**，等得起——四查全过 + 授权到位后 `gh pr merge <N> --merge`（版本批用 `--subject "merge(vX.Y.Z): …"`）。**开在 2026-08-20 之前的 PR 没跑过新 CI**，服务端 `update-branch` 追平一次即可让新闸管到它（实测：#38 就是这么照出 `cargo fmt` 没跑的）
+   3. **合完四连**：`merge_audit.py record --pr <N> --action merged --claimed <HARD_STOP|AUTO|NOTABLE> --pointer <仓内文件或 commit>` → 记账（第 4 步）→ SendMessage 回执作者会话 → 队列下一条如变 BEHIND 立即追平。
+      **`--pointer` 必须 git 可核**（仓内文件路径或 `rev-parse` 得出的 commit）；裸 PR-URL 与空指针会被降成 `UNVERIFIED_HARDSTOP`。**自称写错档会被工具对账报 `MISMATCH`**——别拿它洗自己的越界。
+   4. **版本批合并后**：值守可代打已拍板批的 tag（`git tag -a vX.Y.Z -m "vX.Y.Z — <semver 档>" <merge SHA> && git push origin vX.Y.Z`）——机械步骤，语义（版本号/档位/条目）须已经用户拍板
+4. **账本巡检（agent-on 四面）**：
+   - **审计闭环**：`python3 tools/merge-audit/merge_audit.py report --limit 20`。出现 `VIOLATION`（没问就合了硬停单）或 `UNVERIFIED_HARDSTOP`（合了但指针核不到）**立即在面板播报并停手**；`report` 本身跑不通 / 报 `LEDGER_BROKEN` / 账本不可写 → **按 §3 的 dead-man's switch 退回逐单先问**
+   - **发版硬门**：`git log --oneline $(git tag --sort=-v:refname | head -1)..origin/main` 非空 = tag 债务（AGENTS 自举纪律 6：push 结束 tag 必须钉 HEAD）——播报提醒，值守不代定版本语义
+   - **intake 积压**：`ls intake/` 数未标去向文件，≥3 播报「该开消化会话」（目录即仪表盘）
+   - **lane 卫生**：`agent-on worktree check`；只盯 `CONFLICT` 与 `ERROR`（那才是红），`UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 是提示——2026-09-14 起不再替未登记树占位 park；`MISSING` 一行照文案 `worktree forget` 即可
+   - 两条铁则照旧：台账只记自己的号（字面匹配盲区）；元动作自涵盖
+5. **低频（每天一次）**：`agent-on worktree gc --dry-run` + 磁盘余量。
+6. **节奏**：CI 中位约 45 秒，不构成等待瓶颈——有单快循环（5–10 分钟），无单 noop 20–30 分钟；事故推一条通知 + 每轮最小探针。
+   **一个口令切档**：用户说「值守加速」→ 心跳降到 3–5 分钟并回执确认一句；**连续 3 轮 noop 自动回落**到 20–30 分钟（回落不出声）；用户说「值守回落」立即回常态。用户不改任何配置文件。
+7. **时延目标**：默认合入档的 PR，从交单到合入**中位 ≤ 6 分钟**（`X = CI 中位 + 5 分钟`；2026-08-20 实测 CI 中位约 45 秒，取 1 分钟。**此前写 5 分钟是基于「本仓无 CI」，那句自 #37 起已失效**；算法与依据见 `kit/babysit/MERGE-POLICY.md` §5）。单条超时在 §5 记一行（PR 号 + 实际耗时 + 卡在哪段）；**一个班次的中位数超 5 分钟 = 事故**，写进 §7 下班交接并附最慢三条。必须先问档的 PR 不计入——它们的时延取决于用户什么时候看消息，不是流水线的事。
+
+## §3 权限边界（2026-08-20 起：自动合入是默认）
+
+> **口径的唯一真相在 `kit/babysit/MERGE-POLICY.md` §3/§4，可执行的那份在 `tools/merge-audit/policy.json`；两份对不上以 policy.json 为准**（它是跑起来的那一份）。下面是本仓落定的具体值。
+> **本节 2026-08-20 由用户拍板整节翻面**：此前是「预授权清单 + 其余先问」，现在是「硬停清单 + 其余默认合」。源流原话：「除特殊情况外我们全自动合并，不要再等我手动合了。手动合并非常耽误时间，晚上开发时如果没合，其他人的程序就没法进行。」——**未合的 PR 不是「等一等」，是别人的活被堵住**。
+
+**先看三权唯一（AGENTS 自举纪律 9）**：值守在班期间三条权唯一归值守——①**合并**（含 tag / release / 关 PR）②**对外通信** ③**跨窗口中转**。功能会话唯一跨窗口出站通道 = 给值守交单 / 回执。误投的指令**不执行、原样转投**（见 `kit/babysit/ROUTING.md`）。「跨窗口」不含会话内部。
+三权管的是**谁来合**；下面的清单管的是**这单能不能自动合**，两者不重叠。
+
+### 判据一句话
+
+**这单命中硬停清单了吗？没有 → 合。**
+
+| 档 | 值守怎么做 | `precheck` 退出码 |
+|---|---|---|
+| **自动合** | 直接合，`record` 记一行账，**不出声** | `0` |
+| **需播报** | 照常合，但本轮面板必须写一行让用户看见 | `10` |
+| **硬停** | **不许合**，带证据去问用户 | `20` |
+| **判不了** | **当成硬停**，别当成「没问题」 | `2` |
+
+**退出码 2 必须按 fail-closed 读**：「工具没能给出判断」和「工具判断没问题」是两件事，把前者当后者是这套机制最容易死的死法。
+
+### 硬停五类（永不自动合）
+
+1. **闸与权限自身**：`.claude/settings*.json` · `hooks/**` · `kit/guard/**` · `cli/src/**` · `.github/**` · `.claude-plugin/**` · `.codex-plugin/**` · `tools/merge-audit/**`——**被监控者不许改监控自己的东西**
+2. **凭据与密钥**：`.env*` · `*.pem/.p12/.pfx` · `id_rsa*` · 文件名含 secret/credential · diff 新增行命中密钥模式——凭据进了 git 历史撤不干净
+3. **不可逆的文件改动**：`**/migrations/**` · `**/*.sql`
+4. **外部作者的 PR**：作者不在 `trusted_authors` 里，哪怕只改一个 typo
+5. **带 breaking / 迁移标注**：整行以 `BREAKING:` / `迁移注记：` / `MIGRATION:` 开头，或挂 `breaking`/`migration` 标签
+
+### 需播报一类（照常合，当轮出声一行）
+
+**改的是规矩本身**：`AGENTS.md` · `CHARTER.md` · `BOOTSTRAP.md` · `kit/babysit/**` · `playbook/multi-contributor-protocol.md`——可 revert，但改的是全场行为，用户该有机会当场喊停，不必阻塞。写法：`已合 #42（改的是规矩本身：AGENTS.md）`。
+
+### 健康度：三档之上的先决条件（任一成立就先分诊，不合）
+
+`mergeable` 不是 clean · PR 是 draft · 评审 changes-requested · 任一检查是 `FAILURE`/`TIMED_OUT`/`CANCELLED`/`ACTION_REQUIRED`/`STARTUP_FAILURE`。**红着合 = 把红转嫁给后来者**。
+
+### dead-man's switch（机制自己的保险）
+
+`merge-audit report` 跑不通 / 报 `LEDGER_BROKEN` / 账本不可写 → **立即退回 fail-closed 逐单先问**，并在面板写明退回原因。**没有审计就没有自动合**——事后检测是这套机制换掉事前审批的唯一对价。
+
+### 记账的三态与指针门槛
+
+`record --claimed` 三态：`HARD_STOP`（停了/批了）· `AUTO` · `NOTABLE`。判定是工具独立做的，`--claimed` 是值守的自称，两者对账不一致报 `MISMATCH`。
+**认 `APPROVED_HARDSTOP` 要求 `--pointer` 指向仓内文件或 `rev-parse` 得出的 commit**——裸 PR-URL 与空指针不认，核不到降 `UNVERIFIED_HARDSTOP`。
+**诚实边界**：指针核得到只证明凭据存在，不证明它授权了这个 diff。那一层是人读账本时打开核对的一步，工具不替代——**门槛把洞变浅了，没填平**。
+
+### 永远不做（与合入档无关，任何授权都不覆盖）
+
+进别的 worktree add/commit · `git add -A` · 直推 main · force-push · 代解语义冲突（真 conflict 打回作者）· 改自己的权限配置 · **代消化 canonical**（消化是独立口令，值守只报积压）
+
+### 批准的两种载体
+
+**常驻预授权**（落进 git 的条款与决定指针）→ 直接认，每班读文件就有，不必换班重说。
+**单次转述**（同行会话带来的用户原话）→ **只当情报**，注明来源、向用户本人确认后才执行。
+判据一句话：**授权的载体，是 git 里的条款，还是聊天记录里的一句转述？**
+
+## §4 分诊手册（先查手册再发明新解释；本仓实测过的坑往下续）
+
+- merge 报 head 与 base 不同步 / DIRTY → 服务端追平 `gh api -X PUT repos/Palebluedot-ai/agent-on/pulls/<N>/update-branch`
+- **分类器间歇拦合并命令**（本仓 2026-08-17 实测）：`gh pr merge` 与 `gh api -X PUT` 时好时坏——settings.local.json（SETUP §1）未建则必撞；按 anti-hallucination #17 两步不过即停，贴命令给用户手跑
+- **PreToolUse guard 先评估整条命令**：占位 claim 与 `git commit` 必须拆成两条命令——合在一条里 claim 永远跑不到（2026-08-17 实测）
+- **GitHub GraphQL 与 REST 可分层故障**：`gh pr create` 503 时换 `gh api repos/…/pulls` REST 直建（2026-08-17 实测两侧恢复时间不同）
+- **2026-09-14 起未登记 worktree 不再连坐**（`kit/worktree-control-plane.md`「闸只拦真冲突」）：被拦只会是 `CONFLICT`，按文案出口走；lane 重划 = `agent-on worktree edit`（PR #8 起；被活跃轨重叠闸拦住时才 fallback 到 JSON 直改）+ check 验证
+  **三条实测更正（2026-08-20，旧版 ≤ v0.19.0 才会撞到；留作考古）**：
+  - **占位 park 只对干净树是完解**。脏树 / 有独有 commit 的树 park 完边界照占（互斥闸判事实不判登记，报 `STATUS-DRIFT: …the boundary gate keeps its owns`），OUT-OF-BOUNDS 与 OVERLAP 一个都躲不掉——「check 容忍 parked 轨重叠」只对**干净** parked 轨成立。
+  - **回填 OUT-OF-BOUNDS 清单进 owns 不是通解**：多棵脏树同时回填必然撞出 OVERLAP，一条 FAIL 换成另一条，两者互为对方的唯一解、可行域为空。别改账换绿灯，按债务口径交单。
+  - 生命周期**没有 `parked→ready` 这条边**（`set-status` 实测 `invalid lane transition`；转移图只给了 `parked→active`）。合法链是 `parked→active→ready→landed`。**注意 `worktree edit --status` 绕过转移图**（只守不变量，不守边），所以同一件事两条命令行为不同——`set-status` 守图，`edit --status` 不守。
+- **`edit --status landed` 没有干净树守卫**（2026-08-20 实测报告，未修）：`--status ready` 有干净树守卫，`landed` 一道都没有——脏树、有独有 commit 的树都能被直接记成 landed。闸没被骗过（边界照占、check 照 FAIL），但 CLI 允许写下假账，而假账正是「为让闸变绿而改账」这条反模式的入口。看见某条轨突然 landed 而树还脏，先怀疑这个。
+- squash / merge 后祖先误判 → 以 `gh pr list --state merged` / 托管平台为准
+- 状态闸拉 GitHub API 抖动 → 重试即绿，非业务违规
+- **审计报告会因「在哪棵树跑」给出相反结论**（2026-08-20 实测，本班撞到）：账本 `ledger/merge-audit.jsonl` 是 **git 里的文件**，未合入 main 的 record 只存在于写它的那棵树里；而 `merge_audit.py` **按脚本自身所在的仓根**定位账本，不按 cwd。同一时刻实测：
+  ```
+  python3 tools/merge-audit/merge_audit.py report        （值守树的脚本）→ APPROVED_HARDSTOP×2
+  python3 /绝对路径/主仓/tools/merge-audit/merge_audit.py report        → UNVERIFIED_HARDSTOP×2
+  ```
+  **两条都不是错的**——它们读的是两份不同的账本。判据：**跑 report 一律用「记账时用的那棵树里的脚本」**，且**记账 PR 合入 main 之前，别拿 report 的结论对外下判断**（别人跑出来跟你不一样）。同理，`record` 也会写进脚本所在树的账本——**记账前先确认自己在哪棵树**，本班在这上面栽过两次（另一次是把账写进主仓）。
+- **CI 落地当天的两类红，别混为一谈**（2026-08-20 实测）：①**装 CI 那一刻照出的存量问题**——本仓首道 CI 第一次跑就红三条，全在 `cli/src/worktree_schedule.rs`，错误原文 `persisted scheduler platform Launchd does not match current platform SystemdUser`：测试写死了 macOS 调度器而 runner 是 Linux，**测试套件一直是 macOS-only 只是此前没人知道**。判据：那几条测试在 `origin/main` 上早已存在，且当前 PR 一行没碰它们。②**开在 CI 之前的 PR 从没跑过它**——`mergeStateStatus` 会是 `CLEAN` 但检查列表是空的，看着像全绿其实一次没跑。**服务端 `update-branch` 追平一次**即可让新闸管到它（#38 就是这么照出 `cargo fmt --check` 没过的）。注意区别于「`CLEAN` + 零检查」的另一种情形：追平后新 head 上 GitGuardian 有时不重新触发，那是真的没有待决检查
+- **装机 CLI 与仓内源码同版本号、功能不同**（2026-08-19 实测）：`agent-on landing` / `worktree edit` 报 `unrecognized subcommand`，但 `cli/Cargo.toml` 与 `agent-on --version` 都是 0.12.1——功能落地没 bump 版本号，光看版本号分辨不出。命令报「没这个子命令」时先 `cargo install --path cli` 重装再怀疑文档写错
+- **`worktree check` 的输出别用 `tail` 截**（2026-08-19 实测）：lane 按字母序列出、`RESULT` 行在末尾，`tail -40` 会砍掉开头几条轨（本轮漏看 `affectionate-hofstadter-placeholder` 与 `agent-on-data-hygiene` 两条）。要判 RESULT 用 `tail -3`，要看 lane 清单就全量看，别两件事一条管道办
+- **活跃轨上限 3/3 会挡住值守自己 `set-status active`**（2026-08-19 实测）：报 `活跃轨上限已满（3/3）；先 park / land 一条再激活`。**别为腾位子去动别人的 lane 状态**——值守轨留 `parked` 照样能写自己 owns 内的文件（guard 判边界不判生命周期），登记清楚就行
+- **值守写文件前先确认自己在哪棵树**（2026-08-19 实测踩到）：`cd /Users/chao/Projects/Agent-On` 是**主仓 worktree（main 分支）**，不是值守自己的树；在那里编辑等于往 main 的工作区写。写之前 `cd` 到值守 worktree 绝对路径，或所有 git 命令带 `-C <值守树>`。误写了就 `cp` 到自己树 + 主仓 `git checkout -- <file>` 复原，复原前先 `git status --porcelain` 确认那棵树只有你这一笔改动
+
+## §5 已知遗留（交接清单；提醒用，值守不抢活）
+
+- **授权已整节翻面（2026-08-20 用户拍板，晚于上面那条并取代它）**：本仓改为**自动合入是默认**（`kit/babysit/MERGE-POLICY.md` §3/§4 + 本文档 §3 + `tools/merge-audit/policy.json`）。撤销方式 = 改这三处条款，不是在聊天里说一句。配套：审计工具 `tools/merge-audit/` 与账本 `ledger/merge-audit.jsonl`，dead-man's switch 见 §3。
+- **常驻预授权已激活（2026-08-20 用户拍板「选A」）**：类目 = 「内容已拍板的单」。条款落 `kit/babysit/MERGE-POLICY.md` §3 第 5 类 + 本文档 §3 第 6 类；快照 `snapshot/2026-08-20-standing-preauthorization.md`。**撤销方式 = 改这两处条款**（不是在聊天里说一句）。
+
+> 2026-08-19 首班核对：上一版四条**全部过期**，已逐条结清（PR #1 已关闭；output-contract 轨 #9/#10 已合含 kit/README 索引；CLI 两件 #6/#7 已合；settings.local.json 已建且规则与 SETUP §1 逐字一致）。下面是本班新开的清单。
+
+- **v0.16.0 封版 PR 在途**：CHANGELOG 补 #8/#10/#11 条目 + 本文档交接快照/遗留/分诊三处更新（值守轨 `worktree-output-clarity-placeholder`，owns = `CHANGELOG.md, docs/babysit.md`）。合入需用户拍板（canonical 边缘），合入后值守代打 `v0.16.0` tag。
+- **5 棵树齐回收证据未删**：`babysit-merge-dispatcher-6aeff4`(#5)、`eloquent-sanderson-4b245b`(#4)、`gracious-shtern-07ae02`(#6, 397 MB)、`v0121-agent-skeleton-hooks`、`v0121-worktree-enforcement`(843 MB)。值守不代删，命令附在每轮撤销面。
+- **两条 active 轨有孤本**（changed=1，`reclaim rescue`）：`agent-on-data-hygiene`、`owns-octal-unescape`、外加 parked 的 `affectionate-hofstadter-placeholder`——归各自作者会话，值守只播报。
+- **活跃轨 3/3 占满**：`agent-on-data-hygiene` / `orchestrator-loop` / `owns-octal-unescape`。值守轨因此只能留 parked（见 §4）。
+- **`landing status --human` 面板渲染未挂**：CHANGELOG v0.16.0「诚实边界」记的后续，需单独拍板，值守不代做。
+
+## §6 汇报纪律
+
+**每轮输出格式统一走 `kit/output-contract.md`**：状态面板在前（一行一条轨：`轨名 │ 一句话状态 │ 我要不要动 │ 下一动作归谁`，类别用中文人话，`NOW`/`STALE`/`REAPABLE` 这类机器名只准放括号里）→ 拍板收成一节（编号、每条 ≤3 行、**必带「你不回我就按 X 走」**、一轮最多 3 条，超出自己排序只问最阻塞的）→ 结论三格（已验证 / 我按这个假设做了 / 已推翻）→ 撤销两栏（`unknown` 一律进「不能删」）→ 最后一行「球在谁那」→ **之后**才轮到过程叙述。值守侧不另定义格式。
+
+在此之上补值守特有的四条：
+
+- 跟随用户语言；有动作才出声，全绿安静（noop）；任何「已合 / 已修 / 完成」必须贴命令实际输出；拿不准 = 报告而不是猜。
+- 请求拍板时给足判断材料：PR 号 + 标题 + 核对面三查结论 + 影响面一句话——让用户一眼能拍，不要只丢一个「合不合？」。
+- **打回作者的单，面板里必须同时写明「这单已不占你注意力」**——让用户能把它从脑子里划掉。
+- 默认合入档合完**只记一行**，不出长回执；用户在面板里看见 `已合并` 即可。
+
+## §7 交接与下班
+
+- **下班四件**（关窗口之前）：①`agent-on oncall release`——**先跑这条**，闸随即 fail-open，回退「值守不在班」规则；忘了跑，功能窗口会被挡到登记过期为止（2026-09-14 起默认 90 分钟没心跳自动失效，本仓实测此前一条登记锁了 26 天） ②更新 §1 交接快照（含清掉「在班值守地址」）③更新 §5 遗留清单 ④本班新踩的坑写进 §4 → commit 本文档（走值守自己的轨；合入按本仓规则拍板）。
+- **换班**：接班窗口 `oncall claim` 会被在班登记拒绝——正常顺序是旧班先 `release` 再交接。旧班窗口已经关掉、`release` 没人跑时，登记会在 90 分钟没心跳后自动失效，新班直接 `oncall claim` 即可；等不及就 `oncall claim --force` 接管（**会留痕**），并在 §5 记一行「上一班未 release」。
+- **在途后台链必须写进快照**：链随会话死，接班不知道就会漏单。
+- **接班** = 新会话重新 `/loop` 本文档；下一班按 §1 核对坐标，而非信任本文档的任何声称。

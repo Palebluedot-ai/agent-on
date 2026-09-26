@@ -1,9 +1,11 @@
 //! agent-on CLI — replaces former Python scripts.
 
 mod audit_lint;
+mod drift;
 mod guard;
 mod intake_lint;
 mod landing;
+mod oncall;
 mod paths;
 mod routing;
 mod setup;
@@ -42,6 +44,18 @@ enum Commands {
     /// Lint audit_event jsonl state machine
     #[command(name = "audit-lint")]
     AuditLint { file: PathBuf },
+    /// Report projections that no longer match their source: lane records vs
+    /// git, and prose about machine behaviour vs the implementation it names.
+    /// Report-only; stale bookkeeping never blocks another session's commit.
+    Drift {
+        #[arg(long)]
+        json: bool,
+        /// Exit 1 when any drift row is present. For CI, not for a working session.
+        #[arg(long)]
+        strict: bool,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
     /// Open-box skill routing / demotion checks
     Check {
         #[command(subcommand)]
@@ -86,6 +100,68 @@ enum Commands {
     Landing {
         #[command(subcommand)]
         action: LandingCmd,
+    },
+    /// Single on-call registry: who holds merge / outbound / cross-window rights
+    Oncall {
+        #[command(subcommand)]
+        action: OncallCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum OncallCmd {
+    /// Go on call from this worktree (at most one on-call window at a time)
+    Claim {
+        /// SendMessage address of this window (session name or a stable prefix)
+        #[arg(long)]
+        session: String,
+        /// Lane id; defaults to the lane registered for this worktree
+        #[arg(long)]
+        lane: Option<String>,
+        #[arg(long, default_value = "")]
+        note: String,
+        /// Take over from the window currently on call (handover, leaves a trace)
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Who is on call, since when, and at which address (any window may read)
+    Status {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Is *this* window the on-call one
+    Whoami {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Which lane owns a path — the on-call window's "reroute to whom" lookup
+    Route {
+        /// Repo-relative or absolute path
+        #[arg(long)]
+        path: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Prove the on-call window is still there (activity through the guard does this automatically)
+    Heartbeat {
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// Go off call; the routing gate fails open again
+    Release {
+        /// Release someone else's registration (closed window / handover)
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
     },
 }
 
@@ -134,9 +210,12 @@ enum WorktreeCmd {
         goal: String,
         #[arg(long)]
         base: Option<String>,
-        #[arg(long = "owns", required = true)]
+        /// Owned path prefix; repeat the flag or pass a comma-separated list.
+        /// A path containing a literal comma needs git quoted form, e.g. --owns '"a\054b.md"'
+        #[arg(long = "owns", required = true, value_delimiter = ',')]
         owns: Vec<String>,
-        #[arg(long = "depends-on")]
+        /// Lane id this lane waits on; repeat the flag or pass a comma-separated list
+        #[arg(long = "depends-on", value_delimiter = ',')]
         depends_on: Vec<String>,
         /// Queue the lane as parked (does not count toward the active-lane cap)
         #[arg(long)]
@@ -153,14 +232,40 @@ enum WorktreeCmd {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
-    /// Show all worktrees, boundaries, drift, dependencies, and reclaim class
+    /// Redivide an existing lane in place: goal, owns, branch, base, or status
+    Edit {
+        /// Lane id; defaults to the lane registered for the current worktree
+        #[arg(long)]
+        id: Option<String>,
+        #[arg(long)]
+        goal: Option<String>,
+        /// Replacement boundary set; repeat the flag or pass a comma-separated list.
+        /// A path containing a literal comma needs git quoted form, e.g. --owns '"a\054b.md"'
+        #[arg(long = "owns", value_delimiter = ',')]
+        owns: Vec<String>,
+        /// New branch name; must resolve to an existing ref
+        #[arg(long)]
+        branch: Option<String>,
+        /// New base ref; re-pins the recorded base sha
+        #[arg(long)]
+        base: Option<String>,
+        /// Re-register the lifecycle state, bypassing the transition graph:
+        /// active, blocked, ready, landed, or parked. Repair door for a stale
+        /// registration, e.g. a reused worktree still booked as landed while a
+        /// session writes in it. All other status guards still apply.
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+    },
+    /// One line: `ok`, or which other worktree holds the same uncommitted file
     Status {
         #[arg(long)]
         json: bool,
         #[arg(long)]
         repo: Option<PathBuf>,
     },
-    /// Exit non-zero on unregistered worktrees, boundary violations, or lane overlap
+    /// Exit non-zero only when this worktree's uncommitted file is also uncommitted in another worktree touched within 7 days
     Check {
         #[arg(long)]
         json: bool,
@@ -279,6 +384,17 @@ fn main() {
             print!("{out}");
             c
         }
+        Commands::Drift { json, strict, repo } => {
+            let here =
+                repo.unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            let (code, out) = drift::run(&here, json, strict);
+            if code == 0 {
+                print!("{out}");
+            } else {
+                eprint!("{out}");
+            }
+            code
+        }
         Commands::AuditLint { file } => {
             let (c, out) = audit_lint::lint_file(&file);
             print!("{out}");
@@ -374,6 +490,35 @@ fn main() {
                 let cwd = cwd
                     .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
                 let (c, out) = worktree::set_lane_status(&cwd, id.as_deref(), &status);
+                if c == 0 {
+                    print!("{out}");
+                } else {
+                    eprint!("{out}");
+                }
+                c
+            }
+            WorktreeCmd::Edit {
+                id,
+                goal,
+                owns,
+                branch,
+                base,
+                status,
+                cwd,
+            } => {
+                let cwd = cwd
+                    .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+                let (c, out) = worktree::edit_lane(
+                    &cwd,
+                    &worktree::EditOpts {
+                        id,
+                        goal,
+                        owns,
+                        branch,
+                        base,
+                        status,
+                    },
+                );
                 if c == 0 {
                     print!("{out}");
                 } else {
@@ -503,6 +648,43 @@ fn main() {
                         quiet_hours,
                     },
                 ),
+            };
+            if c == 0 {
+                print!("{out}");
+            } else {
+                eprint!("{out}");
+            }
+            c
+        }
+        Commands::Oncall { action } => {
+            let default_cwd = || env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let (c, out) = match action {
+                OncallCmd::Claim {
+                    session,
+                    lane,
+                    note,
+                    force,
+                    cwd,
+                } => oncall::claim(
+                    &cwd.unwrap_or_else(default_cwd),
+                    &session,
+                    lane.as_deref(),
+                    &note,
+                    force,
+                ),
+                OncallCmd::Status { json, cwd } => {
+                    oncall::status(&cwd.unwrap_or_else(default_cwd), json)
+                }
+                OncallCmd::Whoami { json, cwd } => {
+                    oncall::whoami(&cwd.unwrap_or_else(default_cwd), json)
+                }
+                OncallCmd::Route { path, json, cwd } => {
+                    oncall::route(&cwd.unwrap_or_else(default_cwd), &path, json)
+                }
+                OncallCmd::Heartbeat { cwd } => oncall::heartbeat(&cwd.unwrap_or_else(default_cwd)),
+                OncallCmd::Release { force, cwd } => {
+                    oncall::release(&cwd.unwrap_or_else(default_cwd), force)
+                }
             };
             if c == 0 {
                 print!("{out}");

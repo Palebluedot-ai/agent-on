@@ -59,6 +59,8 @@ git worktree add -b feat/142-auth-api .worktrees/auth-api origin/main
 
 若项目声明的 default branch 不是 `main`，替换为实际名字。无法 fetch 时不能声称 base 是 fresh；先报告离线状态，再由人决定是否接受旧 base。
 
+**从隔离会话派子代理并行改代码，让宿主给每个子代理开树**（Claude Code：Agent 的 `isolation: "worktree"`）。别自己 `git worktree add` 再把代理派进去——宿主的隔离钉在派出者会话上，和代理 cd 到哪里无关。Dartify 2026-09-24 三路并行：手工开好三棵树再派代理，三个全撞墙（Write/Edit 被拒「Edit the worktree copy of this file instead of the shared-checkout path」；`cd <别的树> && git …` 被拒；`EnterWorktree` 报成功后连 `pwd` 都被拒），三路成了三份躺在 scratchpad 里的草稿；改用 `isolation: "worktree"` 后，同一天五条代理都跑通了 git / 测试 / `gh pr create`。代理的树从派出者当前 HEAD 长出来：派之前先把自己钉到 `origin/<default>`（`git switch --detach origin/<default>`），免得代理从记账分支头上起步；代理开工第一步用 `pwd` + `git log -1` 自证。宿主换了隔离模型，这条作废。
+
 创建后进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane：
 
 ```bash
@@ -73,11 +75,67 @@ agent-on worktree claim \
 有前置轨时加 `--depends-on contract-v2`。claim 会拒绝：
 
 - 同一个 worktree 已有合同；
-- 与任何 `active|blocked|ready` 轨道的文件域重叠；
+- 与任何**仍持有边界**的轨道的文件域重叠（哪些轨仍持有，见下节）；
 - 依赖 ID 不存在；
 - `owns` 是仓库根、绝对路径或含 `..` 的模糊边界。
 
 **边界按路径段匹配**：`app` 包含 `app/pages/a.ts`，但不包含 `apple/a.ts`。能拆到文件就别只写大目录；两个目标必须改同一共享文件时，不并行，排队给同一 owner。
+
+## 谁还持有边界：三档，按事实判
+
+互斥闸只有一个用途——**拦住两条同时在写同一个文件的轨**。为别的东西亮红灯不是谨慎，是噪音；**恒红的闸不含任何信号**。所以「这条轨还持不持有边界」不看登记，看事实，分三档：
+
+| 档 | 什么情况 | 闸持有的边界 |
+|---|---|---|
+| **契约（contract）** | `status` 是 `active`/`blocked`/`ready` | **`owns` 全量**——活轨会回来，它有权预留还没写的地盘 |
+| **在写（still-writing）** | 登记成 `landed`/`parked`，但工作区脏、或有 base 没收进去的 commit，**且这些改动在休眠窗口内被碰过** | **只有它实际有改动的那些路径**——过期的登记预留不了任何东西 |
+| **休眠（dormant）** | 同上有未落地改动，但**超过休眠窗口没人碰过** | **不持有任何边界**。它的风险不是「有人跟你抢着写」（没有第二个会话），而是「孤本丢了」——那归 `gc` 的 `rescue` 管 |
+
+三档合起来解决的是同一个病：**闸把「有人正在写」和「有东西没救走」当成了同一个事实**。抢救库存天然长期存在、天然互相重叠（同源脏状态复制在几棵废弃树里），拿它驱动互斥闸的输出，闸必然恒红。
+
+休眠的判据是**工作本身的年龄**，不是目录的年龄：取「未落地改动所涉文件的最新 mtime」与「base 没收进去的最新 commit 时间」两者中的大者。所以只读盘点（`status` / `check` 自己跑的 git 命令）不会把一棵化石树刷成「刚碰过」。
+
+窗口默认 **7 天**，在 `<common git dir>/agent-on/config.json` 里改：
+
+```json
+{ "dormant_after_days": 14 }
+```
+
+**`0` 表示关掉休眠**（在写的轨永远保留事实边界）——配错只会让闸更紧，不会更松。同理，工作区脏但 git 描述不了的树按「在写」处理，闸 fail-closed。
+
+**活轨的登记不过期**：`active` 仍表示「claim 时说了还回来」。这只约束 `claim` / `edit` 拒不拒重叠的 owns，**不约束 commit**。commit 不读这份登记。
+
+## 闸只拦真冲突（2026-09-24 起；不读 lane 登记）
+
+上面三档仍给 `claim` / `edit` 用。**commit / push 不读它们。** 会拦提交的只有一条：
+
+> **本 worktree 的某个未提交文件（staged / unstaged / untracked），在另一棵 worktree 里也是未提交的，而且那一份在 7 天内被人碰过。** 人读输出一行 `blocked: <路径> is also uncommitted in <另一棵树>`。没撞上，hook 静默，`status` / `check` 打 `ok`。
+
+人读的 `status` / `check` 不再打印下面这些行。它们还在 `--json` 里，不挡 commit：
+
+| 行 | 含义 | 出口（都在被拦者权限内、零删除） |
+|---|---|---|
+| `UNREGISTERED` | 没登记的 worktree。它不持有任何边界，commit 与别人一样按上面那一条判 | 需要预留地盘时再 `claim`；不需要就不用管 |
+| `OUT-OF-BOUNDS` | 改动在自己 owns 之外，但**无人持有**那个路径 | `worktree edit --owns` 把 owns 补真；不补也不拦 |
+| `OVERLAP` | 两条轨**纸面** owns 相撞（只可能来自 JSON 直改或 `edit --status`） | `worktree edit --owns` 理清；闸只拦实际写入 |
+| `MISSING` | 活登记指向的 worktree 已经不在 | `worktree forget --id X`（任何状态都能 forget——树都没了，守不住任何东西） |
+| `RESCUE-DEBT` | 休眠的未落地改动 | 救走它（push / commit / 开 PR）；改登记清不掉 |
+
+`check` 非零只剩两种成因：本树有上面那条 `blocked`，或本树审计跑不起来（`error`）。别的树互相撞，不记到这棵树上。`--json` 仍带全场登记，那些字段不挡 commit。窗口与 `claim` 休眠共用 `dormant_after_days`（默认 7；`0` 表示同一路径一律算新鲜）。
+
+三条设计约束，改判据时别动：
+
+1. **只看未提交改动，不看相对 base 的已提交发散。** 已提交的东西在它提交那一刻已经过过闸（或被人有意 `--no-verify` 跳过）；死分支落后一百多个提交的旧发散不该跟着每一次新提交跑。这一条同时消掉「squash 后永远 changed N」与「主树本地 merge 完 push 被自己刚合的 lane 拦住」两类假红。
+2. **只算到当事那棵树头上。** PreToolUse、Git hook、`status`、`check` 都只回答「这棵树能不能提交」。别的树互相撞，不记到这棵树上。
+3. **超过窗口没人碰的那一份不参与。** 判据是那个文件的 mtime，不是 lane 状态，登记了没有也不看。
+
+merge / squash / cherry-pick / rebase 进行中照旧一律放行。
+
+**被拦时对方停在 rebase 半路（2026-09-26 Dartify 实测）**：「进行中放行」放行的是**正在 rebase 的那棵树自己**。它停在半路没人管时，重放到一半的文件在它的树里都算「未提交」，会挡住所有要改这些文件的树——Dartify SE-C1b 的四笔提交因此被拦了约 3 小时，对方会话的 rebase 停在 2/3、人已经走了，冲突起因常常是我们刚合进 main 的 PR。**怎么认**：读 common git dir 下 `worktrees/<名>/rebase-merge/msgnum` 与 `end`（第几步 / 共几步）和它们的 mtime，不用碰对方的树（隔离会话连 `git -C` 看对方的树都会被拒）。**出口**：① 你那份是可重跑生成的（台账、仪表盘），`restore` 掉自己那份，等对方收尾后重跑；② 转交对方会话（值守在班就走值守）收尾或 `rebase --abort`；③ 对方超过 7 天没动，闸自己放开。**别替对方 abort**——那是别人的工作区。拦截文案直接报出对方的 rebase 进度，还没实现（下一条 CLI 轨）。
+
+**全仓共写的热点文件，生成、add、commit 放进同一条命令**：`docs/state/progress.yaml`、`dashboard.html` 这类每条 PR 都要记一笔的台账，留一个未提交的窗口，就会挡住别人、也会被别人挡住（Dartify 同一天两次：CI 会话回填 #289 的编号没提交，收官记账就被拦）。一条命令做完，不留窗口；被拦时 `restore` 掉自己那份（可重跑，零损失），别让两边互锁。
+
+为什么推翻 2026-08-17「连坐维持」：桌面宿主每开一个会话就自建一棵不登记的树，「全场有一棵没登记的树」是常态，连坐把常态变成常红——而**恒红的闸等于没有闸**。账实一致由 `status` / `check` 的报告面继续保证（该报的一行不少），只是不再拿别人的 commit 当抵押品。决策全文见 [snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md](../snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md)。
 
 ## 机械执行层：并行模式一次安装
 
@@ -90,8 +148,8 @@ agent-on worktree hooks status
 
 安装器把 `pre-commit` / `pre-push` 放在 common git dir 的 Agent-On 专属目录，并设置仓库级 shared `core.hooksPath`，所以 primary 与所有 linked worktree 同时生效：
 
-- 两个 hook 都跑严格 `worktree check`；未登记、边界重叠、实际 diff 越出 `owns` 或审计 unknown 都 fail-closed；
-- `pre-commit` 额外阻断“仍有 `active|blocked|ready` 执行轨时，primary 主树的普通提交”；当 Git 实际调用 `pre-commit` 时，merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
+- 两个 hook 都只判**本树**：本树未提交文件与另一棵树 7 天内改过的同一未提交文件相撞 → 拦；本树审计跑不起来 → 拦；没撞上 → 静默；
+- merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
 - 成功时静默；失败时打印原因与下一条修复命令；
 - 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；
 - `status` 会验配置与内容漂移；`uninstall` 只移除仍与安装指纹一致的 Agent-On 资产，漂移时整组不动。
@@ -127,12 +185,18 @@ agent-on worktree status --json
 agent-on worktree check
 ```
 
-以下任一成立即非零退出：
+以下任一成立即非零退出（2026-09-14 起只剩这两条）：
 
-- 非主 worktree 未登记；
-- 活跃轨道边界重叠；
-- 某轨实际变更落在 `owns` 外；
-- 活跃记录指向的 worktree 已消失或审计无法完成。
+- 某棵树的**未提交**改动落进了另一条活轨的 `owns`（`CONFLICT`）；
+- 审计无法完成（`ERROR`）。
+
+未登记树、纸面重叠、无人持有的越界、指向已删树的登记，都只报不红（对照表见「闸只拦真冲突」）。休眠轨同样**每次都报，永不静默**：
+
+```text
+RESCUE-DEBT: d35-pr117-legacy: 89 unrescued change(s) untouched for over 7 day(s); boundary released to the gate, reclaim stays rescue
+```
+
+这一行是**债，不是红灯**——理由是它**改登记清不掉**，只有真把那些改动 push / 提交 / 开 PR 救走才会消失。把清不掉的东西挂在红灯上，红灯就失去意义。它的回收分类仍然是 `rescue`，仍然不许删。
 
 `check` 是 Git hook 与 PreToolUse 共用的底层审计，也可独立运行做诊断。安装器不擅自覆盖用户 hook；冲突未组合前，AGENTS 与派工词必须把手工 `check` 列为提交前命令。
 
@@ -230,6 +294,74 @@ agent-on worktree forget --id auth-api
 - 必须人工或获得目标明确的用户授权：删除 worktree 目录、删除本地/远端分支、`--force`、进入别的 worktree add/commit、代另一轨处理 dirty 内容。
 - 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
 - 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。
+
+## 别人的 lane 谁能修：按破坏性分档，不按所有权
+
+闸拦住你的时候，挡路的登记常常属于另一条轨。第一个要回答的问题是「谁有权修它」——答案**不是**「它的主人」，因为最常见的情形恰恰是**它没有主人在家**：轨已 `landed`、PR 昨天就合了、那个会话不会再回来。等它 = 等一个不会来的人。
+
+判据是**这个动作破不破坏东西**，不是**这条轨归谁**：
+
+| 动作 | 性质 | 谁能做 |
+|---|---|---|
+| 重钉别的轨的 `base`（`worktree edit --id X --base <ref>`） | 改登记：幂等、可回滚、不碰它一个字节的内容 | **被它挡住的任何会话，自己做**，不必等人 |
+| 把别的轨的 `status` 改回事实（`--status active` / `parked`） | 同上 | 同上 |
+| 给未登记的树补占位登记（`claim --cwd <path>` + `set-status parked`） | 同上 | 同上 |
+| **删**别的轨的 `owns` | **破坏**：只把「占着」变成「越界」，更糟 | **谁都别做**——它不是「更彻底的修复」，是错的操作 |
+| 删 worktree 目录 / 删本地或远端分支 / `--force` | 破坏且不可逆 | **只有人**，且要目标明确的授权 |
+| 代它 commit / push / 解冲突 / 处理 dirty | 改内容，不是改登记 | **只有它自己的会话**；真缺陷带证据打回作者 |
+| 改 `active`/`blocked`/`ready` 轨的登记 | 那条轨有人在家，登记是对它的承诺 | **别动**——缩自己的 `owns`，或把这件事交单给它 / 值守 |
+
+一句话记法：**登记是描述事实的，内容是干活的人的。描述与事实对不上，谁被它挡住谁就能改正；内容一个字节都不许替别人动。**
+
+这与「`gc` 是 report-only、删除保留给人」不矛盾：**重钉 base 不是删除**。把「不许删」推广成「不许碰」，就是把闸推成恒红——而且推的是人肉那一层，没有任何日志会记下来。
+
+**事故之后怎么写教训（三问，写歪了比不写更贵）**：碰红闸之后，新规矩必须过这三问，否则一次性事故会被固化成永久的过度收紧。①出事的是**哪一个具体动作**（不是「哪一类东西」）？②同一个目标下，**正确的动作**是什么？③新规矩会不会把那个正确动作也一起禁掉——会，就是学歪了，重写。实测反例：某会话删了别的轨的 `owns` 把全仓 guard 弄红，学到的却是「凡涉他人 lane 一律先问」；正确的教训是「删 owns 是错的操作，重钉 base 才是对的」。前者禁掉了唯一正确的出口，于是下一次它被同一个闸拦住时只能去问人。
+
+## 每条诊断行必须自带出口
+
+`check` / `status` 打出来的每一行，读它的人得能直接行动。所以每行必须凑齐三件：
+
+| 件 | 说明 | 反例 |
+|---|---|---|
+| **谁能清** | 具名到「读到这行的人」或某个明确角色，不许无主语 | 「留给各自会话」——那些会话不在家，等于没人 |
+| **清的命令** | 一条可复制、非破坏、**在被拦者权限内**的命令 | 只说 re-register，不给命令；或给的命令被 auto-mode 拦住 |
+| **清不掉时为什么** | 改登记就能清的叫**漂移**，改登记清不掉的叫**债**——两者不许长成一个样 | 把债挂在红灯上，红灯就失去意义 |
+
+现状对照：
+
+- `RESCUE-DEBT` ✅ 三件齐：明说是债、明说改登记清不掉、明说只有真把改动救走才消失。
+- `OUT-OF-BOUNDS` ✅ 出口见下面「重划与死锁三解」。
+- `STATUS-DRIFT` 与 `overlaps … lane …` ⚠️ v0.19.x 之前只说了「谁挡你」，没说「你怎么过」，于是被拦的会话只剩两条路：等一个不会来的人，或者去问用户（源流：2026-08-20 用户实测）。现已在两条消息里补齐——「被它挡住的任何会话可以自己修 + 具体命令 + 这是修登记不是删除」——并**成对**补上反向的一句：活轨的登记不许动。成对是必需的，只补修复出口会被读成「我可以改任何人的 lane」。
+
+**新增任何 FAIL / WARN 文案时，这三件是验收条件**，不是文风建议。测试见 `cli/tests/worktree_gate_exits.rs`。
+
+## 值守与 lane 的分工
+
+lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管**远端公共态**（main、PR 队列、CI、账本的在班执行）——互补不重叠：
+
+- 值守平时是只读会话，不 claim；要写文件（值守文档、账本）时按最小 owns claim 自己的轨。
+- 跨 lane 追平一律走托管平台服务端 API（`gh api -X PUT …/update-branch`），不本地 checkout / push 别人的分支——本地推别人分支会被 guard 正确拦下（2026-08-16 实测），服务端 API 与 lane 边界零冲突。
+- 值守不进任何执行轨的 worktree、不代解冲突、不代修缺陷；真缺陷带证据打回作者会话。
+
+接入与模板见 [babysit/](babysit/README.md)。
+
+## 重划与被拦时怎么办(lane 记录是文件态 canonical)
+
+**重划入口 = `agent-on worktree edit`**(`--id` 定位,缺省当前 worktree 的 lane;可改 goal / owns / branch / base,`--base` 会重钉 base_sha;改 owns 走与 claim 相同的活跃轨重叠闸,parked 轨重叠容忍),`claim` 仍拒绝已存在 lane 与撞活跃轨的重划。无 CLI(装机版 ≤0.12.1)或被重叠闸拦住时,fallback = 直接编辑 common git dir 的 `agent-on/lanes/<id>.json`(goal / owns / branch / base_sha 写真值),改完 `agent-on worktree check` 验证——这是文档化的运维姿势,不是绕闸(lane 记录本身写着「复活时重划」)。
+
+**2026-09-24 起，commit 被拦只说明另一棵树里有同一份新鲜的未提交文件。** 出口是到那棵树里把这个文件提交、还原，或它已经超过 7 天没人碰（闸自己放开）。`set-status parked` 和改 `owns` 不再是提交的出口。登记还在，给 `claim` / `edit` 用，不挡 commit。
+
+仍然成立的一条:**claim 拒绝重划已存在 lane** → `worktree edit` 改真值,再 check 验证(无 CLI 时直改该 lane JSON)。PreToolUse guard 在命令执行**前**评估——任何登记修复与 `git commit` 必须拆成两条命令,合在一条里修复永远跑不到。
+
+**陈年树与带独有提交的树(2026-09-05 inbox-radar 实测三条)**:
+
+> 2026-09-26 注:这三条实测于 pin v0.5.1 的老闸。v0.20.0 起闸只看未提交改动、不看相对 base 的发散,v0.22.0 起 commit 不读 lane 登记——**第 2 条已经没有用处**(留作老 pin 的现场参考);第 1 条只在你要给陈年树记账时用得上;第 3 条(一树一条命令)是宿主分类器的行为,照旧成立。
+
+- **detached HEAD 的树不能直接 claim**:`claim --parked` 会报「detached HEAD cannot claim a lane; create a branch first」。先 `git checkout -b stale/<lane-id>` 打个分支标签,再 `claim --cwd <path> --parked` 即过——标签只是给它一个可以被引用的名字,不是新工作。
+- **带独有提交的树把 base 重钉自身 HEAD**:`--base <自身 HEAD>` 之后 `check` PASS。这是**完解不是绕闸**:它让「相对 base 落后」这个判据指向它真实的起点,而不是指向一条它从未从那里长出过的线(12 / 72 个独有提交的树均按此通过)。
+- **批量删除会被分类器拦**:把 4 个 `worktree remove --force` 与 `branch -d` 合在一条命令里,分类器按「一条命令只做一件有状态的事」整条拦下——**一树一条命令**逐条执行才通过。与上面「修复与提交分两条」是同一条纪律的两个面;删除本身仍只归人。
+
+**已知雷**:0.12.x 装机版的 `claim --owns "a,b,c"` 逗号串会被整串存成单个 glob,所有改动文件全判 OUT-OF-BOUNDS——旧版多路径必须**重复 `--owns` 传参**。现已修复为逗号自动分列(claim 侧 PR #6,edit 侧同款;字面逗号路径用 git 引号八进制 `"a\054b.md"`);owns 写错用 `worktree edit --owns` 改,不再只有 JSON 直改一条路。生命周期转移有向:`parked→landed` 与 `active→landed` 均非法,合法链 `active→ready→landed` / `parked→ready→landed`。
 
 ## 失控时的恢复顺序
 

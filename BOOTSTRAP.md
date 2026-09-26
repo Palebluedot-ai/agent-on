@@ -19,6 +19,8 @@
 
 判定：问 3 任一为是 → **L 全装**；有真实用户或持续迭代 → **M 标准**；都不是 → **S 轻装**。**默认心态偏 S**：拿不准取低档——**允许升档、不许静默降档**（升档协议见 boot/adopt.md §二）；S 档项目开始碰真实数据的那天，就是升档日。别为了「看起来专业」默认播 M/L。
 
+> **第四问（条件触发，2026-09-14 aster-agent 实证）**：项目依赖**第三方控制的测试环境**吗（交易所 testnet / 沙箱 / staging）？依赖就**当场用只读方式验证拿得到测试资源**（水龙头、沙箱 key、配额）——拿不到 → **按真实环境定档**，不许以「有测试网」为由默认 S 档。实证：aster 测试网水龙头页面明写白名单制、2025-12-22 已截止（36 万选 1000），升档当天「有测试网」这个假设当场作废，改走主网小额；定档三问答的都是**你这边**的风险，第四问答的是**别人给你的环境会不会消失**。
+
 | 档 | 播种 | 不播 |
 |---|---|---|
 | **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md）+ thoughts-and-ideas.md | phase 卡、progress.yaml、契约、run 台账、dashboard 全免 |
@@ -99,9 +101,9 @@
 
 **单 agent 能干完就别上多 agent**（上下文边界优先）。确要并行时走六步协议：冻契约 → 轨道 = 目录 + git worktree 物理隔离 → 各轨 Fake 对方 → 契约测试当裁判 → 单一状态写者 → 先契约后实现合流。
 
-**第二个写代码的会话出现时，启用轨道控制面**（只读会话不算）：主树先 clean 并退为控制/合流面；每条写轨从 fresh `origin/<default>` 建独立 worktree，开工前跑 `agent-on worktree claim --id ... --goal ... --base ... --owns ...`。仓内首次启用时跑一次 `agent-on worktree hooks install`，shared `pre-commit/pre-push` 会覆盖全部 linked worktree；有 Claude/Codex plugin 时，PreToolUse 也会在 Agent 发出 commit/push 前跑同一 lane/owns 闸。衍生功能不得静默膨胀当前轨：可独立则新建 lane，并用 `--depends-on` 排顺序；暂不做则进想法箱/暂停项。全场与安装态分别看 `agent-on worktree status` / `agent-on worktree hooks status`；需要每日 03:30 的 report-only 盘点才显式用 `hooks install --daily-gc`。动态 `candidates` 只供人工裁决，永不自动删除。完整模式：`kit/worktree-control-plane.md`。
+**第二个写代码的会话出现时，各用一棵 worktree，不必先登记。** commit / push 只在一件事上停：本树某个未提交文件，另一棵树里也未提交，而且那一份 7 天内被人碰过。没撞上就静默通过。`agent-on worktree status` 一行，`ok` 或被哪棵树挡住。`claim` / `owns` 仍可记账，不挡提交。仓内要装 Git hook 时跑一次 `agent-on worktree hooks install`（Claude/Codex 的 PreToolUse 跑同一条规则）。需要每日 03:30 的 report-only 盘点才显式用 `hooks install --daily-gc`。完整模式：`kit/worktree-control-plane.md`。多会话 PR 排队成常态或分支保护开 up-to-date 硬门时，按 `kit/babysit/SETUP.md` 三步开值守合并调度（合并权中央化，功能会话开 PR 即交付）。
 
-模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）、`kit/worktree-control-plane.md`（多会话边界/依赖/回收）。换新模型先跑 `bench/capability-probe.md` 定档。
+模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）、`kit/worktree-control-plane.md`（多会话边界/依赖/回收）、`kit/babysit/`（值守合并调度：PR 排队时合并权中央化）。换新模型先跑 `bench/capability-probe.md` 定档。
 
 ## 6. 沉淀纪律（迭代闭环的采集站，机制见 playbook/iteration-loop.md）
 
