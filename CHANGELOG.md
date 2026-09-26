@@ -4,7 +4,7 @@
 
 ## [未发布]（自 v0.23.2 起攒）
 
-（空）
+- **README 多会话段改掉连坐旧说法**：「3. 初始化之后」里 `hooks install` 那段还写着 v0.20 之前的闸——未登记、边界重叠、实际 diff 越界在写入点直接失败，有活跃执行轨时主 worktree 的普通 commit 也被挡。改成照 kit `worktree-control-plane.md`「闸只拦真冲突」的现行判据：会拦提交的只有一条（本树某个未提交文件在另一棵树里也未提交、且那一份 7 天内被碰过），`UNREGISTERED` / `OVERLAP` / `OUT-OF-BOUNDS` / `MISSING` 只进 `--json`。顺手删掉「clean merge 由后续 `pre-push` 兜底」：闸只看未提交改动，已提交的 merge 它看不见（kit 同节设计约束第 1 条）。判据与代码不动，对照的是 `cli/src/worktree.rs` 的 `gate_for`、`worktree_hooks.rs` 的 `run_hook`、`guard.rs` 的 PreToolUse 调用。
 
 ## v0.23.2（2026-09-26）——worktree-scope core.hooksPath 与共享路径相同判健康并归一化
 

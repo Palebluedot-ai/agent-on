@@ -130,7 +130,7 @@ agent-on landing status
 agent-on landing plan
 ```
 
-一次 `hooks install` 会把严格检查接到 shared `pre-commit/pre-push`：未登记、边界重叠、实际 diff 越界会在写入点直接失败；有活跃执行轨时，主 worktree 的普通业务 commit 也会被挡。Git 实际触发 `pre-commit` 的 squash/冲突收口等控制态会自动放行；clean merge 本身不触发这两个 Git hooks，仍由合流清单与后续 `pre-push` 兜底。Claude/Codex plugin 再把同一检查前移到 Agent 的 PreToolUse。可选调度只执行 `gc --dry-run --json`，输出动态 `candidates`，**不自动删**。完整模式见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)。
+一次 `hooks install` 把 `pre-commit` / `pre-push` 放进 common git dir、设成仓库级 shared `core.hooksPath`，primary 与所有 linked worktree 同时生效。两个 hook 都只判**本树**，会拦提交的只有一条：**本 worktree 的某个未提交文件（staged / unstaged / untracked），在另一棵 worktree 里也是未提交的，而且那一份在 7 天内被人碰过**——人读输出一行 `blocked: <路径> is also uncommitted in <另一棵树>`；本树审计跑不起来也拦（`error`）；没撞上，hook 静默，`status` / `check` 打 `ok`。lane 登记只给 `claim` / `edit` 用，commit / push 不读它：`UNREGISTERED`、`OVERLAP`、`OUT-OF-BOUNDS`、`MISSING` 只留在 `--json` 里，不挡 commit；主 worktree 与没登记的树都和别人一样按这一条判。merge / squash-merge / cherry-pick / revert / rebase 控制态自动放行；clean `git merge --no-ff` 走 `pre-merge-commit`，不调用这两个 hook，所以 clean merge 本身仍须走控制轨合流清单。Claude/Codex plugin 的 PreToolUse guard 在 Agent 发出 `commit/push` 前跑同一条判据。可选调度只执行 `gc --dry-run --json`，输出动态 `candidates`，**不自动删**。判据与三条设计约束见 [kit/worktree-control-plane.md](kit/worktree-control-plane.md)「闸只拦真冲突」。
 
 多 PR 并行时，`landing` 三条命令是合流协调面：所有检查结果绑定 `(PR head SHA, base SHA)`，两者未变直接 SKIP 复用；main 每合入一条只重查有依赖边或文件重叠的 PR。`status` 首页只给五个数（现在做 / 下一批 / 等待中 / 需抢救 / 可回收），全部 worktree 自动落进 ACTIVE/WAITING/PARKED/RESCUE/REAPABLE 五类之一；活跃轨有上限（默认 3，`--parked` 排队不占额）。v1 严格只读：不驻后台、不自动 merge、不自动删树。完整数据模型与分类规则见 [kit/landing-control-plane.md](kit/landing-control-plane.md)。
 
