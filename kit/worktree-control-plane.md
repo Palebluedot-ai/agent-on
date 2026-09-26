@@ -155,9 +155,9 @@ agent-on worktree hooks status
 - 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；
 - `status` 会验配置与内容漂移；`uninstall` 只移除仍与安装指纹一致的 Agent-On 资产，漂移时整组不动。
 
-Git 自带的人工 `--no-verify` 仍可绕过 Git hook，产品不伪称不可绕过。Claude/Codex plugin 的共用 PreToolUse guard 会在 Agent 发出 `commit/push` 前再跑同一 lane/owns 审计；非 git 与 git 读命令立即放行。Codex 非 managed hook 首次需在 `/hooks` 检查并信任，Agent-On 不改用户 home。
+Git 自带的人工 `--no-verify` 仍可绕过 Git hook，产品不伪称不可绕过。Claude/Codex plugin 的共用 PreToolUse guard 会在 Agent 发出 `commit/push` 前再跑同一条判据（本树未提交文件与另一棵树 7 天内碰过的同一未提交文件相撞，或本树审计跑不起来，才拦；不读 lane / owns），拦下时打印同样的 `blocked:` / `error:` 行；本地 merge 那条只在 Git pre-push 里（它要 git 给的待推范围）。其余 git 写命令只过跨仓检查，非 git 与 git 读命令不过这道闸。Codex 非 managed hook 首次需在 `/hooks` 检查并信任，Agent-On 不改用户 home。
 
-**Git hook 的边界也要诚实**：clean `git merge --no-ff` 走 `pre-merge-commit`，不会调用本版安装的 `pre-commit/pre-push`；所以 clean merge 本身仍须走控制轨合流清单，随后 push 会再过严格闸。若人工用 `--no-verify` 把越界提交写进执行轨，且 lane 的 `base` 错填成会随 merge 移动的本地 `main`，后续审计可能失去稳定对照。`base_sha_at_claim` 是留证，v0.12.1 的边界 diff 仍跟随 `base` ref；合同必须使用 fresh、稳定的 `origin/<default>`，不把逃生口当工作流。
+**Git hook 的边界也要诚实**：clean `git merge --no-ff` 走 `pre-merge-commit`，不会调用本版安装的 `pre-commit/pre-push`，PreToolUse 也只在 `commit` / `push` 上跑闸；所以 clean merge 本身仍须走控制轨合流清单。随后推默认分支时，这几道闸也不会回头审它：同文件闸只看本树此刻的未提交改动（设计约束 1），pre-push 的本地 merge 检查不管推默认分支本身。`--no-verify` 跳过的判定事后不会补跑，它是逃生口，不是工作流。lane 的 `base` 不参与撞车判定；它喂的是 `claim` / `edit` 的三档、`set-status ready` 的越界检查和 `--json` 盘点（`changed_files` / `out_of_bounds` / `base_ahead` / `unique_commits` / `reclaim`）：错填成会随 merge 移动的本地 `main`，这些对照就不稳；填成解析不了的 ref，那棵树的审计跑不起来，按 `error` 拦。`base_sha_at_claim` 只是留证，这些 diff 跟随 `base` ref；合同照旧用 fresh、稳定的 `origin/<default>`。
 
 无法安装 shared hook 时，`agent-on worktree check` 仍是手工 fallback；必须保留在提交/合流清单里。回滚：
 
@@ -174,9 +174,9 @@ agent-on worktree status --json
 
 多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；本页的 lane 合同与边界闸是它的地基。
 
-它同时报告：未登记 worktree、活跃边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类。
+人读的 `status` 只回答「这棵树能不能提交」：没撞上打 `ok`；撞上了每个路径一行 `blocked: <路径> is also uncommitted in <另一棵树>`（对方停在 rebase 半路时多一行 `note:`）；本树审计跑不起来打 `error:`。未登记 worktree、边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类只在 `status --json` 里（`unregistered_worktrees` / `overlaps` / `dependency_blocks` / `lanes[]`），不挡 commit。
 
-- **会话握手 / 转写前**：跑 `status`，确认 cwd、branch、lane 与写者数量；第二个写者出现就触发上面的并发门。
+- **会话握手 / 转写前**：跑 `status --json`，确认 cwd、branch、lane 与写者数量（人读 `status` 只答能不能提交）；第二个写者出现就触发上面的并发门。
 - **每天一次**：手工跑 `agent-on worktree gc --dry-run`；需要低摩擦定时报告时显式执行 `agent-on worktree hooks install --daily-gc`。这是动态盘点，不是删除任务。
 - **每次合流后**：远端 read-back，标记 `landed`，再跑一次 `status` + `gc --dry-run`，马上暴露可回收与待抢救项。
 
@@ -186,18 +186,20 @@ agent-on worktree status --json
 agent-on worktree check
 ```
 
-以下任一成立即非零退出（2026-09-14 起只剩这两条）：
+以下任一成立即非零退出（2026-09-24 起只剩这两条，只算本树）：
 
-- 某棵树的**未提交**改动落进了另一条活轨的 `owns`（`CONFLICT`）；
-- 审计无法完成（`ERROR`）。
+- 本树某个**未提交**文件，在另一棵树里也是未提交的，而且那一份 7 天内被人碰过（`blocked:`）；
+- 本树审计跑不起来（`error:`）。
 
-未登记树、纸面重叠、无人持有的越界、指向已删树的登记，都只报不红（对照表见「闸只拦真冲突」）。休眠轨同样**每次都报，永不静默**：
+别的树互相撞，不记到这棵树上。未登记树、纸面重叠、无人持有的越界、指向已删树的登记、休眠轨的抢救债，人读输出都不打，只在 `--json` 里，不红（对照表见「闸只拦真冲突」）。休眠轨在 `--json` 的 `rescue_debt` 里每次都报：
 
-```text
-RESCUE-DEBT: d35-pr117-legacy: 89 unrescued change(s) untouched for over 7 day(s); boundary released to the gate, reclaim stays rescue
+```json
+"rescue_debt": [
+  "d35-pr117-legacy: 89 unrescued change(s) untouched for over 7 day(s); boundary released to the gate, reclaim stays rescue"
+]
 ```
 
-这一行是**债，不是红灯**——理由是它**改登记清不掉**，只有真把那些改动 push / 提交 / 开 PR 救走才会消失。把清不掉的东西挂在红灯上，红灯就失去意义。它的回收分类仍然是 `rescue`，仍然不许删。
+这一条是**债，不是红灯**——理由是它**改登记清不掉**，只有真把那些改动 push / 提交 / 开 PR 救走才会消失。把清不掉的东西挂在红灯上，红灯就失去意义。它的回收分类仍然是 `rescue`，仍然不许删；人读输出里要看它，跑 `gc --dry-run`（脏树、没推走的独有提交都判 `RESCUE`）。
 
 `check` 是 Git hook 与 PreToolUse 共用的底层审计，也可独立运行做诊断。安装器不擅自覆盖用户 hook；冲突未组合前，AGENTS 与派工词必须把手工 `check` 列为提交前命令。
 
