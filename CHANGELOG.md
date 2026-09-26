@@ -2,10 +2,23 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.24.3 起攒）
+## [未发布]（自 v0.25.0 起攒）
+
+（空）
+
+## v0.25.0（2026-09-26）——tag-release --push 推到 origin 的默认分支，被拒不留本地 tag，有人在班时归值守
+
+> **minor**（用户 2026-09-26 在本会话拍板：`cli/src/**` 属硬停第 1 类）：不动手不坏——`--push` 从任何分支、任何 worktree 都推 origin 的默认分支，推送被拒不留本地 tag，有人在班时只有值守能跑。不算 patch，是因为 `--push` 推到哪里变了，用户该知道。没有 breaking，不需要迁移注记。
 
 - **`agent-on tag-release --push` 推到 origin 的默认分支**：原来推的是 refspec `HEAD`，在 worktree 的 session 分支（`claude/*`）上等于把这个分支按原名推上远端、再捎上 tag——main 不动，tag 落在一个不在 main 上的 commit 上。自举纪律 6 教每个会话跑的正是这条命令，而本仓会话大多在 worktree 里（v0.24.2 只好手工 `git push --atomic origin HEAD:main`）。现在复用 pre-push 那份默认分支解析（`origin/HEAD`，指向失效时退回 main / master），推 `HEAD:refs/heads/<默认分支>`，和 tag 仍是一条原子推送；认不出默认分支就在打 tag 之前拒绝。不带 `--push` 时打印的下一步改成 `git push --atomic origin HEAD:<默认分支> <tag>`，`--help` 补上 `--push` 的说明。**推送被拒会撤掉刚打的本地 tag**：改推默认分支之后，「默认分支已前进」成了常见的拒绝原因（并行会话几分钟发一版）；tag 是所有 worktree 共享的，没推出去的 tag 留在本地，别的会话的 `tag-release` 会从它往下数版本号，`check_docs.py` 的推荐 pin 闸也会认它。
 - **值守路由闸认得 `agent-on tag-release --push`**：它的 `git push` 在 CLI 进程里跑，PreToolUse 路由闸只看命令行，原来把整条命令当普通命令放行；上一条改完它会推默认分支，这个缺口不能留。现在归「合并」类（与 `git push origin <tag>`、`gh pr merge` 同类），有人在班时只有值守窗口能跑；不带 `--push` 只在本地打 tag，照旧放行。
+- **`boot/settlement.md` 机械助手一条改写**：原文警告「`--push` 推的是当前分支同名的远端分支，worktree 分支上别带」，改成现行行为；保留旧二进制的例外和认法（打印的下一步还是 `HEAD <tag>` 的就是旧的）。
+
+### 证据
+
+- 先写测试、看它因为对的原因红：会话 worktree 里 `--push`，remote main 停在 c1（`1ac5138`），tag 却落在 c3（`4567041`）；main 已被别的会话推进时推送照样返回 0（推去了同名分支）；下一步提示是 `HEAD v0.1.1`；没有 origin 时先打了 tag 才撞上 `fatal: 'origin' does not appear to be a git repository`，tag 留在本地；路由闸对 `agent-on tag-release … --push` 返回 `None`。改后全绿。撤 tag 另做变异检验：把 `tag -d` 换成 `tag -l`，「被拒不留本地 tag」那条即红。
+- `cargo test` 278 项全过（exit 0，新增 4 条），`cargo clippy --all-targets -- -D warnings` exit 0，`cargo fmt --check` exit 0，`intake-lint` 207 张卡通过，`python3 .github/scripts/check_docs.py` PASS。
+- 真二进制端到端（临时仓：裸远端 + clone + `claude/x` 的 linked worktree）：装着的 v0.24.3 二进制 `--push` 之后 remote main 停在 `436467a`、会话在 `d4d1fe4`，远端多出 `claude/x`；新二进制推完 main 等于 HEAD，没有多余分支；main 先被推进时退 1、远端不动、本地 `v0.1.1` 已撤；不带 `--push` 打印 `git push --atomic origin HEAD:main v0.1.1`。
 
 ## v0.24.3（2026-09-26）——一条 lane 的 base 解析不了，git 的报错不再印到每棵树上
 

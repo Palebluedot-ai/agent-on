@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.24.3`**（一条 lane 的 `base` 解析不了时，git 的 `fatal: Not a valid object name …` 不再印到每棵树的 `worktree status` / `check`、hook 与 guard 输出上：`is_ancestor` 改静默，布尔语义不变，那条 lane 自己的树照旧报 `error: … cannot compare with …`。v0.24.2 的 CI 文档闸、v0.24.1 的 kit 控制面页对齐、v0.24.0 的 doctor 执行面与 pre-push 本地 merge 检查、v0.22.0 的同文件 commit 闸照旧）。
+**最新推荐 pin：`v0.25.0`**（`agent-on tag-release --push` 从任何分支、任何 worktree 都推 origin 的默认分支，和 tag 一条原子推送；推送被拒撤掉刚打的本地 tag；有人在班时它归值守；装着的旧二进制仍推同名分支，`cargo install --path cli` 重装。v0.24.3 的 `is_ancestor` 静默、v0.24.2 的 CI 文档闸、v0.24.0 的 doctor 执行面与 pre-push 本地 merge 检查、v0.22.0 的同文件 commit 闸照旧）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
