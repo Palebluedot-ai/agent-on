@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const RECORD_VERSION: u8 = 1;
@@ -1255,11 +1255,17 @@ pub(crate) fn count_revs(path: &Path, range: &str) -> Option<u64> {
         .and_then(|v| v.parse().ok())
 }
 
+/// `false` when either ref does not resolve. Silent on purpose: the audit runs
+/// this for every lane from every tree, and an inherited stderr would print
+/// one lane's bad `base` on all of them. That lane's own error line comes from
+/// `changed_files`.
 fn is_ancestor(path: &Path, ancestor: &str, descendant: &str) -> bool {
     Command::new("git")
         .arg("-C")
         .arg(path)
         .args(["merge-base", "--is-ancestor", ancestor, descendant])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -2698,6 +2704,15 @@ mod tests {
             ],
         );
         (tmp, root, wt)
+    }
+
+    /// Silencing git must not change the answer: a base that does not
+    /// resolve still reads as "not merged".
+    #[test]
+    fn unresolvable_base_is_not_an_ancestor() {
+        let (_tmp, root, _wt) = fixture();
+        assert!(is_ancestor(&root, "HEAD", "main"));
+        assert!(!is_ancestor(&root, "HEAD", "origin/nope"));
     }
 
     #[test]

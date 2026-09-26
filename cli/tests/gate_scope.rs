@@ -150,6 +150,18 @@ fn write_in(worktree: &Path, rel: &str, line: &str) {
     fs::write(path, format!("{line}\n")).unwrap();
 }
 
+/// Rewrite fields of a lane record by hand, the way a stale or mistyped
+/// registration arrives.
+fn edit_record(root: &Path, id: &str, fields: &[(&str, &str)]) {
+    let path = root.join(format!(".git/agent-on/lanes/{id}.json"));
+    let mut value: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    for (key, field) in fields {
+        value[*key] = serde_json::json!(field);
+    }
+    fs::write(&path, serde_json::to_string_pretty(&value).unwrap()).unwrap();
+}
+
 fn age_file(worktree: &Path, rel: &str, days: u64) {
     let file = fs::File::options()
         .write(true)
@@ -238,6 +250,63 @@ fn live_lane_whose_worktree_vanished_blocks_nobody_and_can_be_forgotten() {
     ok(&f.root, &["worktree", "forget", "--id", "lane-b"]);
     assert!(!f.root.join(".git/agent-on/lanes/lane-b.json").exists());
     assert_eq!(ok(&f.root, &["worktree", "check"]), "ok\n");
+}
+
+/// A lane whose `base` stops resolving (remote branch deleted, record edited
+/// by hand) is that lane's own audit error. git's complaint about it must not
+/// ride along on every other tree: they still read exactly `ok`, and their
+/// hooks and guard stay silent.
+#[test]
+fn an_unresolvable_base_is_reported_only_on_its_own_tree() {
+    let f = field();
+    edit_record(&f.root, "lane-a", &[("base", "origin/nope")]);
+
+    for tree in [&f.root, &f.extra] {
+        for command in ["status", "check"] {
+            let out = agent_on(tree, &["worktree", command]);
+            assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
+            assert_eq!(String::from_utf8_lossy(&out.stdout), "ok\n");
+            assert_eq!(String::from_utf8_lossy(&out.stderr), "", "{command}");
+        }
+        for hook in ["pre-commit", "pre-push"] {
+            let out = agent_on(tree, &["worktree", "hooks", "run", "--hook", hook]);
+            assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
+            assert_eq!(combined(&out), "", "{hook} passes silently");
+        }
+        let out = commit_guard(tree);
+        assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
+        assert_eq!(combined(&out), "", "the guard passes silently");
+    }
+
+    // The lane itself still gets its error, and nothing ahead of it.
+    let out = agent_on(&f.lane_a, &["worktree", "check"]);
+    let text = combined(&out);
+    assert_eq!(out.status.code(), Some(1), "{text}");
+    assert!(
+        text.starts_with("error: lane-a: cannot compare with origin/nope: "),
+        "{text}"
+    );
+}
+
+/// `claim` measures an overlapping lane that is no longer live with the same
+/// ancestry call, so a bad `base` there must not print either.
+#[test]
+fn claim_beside_an_unresolvable_base_prints_no_git_noise() {
+    let f = field();
+    edit_record(
+        &f.root,
+        "lane-a",
+        &[("base", "origin/nope"), ("status", "parked")],
+    );
+    let out = agent_on(
+        &f.extra,
+        &[
+            "worktree", "claim", "--id", "extra", "--goal", "app too", "--base", "main", "--owns",
+            "app",
+        ],
+    );
+    assert!(out.status.success(), "{}", combined(&out));
+    assert_eq!(String::from_utf8_lossy(&out.stderr), "");
 }
 
 #[test]
