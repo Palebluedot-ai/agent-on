@@ -4,7 +4,7 @@
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.23.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.23.1`。**
 
 ## 给朋友的 5 分钟装机（Claude · Codex · Grok）
 
@@ -16,7 +16,7 @@
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.23.0`** |
+| **推荐 pin** | **`v0.23.1`** |
 | **HTTPS** | `git clone https://github.com/Palebluedot-ai/agent-on.git` |
 | **不是** | npm、Claude 官方总商店、App Store |
 
@@ -280,7 +280,7 @@ Claude / Codex guard 都随 plugin 挂并共用一份 hook；Codex 非 managed h
 - **v0.20 ✅**：**`v0.20.0`** 边界闸只拦一件事（本树未提交改动进别人活轨 owns 才拦，不连坐；UNREGISTERED / OUT-OF-BOUNDS / MISSING 降为提示）+ 值守登记带心跳（90 分钟没心跳自动失效，窗口关了不锁全场）+ 边界闸三档分层 + 出口面可达性 + 常驻预授权 + 值守全自动合并与独立审计（`tools/merge-audit/`）。
 - **v0.21 ✅**：**`v0.21.0`** 投影漂移：「原件 / 投影」立成真相源治理的第一类区分 + `agent-on drift` 一条命令对账台账与文档两条介质上的投影（默认只报不拦）+ bench 案 43。
 - **v0.22 ✅**：**`v0.22.0`** commit 闸不再读 lane 登记：只在另一棵工作树 7 天内也改过同一个未提交文件时拦截；`worktree status` / `check` 平时一行 `ok`。
-- **v0.23 ✅**：**`v0.23.0`** 消化 5 份 intake / 38 卡：收编 09-21 那场没提交的消化（23 个预写的 `landed@v0.22.0` 逐卡改正）；闸误拦族升 L3（判据面 + 执行面——跨仓误拦实出自插件缓存旧闸）；消化开场四检（主树自证）+ 去向标注禁止预写版本号；CLI：值守路由闸只认命令位置、intake-lint 认不出卡不再报通过、tag-release 拒绝预写版本号；仪表盘求值闸 `kit/dashboard-check.mjs`；案例 46–50。
+- **v0.23 ✅**：**`v0.23.0`** 消化 5 份 intake / 38 卡：收编 09-21 那场没提交的消化（23 个预写的 `landed@v0.22.0` 逐卡改正）；闸误拦族升 L3（判据面 + 执行面——跨仓误拦实出自插件缓存旧闸）；消化开场四检（主树自证）+ 去向标注禁止预写版本号；CLI：值守路由闸只认命令位置、intake-lint 认不出卡不再报通过、tag-release 拒绝预写版本号；仪表盘求值闸 `kit/dashboard-check.mjs`；案例 46–50。**`v0.23.1`** 发版推送改一条原子推送（v0.23.0 分两次推，CI 推荐 pin 闸在 tag 到达前 checkout 红了一次）。
 - **v1.0 定义已入 snapshot**，未达标：见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)
 - **v1.0（未达标）**：≥2 项目有外人装机开工 + ≥1 次结账进官方 intake 并经消化落地（详见上列 snapshot）——不是「感觉上很多人用」
 

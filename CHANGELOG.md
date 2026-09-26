@@ -2,9 +2,16 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.23.0 起攒）
+## [未发布]（自 v0.23.1 起攒）
 
 （空）
+
+## v0.23.1（2026-09-26）——发版推送改一条原子推送
+
+> **patch**（同一场消化收尾时发现，用户已授权本场全按推荐交付；「不用知道」——只改执行书措辞）：v0.23.0 发版时先推 main、隔十几秒再推 tag，main 上的 gate 在 tag 到达前 checkout，推荐 pin 闸报「`v0.23.0` 没有对应的 git tag」红了一次；tag 到了之后重跑才绿。起因正是 v0.23.0 自己新加的那句「打完 tag 另跑两条 push」。
+
+- `boot/settlement.md` 发版三步第 3 步与机械助手注：分支与 tag 用**一条** `git push --atomic origin HEAD:<default> <tag>` 推上去，不分两次推。
+- 留给下一条 CLI 轨：`agent-on tag-release --push` 与它打印的「下一步」提示同样是分两次推（`HEAD` 再 `<tag>`，间隔很短所以平时撞不上），改成原子推送。
 
 ## v0.23.0（2026-09-26）——消化收编 09-21 孤儿批 + 闸的判据面 / 执行面 + 消化开场四检
 
