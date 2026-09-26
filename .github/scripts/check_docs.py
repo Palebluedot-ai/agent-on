@@ -43,7 +43,22 @@ FROZEN_DIRS = ("snapshot/", "intake/", "legacy/")
 # 只有「长得像路径」的才算链接。模板里 `[先读它](验收标准逐条打勾)` 这种把括号当
 # 注解用的写法不是链接，拿它报红就是假红。
 PATH_LIKE = re.compile(r"/|\.(md|html|py|rs|toml|json|yml|yaml|sh|txt)$", re.I)
-PIN_RE = re.compile(r"推荐 pin[^`\n]*`(v\d+\.\d+\.\d+)`")
+# 版本号必须紧跟「推荐 pin」，中间只许隔声明自己的标点：`推荐 pin：`vX.Y.Z``（AGENTS
+# 与 README 头部），或装机表 `| **推荐 pin** | **`vX.Y.Z`** |`。旧判据认「推荐 pin 之后
+# 同一行任意一个反引号版本号」，散文一句「CI 推荐 pin 闸…」就把同行下一个版本号读成
+# 第二个推荐 pin——v0.23.3 发版撞上，当时靠改散文绕过去。
+PIN_RE = re.compile(r"推荐 pin(?:：|\*\* \| \*\*)`(v\d+\.\d+\.\d+)`")
+# 每个文件该有几处声明。判据收紧后，一处声明改了写法就会静默掉出视野（装机表去掉
+# 加粗、顺手留个旧版本号，闸照报「三处一致」），所以处数一起钉死。
+PIN_SITES = {"AGENTS.md": 1, "README.md": 2}
+# 判据自检样本：三处真声明必须认出，散文里的「推荐 pin」必须放过。末条是 v0.23.3
+# 发版撞上的原句。闸认错了不是「文档违规」，是闸自己没法判，走取证失败（退 2）。
+PIN_SELF_TEST = (
+    ("**最新推荐 pin：`v0.23.3`**（README 多会话段…）", ["v0.23.3"]),
+    ("**当前推荐 pin：`v0.23.3`。**", ["v0.23.3"]),
+    ("| **推荐 pin** | **`v0.23.3`** |", ["v0.23.3"]),
+    ("CI 推荐 pin 闸在 tag 到达前 checkout 红了一次）。**`v0.23.2`** hooks 不再…", []),
+)
 
 
 class Evidence(Exception):
@@ -146,15 +161,25 @@ def check_links(files: list[Path]) -> list[str]:
 
 def check_pin() -> list[str]:
     """推荐 pin 三处一致 + 该 tag 真存在：本仓自举纪律第 6 条的机械化。"""
+    for line, want in PIN_SELF_TEST:
+        got = PIN_RE.findall(line)
+        if got != want:
+            raise Evidence(
+                f"推荐 pin 判据自检不过：{line!r} 应认出 {want}，实际认出 {got}。"
+                f"出口：修 PIN_RE，别改自检样本去迁就它"
+            )
     problems = []
     pins = {}
-    for name in ("AGENTS.md", "README.md"):
+    for name, sites in PIN_SITES.items():
         found = PIN_RE.findall(read(ROOT / name))
-        if not found:
+        if len(found) != sites:
             problems.append(
-                f"{name} 里找不到「推荐 pin：`vX.Y.Z`」。"
-                f"出口：补回该行，或改本闸的判据（两者都要有人拍板）"
+                f"{name} 该有 {sites} 处推荐 pin 声明，认出 {len(found)} 处。认的写法只有两种："
+                f"「推荐 pin：`vX.Y.Z`」、表格行「| **推荐 pin** | **`vX.Y.Z`** |」。"
+                f"出口：把改了写法的那处改回来（或删掉多出的那处），"
+                f"或改本闸的 PIN_SITES / PIN_RE（两者都要有人拍板）"
             )
+        if not found:
             continue
         if len(set(found)) > 1:
             problems.append(
