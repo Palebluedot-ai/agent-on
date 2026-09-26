@@ -31,7 +31,7 @@
 - suggested_landing:kit/AGENTS-skeleton.md §1「高风险域 preflight」行加一句；kit/phase-card-template.md 验收旁注「本项验证的真实依赖是什么」处加「真钱/凭据 → 人执行 + AI 转录」；playbook/anti-hallucination 证据篇加一条
 - rollback:revert 落地 commit
 - trace:aster-agent docs/ledger/run-ledger.md Run #1/#2 轨道行
-- 状态: landed@v0.22.0（kit/AGENTS-skeleton.md §1 高风险域 preflight + phase-card 验收区「真钱/凭据」条目 + anti-hallucination C 附6 第 10 条）
+- 状态: landed@8631471 + 同批（anti-hallucination C 附6 第 10 条 + phase-card 验收区「真钱/凭据」条目 @8631471；kit/AGENTS-skeleton.md §1 高风险域 preflight @同批）
 
 ### link-proof-vs-behavior-proof（验收要分「链路证据」与「行为证据」，结构上触发不了的测试只证明链路）
 - source:aster-agent @ a056041 | pin v0.19.0

@@ -10,7 +10,7 @@
 - suggested_landing:kit/AGENTS-skeleton.md 顶部加 §0.5 槽位；boot/session-handshake.md 读取表把「总目标」指向该槽位
 - rollback:revert 落地 commit
 - trace:loop-notes.md 2026-09-05「M 档 AGENTS 骨架无『项目一句话』槽位」；agent-on.lock.md local_deviations 第 1 行
-- 状态: landed@v0.22.0（kit/AGENTS-skeleton.md §0.5 项目一句话+北极星指针槽位 + boot/session-handshake.md 读取表指向该槽位）
+- 状态: landed@同批（kit/AGENTS-skeleton.md §0.5 项目一句话+北极星指针槽位 + boot/session-handshake.md 读取表指向该槽位）
 
 ### guard-blocks-path-literal-not-target（git guard 按命令文本匹配 Agent-On 路径字面 + 写动词，把只在文本里引用路径的项目仓命令也拦了）
 - source:CryptoQuant @ 177f868 | pin v0.19.0

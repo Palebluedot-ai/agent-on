@@ -30,7 +30,7 @@
 - suggested_landing:playbook/truth-hierarchy 或 boot/session-handshake 读取表增「运行实况核对」行；kit/progress-template 顶部注释加「生产切换同批更新」
 - rollback:revert 落地 commit
 - trace:loop-notes.md §2026-09-03「状态源六周没动」
-- 状态: landed@v0.22.0（truth-hierarchy 五⅞.2 + progress-template.yaml 顶部注释 + boot/session-handshake.md 读取表新增「状态源与现实打架吗」行）
+- 状态: landed@35b6952 + 同批（truth-hierarchy 五⅞.2 + progress-template.yaml 顶部注释 @35b6952；boot/session-handshake.md 读取表新增「状态源与现实打架吗」行 @同批）
 
 ### worktree-guard-claim-before-first-commit（新会话先登记 lane；陈年树先建分支再 park；带独有提交的树 base 重钉自身 HEAD）
 - source:inbox-radar @ 671e1ec | pin v0.5.1
