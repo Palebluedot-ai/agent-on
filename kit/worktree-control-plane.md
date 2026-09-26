@@ -59,6 +59,8 @@ git worktree add -b feat/142-auth-api .worktrees/auth-api origin/main
 
 若项目声明的 default branch 不是 `main`，替换为实际名字。无法 fetch 时不能声称 base 是 fresh；先报告离线状态，再由人决定是否接受旧 base。
 
+**从隔离会话派子代理并行改代码，让宿主给每个子代理开树**（Claude Code：Agent 的 `isolation: "worktree"`）。别自己 `git worktree add` 再把代理派进去——宿主的隔离钉在派出者会话上，和代理 cd 到哪里无关。Dartify 2026-09-24 三路并行：手工开好三棵树再派代理，三个全撞墙（Write/Edit 被拒「Edit the worktree copy of this file instead of the shared-checkout path」；`cd <别的树> && git …` 被拒；`EnterWorktree` 报成功后连 `pwd` 都被拒），三路成了三份躺在 scratchpad 里的草稿；改用 `isolation: "worktree"` 后，同一天五条代理都跑通了 git / 测试 / `gh pr create`。代理的树从派出者当前 HEAD 长出来：派之前先把自己钉到 `origin/<default>`（`git switch --detach origin/<default>`），免得代理从记账分支头上起步；代理开工第一步用 `pwd` + `git log -1` 自证。宿主换了隔离模型，这条作废。
+
 创建后进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane：
 
 ```bash
@@ -128,6 +130,10 @@ agent-on worktree claim \
 3. **超过窗口没人碰的那一份不参与。** 判据是那个文件的 mtime，不是 lane 状态，登记了没有也不看。
 
 merge / squash / cherry-pick / rebase 进行中照旧一律放行。
+
+**被拦时对方停在 rebase 半路（2026-09-26 Dartify 实测）**：「进行中放行」放行的是**正在 rebase 的那棵树自己**。它停在半路没人管时，重放到一半的文件在它的树里都算「未提交」，会挡住所有要改这些文件的树——Dartify SE-C1b 的四笔提交因此被拦了约 3 小时，对方会话的 rebase 停在 2/3、人已经走了，冲突起因常常是我们刚合进 main 的 PR。**怎么认**：读 common git dir 下 `worktrees/<名>/rebase-merge/msgnum` 与 `end`（第几步 / 共几步）和它们的 mtime，不用碰对方的树（隔离会话连 `git -C` 看对方的树都会被拒）。**出口**：① 你那份是可重跑生成的（台账、仪表盘），`restore` 掉自己那份，等对方收尾后重跑；② 转交对方会话（值守在班就走值守）收尾或 `rebase --abort`；③ 对方超过 7 天没动，闸自己放开。**别替对方 abort**——那是别人的工作区。拦截文案直接报出对方的 rebase 进度，还没实现（下一条 CLI 轨）。
+
+**全仓共写的热点文件，生成、add、commit 放进同一条命令**：`docs/state/progress.yaml`、`dashboard.html` 这类每条 PR 都要记一笔的台账，留一个未提交的窗口，就会挡住别人、也会被别人挡住（Dartify 同一天两次：CI 会话回填 #289 的编号没提交，收官记账就被拦）。一条命令做完，不留窗口；被拦时 `restore` 掉自己那份（可重跑，零损失），别让两边互锁。
 
 为什么推翻 2026-08-17「连坐维持」：桌面宿主每开一个会话就自建一棵不登记的树，「全场有一棵没登记的树」是常态，连坐把常态变成常红——而**恒红的闸等于没有闸**。账实一致由 `status` / `check` 的报告面继续保证（该报的一行不少），只是不再拿别人的 commit 当抵押品。决策全文见 [snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md](../snapshot/2026-09-14-gate-one-rule-and-oncall-heartbeat.md)。
 

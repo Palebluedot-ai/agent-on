@@ -18,6 +18,7 @@
 - [ ] 大扇出前探针:1 个探针子代理先实跑本次依赖的关键工具(调研类 = WebSearch/WebFetch);不过 → 主会话定向抓取,不 fan-out(案例 24)
 - [ ] 目标文件集互不相交(相交 → 六步协议);同 worktree 并行时每卡显式文件域 + 共享文件唯一 owner(或「留收口人」)
 - [ ] barrier 只设在真需要全量结果的点,其余全并行
+- [ ] 并行改代码的切片由宿主开树(Claude Code:Agent `isolation: "worktree"`),不手工 `git worktree add` 再把代理派进去;派前把自己钉到 `origin/<default>`,代理开工先 `pwd` + `git log -1` 自证(kit/worktree-control-plane「开轨」)
 - [ ] 对抗验证独立 stage:审查者 ≠ 产出者,prompt 带「假定有错,找到它」
 - [ ] 失败 = 空值过滤,不默认成功;记下哪些代理死了、为什么
 - [ ] 断点续跑方案先想好:什么走缓存 / 什么重跑 / 怎么击穿缓存强制重审

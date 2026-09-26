@@ -1,6 +1,7 @@
 # 单一控制点(只有 orchestrator 写;轨道 agent 只读)
 # 生产切换同批更新:加载调度器 / 切换通道 / 启停发送这类改变「每天实际发生什么」的合流,
 # 必须同批改本文件与 README product map;接续握手先核运行实况,文件与实况打架以实况为准(truth-hierarchy 五⅞.2)
+# 记账生成完立刻提交:生成 + add + commit 放进同一条命令,别在工作区留未提交的台账——同文件闸会拿它挡别人(kit/worktree-control-plane「热点文件」)
 version: 1
 project: "[项目名]"
 
