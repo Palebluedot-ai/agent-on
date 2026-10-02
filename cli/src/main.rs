@@ -2,10 +2,12 @@
 
 mod audit_lint;
 mod build_info;
+mod coordination;
 mod doctor;
 mod drift;
 mod guard;
 mod intake_lint;
+mod janitor;
 mod landing;
 mod oncall;
 mod paths;
@@ -47,6 +49,17 @@ enum Commands {
     },
     /// PreToolUse git guard (stdin JSON → exit 0 allow / 2 block)
     Guard,
+    /// Optional project patrol: a separate window, task ledger, and early overlap reports
+    Patrol(coordination::PatrolArgs),
+    /// Record, inspect, and release a unit of work
+    Task(coordination::TaskArgs),
+    /// Launch an independent Claude / Codex / Grok session with a task receipt
+    #[command(alias = "agent-os")]
+    Dispatch(coordination::DispatchArgs),
+    /// Capture supported host hook events (stdin JSON; silent when disabled)
+    Capture,
+    /// Reclaim only explicitly managed, released, preserved worktrees
+    Janitor(janitor::JanitorArgs),
     /// Lint intake Promotion Cards
     #[command(name = "intake-lint")]
     IntakeLint { files: Vec<PathBuf> },
@@ -389,6 +402,11 @@ fn main() {
             0
         }
         Commands::Guard => guard::run_from_stdin(),
+        Commands::Patrol(args) => coordination::print_result(coordination::run_patrol(args)),
+        Commands::Task(args) => coordination::print_result(coordination::run_task(args)),
+        Commands::Dispatch(args) => coordination::print_result(coordination::dispatch(args)),
+        Commands::Capture => coordination::capture_stdin(),
+        Commands::Janitor(args) => coordination::print_result(janitor::run(args)),
         Commands::IntakeLint { files } => {
             let paths_v = if files.is_empty() {
                 intake_lint::default_intake_paths(&find_repo_root())

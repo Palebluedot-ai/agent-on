@@ -28,6 +28,7 @@ enum SchedulerKind {
 
 #[derive(Clone, Debug)]
 struct ScheduleSpec {
+    janitor: bool,
     kind: SchedulerKind,
     repo: PathBuf,
     executable: PathBuf,
@@ -77,6 +78,11 @@ struct InstallState {
     systemd_timer_name: String,
     command: Vec<String>,
     files: Vec<InstalledFile>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    janitor: bool,
+}
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 impl InstallState {
@@ -84,6 +90,7 @@ impl InstallState {
         let rendered = spec.rendered_files();
         Ok(Self {
             version: INSTALL_STATE_VERSION,
+            janitor: spec.janitor,
             kind: spec.kind,
             repo_at_install: path_text(&spec.repo).to_string(),
             git_identity: git_identity(&spec.repo)?,
@@ -188,6 +195,30 @@ pub fn run_uninstall(repo: &Path) -> (i32, String) {
     result_to_output(result)
 }
 
+/// A separate, opt-in scheduler namespace for bounded reclaim. Existing daily GC
+/// files, persisted state, and report-only commands are never converted to apply.
+pub(crate) fn run_install_janitor(repo: &Path) -> (i32, String) {
+    let result = match find_janitor_state(repo) {
+        Ok(Some(state)) => reinstall_existing(&state),
+        Ok(None) => ScheduleSpec::from_runtime(repo, true)
+            .map(ScheduleSpec::for_janitor)
+            .and_then(|spec| install_new(&spec)),
+        Err(error) => Err(error),
+    };
+    result_to_output(result)
+}
+pub(crate) fn run_uninstall_janitor(repo: &Path) -> (i32, String) {
+    result_to_output(match find_janitor_state(repo) {
+        Ok(Some(state)) => uninstall_installed(&state),
+        Ok(None) => Ok("janitor schedule: already absent\n".into()),
+        Err(error) => Err(error),
+    })
+}
+fn find_janitor_state(repo: &Path) -> Result<Option<InstallState>, String> {
+    let root = runtime_state_root()?.with_file_name("janitor");
+    find_install_state_in_root(repo, &root)
+}
+
 fn result_to_output(result: Result<String, String>) -> (i32, String) {
     match result {
         Ok(message) => (0, message),
@@ -196,6 +227,30 @@ fn result_to_output(result: Result<String, String>) -> (i32, String) {
 }
 
 impl ScheduleSpec {
+    fn for_janitor(mut self) -> Self {
+        self.janitor = true;
+        self.state_dir = self
+            .state_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("janitor")
+            .join(&self.key);
+        self.stdout_log = self.state_dir.join("reports.log");
+        self.stderr_log = self.state_dir.join("errors.log");
+        self.launchd_label = format!("io.agent-on.janitor.{}", self.key);
+        self.launchd_plist = self
+            .launchd_plist
+            .with_file_name(format!("{}.plist", self.launchd_label));
+        self.systemd_service_name = format!("agent-on-janitor-{}.service", self.key);
+        self.systemd_timer_name = format!("agent-on-janitor-{}.timer", self.key);
+        self.systemd_service = self
+            .systemd_service
+            .with_file_name(&self.systemd_service_name);
+        self.systemd_timer = self.systemd_timer.with_file_name(&self.systemd_timer_name);
+        self
+    }
     fn from_runtime(repo: &Path, require_repo: bool) -> Result<Self, String> {
         let kind = current_scheduler();
         if kind == SchedulerKind::Unsupported {
@@ -311,6 +366,7 @@ impl ScheduleSpec {
 
         Ok(Self {
             kind,
+            janitor: false,
             repo,
             executable,
             home,
@@ -516,6 +572,9 @@ fn validate_install_state(
     state: &InstallState,
     state_root: &Path,
 ) -> Result<(), String> {
+    if state.janitor != (state_root.file_name().is_some_and(|name| name == "janitor")) {
+        return Err("scheduler job kind does not match its namespace".into());
+    }
     if state.version != INSTALL_STATE_VERSION {
         return Err(format!(
             "unsupported daily GC install-state version {} at {} (expected {})",
@@ -555,13 +614,14 @@ fn validate_install_state(
         ));
     }
     if state.command.len() != 7
-        || !state.command[1..6].iter().map(String::as_str).eq([
-            "worktree",
-            "gc",
-            "--dry-run",
-            "--json",
-            "--repo",
-        ])
+        || !state.command[1..6]
+            .iter()
+            .map(String::as_str)
+            .eq(if state.janitor {
+                ["janitor", "run", "--apply", "--scheduled", "--repo"]
+            } else {
+                ["worktree", "gc", "--dry-run", "--json", "--repo"]
+            })
         || state.command.last().map(String::as_str) != Some(state.repo_at_install.as_str())
         || !Path::new(&state.command[0]).is_absolute()
     {
@@ -580,8 +640,13 @@ fn validate_install_state(
             path.display()
         ));
     }
-    let expected_label = format!("io.agent-on.worktree-gc.{}", state.key);
-    let expected_timer = format!("agent-on-worktree-gc-{}.timer", state.key);
+    let job = if state.janitor {
+        "janitor"
+    } else {
+        "worktree-gc"
+    };
+    let expected_label = format!("io.agent-on.{job}.{}", state.key);
+    let expected_timer = format!("agent-on-{job}-{}.timer", state.key);
     if state.launchd_label != expected_label || state.systemd_timer_name != expected_timer {
         return Err(format!(
             "persisted scheduler activation identifiers are invalid in {}",
@@ -672,7 +737,7 @@ fn reinstall_existing(state: &InstallState) -> Result<String, String> {
 
 fn installed_message(state: &InstallState, existing: bool) -> String {
     format!(
-        "worktree GC schedule: {}\nrepo: {}\nschedule: daily {:02}:{:02}\ncommand: {}\nreports: {}\nerrors: {}\nsafety: report-only; this scheduler has no delete mode\n",
+        "{job} schedule: {}\nrepo: {}\nschedule: daily {:02}:{:02}\ncommand: {}\nreports: {}\nerrors: {}\nsafety: {safety}\n",
         if existing {
             "already installed and active"
         } else {
@@ -683,7 +748,9 @@ fn installed_message(state: &InstallState, existing: bool) -> String {
         DAILY_MINUTE,
         display_string_command(&state.command),
         state.stdout_log,
-        state.stderr_log
+        state.stderr_log,
+        job = if state.janitor { "janitor" } else { "worktree GC" },
+        safety = if state.janitor { "opt-in bounded reclaim; policy is rechecked on every run; branches and recovery refs retained" } else { "report-only; this scheduler has no delete mode" },
     )
 }
 
@@ -1156,8 +1223,9 @@ fn render_systemd_service(spec: &ScheduleSpec) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     format!(
-        "# {marker}\n[Unit]\nDescription=Agent-On report-only worktree GC ({key})\n\n[Service]\nType=oneshot\nWorkingDirectory={repo}\nExecStart={command}\nEnvironment={git_locks}\nEnvironment={home}\nEnvironment={path_env}\nStandardOutput={stdout}\nStandardError={stderr}\n",
+        "# {marker}\n[Unit]\nDescription=Agent-On {job} ({key})\n\n[Service]\nType=oneshot\nWorkingDirectory={repo}\nExecStart={command}\nEnvironment={git_locks}\nEnvironment={home}\nEnvironment={path_env}\nStandardOutput={stdout}\nStandardError={stderr}\n",
         marker = MANAGED_MARKER,
+        job = if spec.janitor { "bounded janitor" } else { "report-only worktree GC" },
         key = spec.key,
         repo = systemd_quote(path_text(&spec.repo)),
         git_locks = systemd_quote("GIT_OPTIONAL_LOCKS=0"),
@@ -1170,8 +1238,9 @@ fn render_systemd_service(spec: &ScheduleSpec) -> String {
 
 fn render_systemd_timer(spec: &ScheduleSpec) -> String {
     format!(
-        "# {marker}\n[Unit]\nDescription=Daily Agent-On report-only worktree GC ({key})\n\n[Timer]\nOnCalendar=*-*-* {hour:02}:{minute:02}:00\nPersistent=true\nAccuracySec=5m\nUnit={service}\n\n[Install]\nWantedBy=timers.target\n",
+        "# {marker}\n[Unit]\nDescription=Daily Agent-On {job} ({key})\n\n[Timer]\nOnCalendar=*-*-* {hour:02}:{minute:02}:00\nPersistent=true\nAccuracySec=5m\nUnit={service}\n\n[Install]\nWantedBy=timers.target\n",
         marker = MANAGED_MARKER,
+        job = if spec.janitor { "bounded janitor" } else { "report-only worktree GC" },
         key = spec.key,
         hour = DAILY_HOUR,
         minute = DAILY_MINUTE,
@@ -1180,6 +1249,17 @@ fn render_systemd_timer(spec: &ScheduleSpec) -> String {
 }
 
 fn gc_args(spec: &ScheduleSpec) -> Vec<String> {
+    if spec.janitor {
+        return vec![
+            path_text(&spec.executable).to_string(),
+            "janitor".into(),
+            "run".into(),
+            "--apply".into(),
+            "--scheduled".into(),
+            "--repo".into(),
+            path_text(&spec.repo).to_string(),
+        ];
+    }
     vec![
         path_text(&spec.executable).to_string(),
         "worktree".to_string(),
@@ -1580,6 +1660,52 @@ mod tests {
             atomic_write(&path, contents.as_bytes()).unwrap();
         }
         (state_root, state)
+    }
+
+    #[test]
+    fn janitor_schedule_has_separate_assets_and_never_upgrades_report_only_gc() {
+        for kind in [SchedulerKind::Launchd, SchedulerKind::SystemdUser] {
+            let (_temp, gc) = fixture(kind);
+            let janitor = gc.clone().for_janitor();
+            assert_ne!(gc.state_dir, janitor.state_dir);
+            assert_ne!(gc.launchd_plist, janitor.launchd_plist);
+            assert_ne!(gc.systemd_service, janitor.systemd_service);
+            assert_ne!(gc.systemd_timer, janitor.systemd_timer);
+            assert_eq!(
+                &gc_args(&gc)[1..6],
+                &["worktree", "gc", "--dry-run", "--json", "--repo"]
+            );
+            assert_eq!(
+                &gc_args(&janitor)[1..6],
+                &["janitor", "run", "--apply", "--scheduled", "--repo"]
+            );
+            let (root, state) = persist_without_activation(&janitor);
+            if kind == current_scheduler() {
+                assert!(
+                    read_install_state_in_root(&state.state_file(), &root)
+                        .unwrap()
+                        .janitor
+                );
+            }
+            assert!(state.janitor);
+            assert!(state.rendered_files().iter().all(|(path, contents)| {
+                path.starts_with(&janitor.home) && !contents.contains("--dry-run")
+            }));
+            let old = InstallState::from_spec(&gc).unwrap();
+            assert!(!serialize_install_state(&old)
+                .unwrap()
+                .contains("\"janitor\""));
+        }
+    }
+
+    #[test]
+    fn janitor_state_cannot_be_loaded_from_the_gc_namespace() {
+        let (_temp, gc) = fixture(current_scheduler());
+        let janitor = gc.clone().for_janitor();
+        let (_, state) = persist_without_activation(&janitor);
+        let gc_root = gc.state_dir.parent().unwrap();
+        let error = read_install_state_in_root(&state.state_file(), gc_root).unwrap_err();
+        assert!(error.contains("namespace"), "{error}");
     }
 
     #[test]

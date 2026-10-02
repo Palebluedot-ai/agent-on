@@ -3,18 +3,23 @@
 # Prefers plugin-local release binary, then PATH `agent-on`.
 # Missing binary → fail-open (exit 0) so machines without cargo still work until setup.
 set -euo pipefail
+ACTION="${1:-guard}"
+case "${ACTION}" in
+  guard|capture) ;;
+  *) exit 0 ;;
+esac
 ROOT="${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}"
 if [[ -n "${ROOT}" && -x "${ROOT}/cli/target/release/agent-on" ]]; then
-  exec "${ROOT}/cli/target/release/agent-on" guard
+  exec "${ROOT}/cli/target/release/agent-on" "${ACTION}"
 fi
 # walk up from this script: kit/guard -> repo
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "${HERE}/../.." && pwd)"
 if [[ -x "${REPO}/cli/target/release/agent-on" ]]; then
-  exec "${REPO}/cli/target/release/agent-on" guard
+  exec "${REPO}/cli/target/release/agent-on" "${ACTION}"
 fi
 if command -v agent-on >/dev/null 2>&1; then
-  exec agent-on guard
+  exec agent-on "${ACTION}"
 fi
 # fail-open when binary missing (guard must not be a single point of failure)
 exit 0
