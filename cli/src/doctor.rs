@@ -11,8 +11,67 @@ use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+fn binary_identity(binary: &Path) -> Option<Value> {
+    let mut child = Command::new(binary)
+        .args(["build-info", "--json"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    }
+    let out = child.wait_with_output().ok()?;
+    if !out.status.success() || out.stdout.len() > 16_384 {
+        return None;
+    }
+    let info: Value = serde_json::from_slice(&out.stdout).ok()?;
+    info.get("version")?.as_str()?;
+    info.get("source_fingerprint")?.as_str()?;
+    Some(info)
+}
+
+pub fn native_hook_surface(repo: &Path, read_root: Option<&Path>) -> Vec<String> {
+    let binary = match crate::worktree_hooks::installed_binary(repo) {
+        Ok(Some(binary)) => binary,
+        Ok(None) => {
+            return vec!["Git hooks: not managed here; commit path protection not verified".into()]
+        }
+        Err(error) => {
+            if git_out(repo, &["rev-parse", "--show-toplevel"]).is_none() {
+                return Vec::new();
+            }
+            return vec![format!("Git hooks: UNVERIFIED installation: {error}")];
+        }
+    };
+    let mut lines = vec![format!("Git hook executor = {}", binary.display())];
+    match binary_identity(&binary) {
+        Some(info) => {
+            lines.push(format!("  build-info {info}"));
+            match read_root.map(|root| crate::source_identity::fingerprint(&root.join("cli"))) {
+                Some(Ok(expected)) if info["source_fingerprint"].as_str() == Some(expected.as_str()) =>
+                    lines.push("  Git executor source identity = READ_ROOT".into()),
+                Some(Ok(expected)) => lines.push(format!("  STALE Git executor source {} ≠ READ_ROOT {expected}", info["source_fingerprint"])),
+                _ => lines.push("  UNVERIFIED Git executor: READ_ROOT source unavailable".into()),
+            }
+        }
+        None => lines.push("  UNVERIFIED Git executor: legacy binary has no build-info; rebuild the actual executor".into()),
+    }
+    lines
+}
 
 fn git_out(cwd: &Path, args: &[&str]) -> Option<String> {
     let out = Command::new("git")
@@ -416,6 +475,57 @@ impl Surface<'_> {
                 .map(|secs| format!("  编于 {}", local_time(secs)))
                 .unwrap_or_default()
         ));
+        let fixes_for_binary = || match (plugin, self.read_root) {
+            (Some((root, key)), Some(read_root)) if binary.starts_with(root) => {
+                vec![Self::rebuild_fix(read_root), Self::plugin_fix(key)]
+            }
+            _ => match script_root.filter(|root| binary.starts_with(root)) {
+                Some(root) => vec![Self::rebuild_fix(root)],
+                None => vec![format!(
+                    "cargo install --path {}",
+                    self.read_root
+                        .map(|root| root.join("cli").display().to_string())
+                        .unwrap_or_else(|| "<READ_ROOT>/cli".into())
+                )],
+            },
+        };
+        if let Some(info) = binary_identity(&binary) {
+            self.lines.push(format!("{indent}    build-info {}", info));
+            if let Some(root) = self.read_root {
+                match crate::source_identity::fingerprint(&root.join("cli")) {
+                    Ok(expected)
+                        if info["source_fingerprint"].as_str() == Some(expected.as_str()) =>
+                    {
+                        self.lines
+                            .push(format!("{indent}    source identity = READ_ROOT"));
+                    }
+                    Ok(expected) => {
+                        let fixes = fixes_for_binary();
+                        self.stale(
+                            format!(
+                                "二进制 {} 的源内容标识 {} ≠ READ_ROOT {}",
+                                binary.display(),
+                                info["source_fingerprint"],
+                                expected
+                            ),
+                            fixes,
+                        );
+                    }
+                    Err(e) => self
+                        .problems
+                        .push(format!("UNVERIFIED READ_ROOT 的 CLI 源内容无法核对: {e}")),
+                }
+            }
+            return;
+        }
+        self.lines.push(format!(
+            "{indent}    legacy: build-info 不可用；mtime 只能提示陈旧，不能证明源内容一致"
+        ));
+        self.problems.push(format!(
+            "UNVERIFIED 二进制 {} 不提供构建身份，实际修复版本未核实",
+            binary.display()
+        ));
+        self.fixes.extend(fixes_for_binary());
         let (Some(built), Some(source)) = (built, self.source.as_ref()) else {
             return;
         };
@@ -968,13 +1078,13 @@ mod tests {
             .join("kit/guard/agent-on-git-guard");
         let text = fs::read_to_string(&shim).unwrap();
         let plugin = text
-            .find("\"${ROOT}/cli/target/release/agent-on\" guard")
+            .find("\"${ROOT}/cli/target/release/agent-on\" \"${ACTION}\"")
             .expect("shim prefers the plugin-local binary");
         let repo = text
-            .find("\"${REPO}/cli/target/release/agent-on\" guard")
+            .find("\"${REPO}/cli/target/release/agent-on\" \"${ACTION}\"")
             .expect("then the binary of the checkout the shim sits in");
         let path = text
-            .find("exec agent-on guard")
+            .find("exec agent-on \"${ACTION}\"")
             .expect("then agent-on on PATH");
         assert!(plugin < repo && repo < path, "{text}");
         assert!(text.contains("exit 0"), "no binary → fail-open: {text}");

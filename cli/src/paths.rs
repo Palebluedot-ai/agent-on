@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 pub const MARKERS: &[&str] = &["CHARTER.md", "BOOTSTRAP.md"];
 pub const LOCK_NAME: &str = "agent-on.lock.md";
 pub const OFFICIAL_HTTPS: &str = "https://github.com/Palebluedot-ai/agent-on.git";
-pub const DEFAULT_PIN: &str = "v0.12.1";
+pub const DEFAULT_PIN: &str = "v0.26.0";
 
 pub fn expand(p: &str) -> PathBuf {
     let t = p.trim().trim_matches(|c| c == '"' || c == '\'');
@@ -181,6 +181,7 @@ pub fn doctor_report(cwd: Option<&Path>) -> String {
     let (wr, ws) = resolve_work_root(cwd);
     let dflt = default_work_root();
     let mut lines = vec![
+        format!("binary_info   = {}", crate::build_info::report(true).trim()),
         format!(
             "read_root     = {}  [{}]",
             rr.as_ref()
@@ -219,6 +220,7 @@ pub fn doctor_report(cwd: Option<&Path>) -> String {
     if let Some(line) = crate::doctor::worktree_line(&here, wr.as_deref()) {
         lines.push(line);
     }
+    lines.extend(crate::doctor::native_hook_surface(&here, rr.as_deref()));
     if wr.is_none() {
         lines.push(String::new());
         lines.push("未登记可写工作仓 (work_root)。init/adopt/handshake 可只靠 plugin。".into());

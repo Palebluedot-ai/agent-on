@@ -1,6 +1,7 @@
 //! agent-on CLI — replaces former Python scripts.
 
 mod audit_lint;
+mod build_info;
 mod doctor;
 mod drift;
 mod guard;
@@ -11,6 +12,7 @@ mod paths;
 mod prepush;
 mod routing;
 mod setup;
+mod source_identity;
 mod tag_release;
 mod worktree;
 mod worktree_hooks;
@@ -33,6 +35,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Show the compiled source identity, commit and verified release tag
+    BuildInfo {
+        #[arg(long)]
+        json: bool,
+    },
     /// Print read_root / work_root registration report
     Doctor {
         #[arg(long)]
@@ -373,6 +380,10 @@ fn find_repo_root() -> PathBuf {
 fn main() {
     let cli = Cli::parse();
     let code = match cli.cmd {
+        Commands::BuildInfo { json } => {
+            print!("{}", build_info::report(json));
+            0
+        }
         Commands::Doctor { cwd } => {
             print!("{}", paths::doctor_report(cwd.as_deref()));
             0
