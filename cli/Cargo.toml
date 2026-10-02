@@ -1,7 +1,8 @@
 [package]
 name = "agent-on"
-version = "0.12.1"
+version = "0.26.0"
 edition = "2021"
+rust-version = "1.89"
 description = "agent-on CLI: setup, guards, lint, worktree control plane, and release helpers"
 license = "MIT"
 publish = false

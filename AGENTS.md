@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.25.2`**（补 MIT LICENSE 文件；v0.25.1 的 README 重写成面向新用户的中文首页，参考细节移入 `docs/manual.md`；v0.25.0 的 `agent-on tag-release --push` 从任何分支、任何 worktree 都推 origin 的默认分支，和 tag 一条原子推送；推送被拒撤掉刚打的本地 tag；有人在班时它归值守；装着的旧二进制仍推同名分支，`cargo install --path cli` 重装。v0.24.3 的 `is_ancestor` 静默、v0.24.2 的 CI 文档闸、v0.24.0 的 doctor 执行面与 pre-push 本地 merge 检查、v0.22.0 的同文件 commit 闸照旧）。
+**最新推荐 pin：`v0.26.0`**（原核心清单减负完成；可选巡逻/跨模型派工/有限清道夫；提交闸读取真实 index、推送闸读取待推历史；审计共用主树账本；build-info 与 doctor 核源码身份和实际 executor。值守三权、机器合并政策与旧 report-only GC 不变。旧安装先重建实际 executor，再更新插件缓存/重启；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。

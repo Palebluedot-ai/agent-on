@@ -2,9 +2,28 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
-## [未发布]（自 v0.25.2 起攒）
+## v0.26.0（2026-10-02）——核心规则精简、可选巡逻派工与有限清道夫
 
-（空）
+> **minor**：新增可选功能并缩小默认流程；同文件冲突判据保留，但提交/推送检查限定实际操作范围。值守三权与机器审计政策不变。源码构建要求 Rust 1.89+，使用标准库文件锁，未新增运行依赖。用户明确要求按原清单完成并继续提交，收口与验证见 [核心清单收口](snapshot/2026-10-02-core-checklist-completion.md)。
+
+- **独立巡逻与统一入口**：`patrol start/status/scan/disable/bind/close/resume/retry`。项目内一个巡逻回执；Claude/Codex CLI 可自动开 Terminal/tmux 窗口，Codex 桌面通过入口 skill 调用原生创建与等待工具。区分准备、进程启动与真实 host hook 就绪；失败重试复用原任务和树，不猜最近聊天。巡逻比较声明路径、已提交与未提交改动；本地每 30 秒刷新，问题集合变化才提示，不重复调用模型。
+- **Agent OS 派工与回传**：`dispatch`（别名 `agent-os`）调用已有 Claude/Codex/Grok CLI，沿用认证、审批与默认模型；可指定模型，按需 `--worktree`。共享路径重叠或依赖未集成时先返回协调原因，不先创建树和消耗模型。`task` 提供登记、结果回执和带证据释放；Stop 回执不冒充任务已完成或已验证。值守在班，派工仍归在班窗口。
+- **有限清道夫**：`janitor enable` 默认安装独立日任务，`--manual` 可交给宿主 heartbeat；`run` 默认报告，已启用才可 `--apply`。仅回收 CLI 自己创建、明确释放且 HEAD 未再变、已集成、干净/闲置/无资源或进程占用的 checkout。ignored 默认保护，缓存须明确列名授权。先写恢复 ref 和回执，再无 force 移除；保留分支，支持 `restore`。旧 `worktree gc` 与 daily-gc 仍只读；宿主原生 worktree 归宿主 archive。
+- **L3 默认流程减负，正文与模板成对**：风险验证与原型复用（`playbook/freedom-vs-discipline.md`、`playbook/anti-hallucination.md` / `kit/AGENTS-skeleton.md`、`kit/merge-checklist.md`）；按真实表现调整辅助而非按模型品牌整包加规则（`playbook/model-playbook.md` / `kit/track-prompt-template.md`）；消化可做减法或有理由不改（`playbook/iteration-loop.md`、`playbook/meta-principles.md` / `kit/AGENTS-skeleton.md`）；共享修改先归一个任务（`playbook/multi-contributor-protocol.md` / `kit/patrol-control-plane.md`、`kit/babysit/CONTRIBUTING-CLAUSE.md`）。BOOTSTRAP/adopt 不按高风险强塞整套文档与仪表盘，明确续接不重复三选一，普通回复不强输出六个空段。
+- **修值守入口漂移**：`docs/babysit.md` 的旧 canonical 全先问句对齐现行硬停政策；交单地址只认当前 `oncall status`。不改 `policy.json`，不放宽 merge 授权。
+- **L3 原窗口压缩续接**：`boot/session-handshake.md`、`playbook/model-playbook.md` / `kit/AGENTS-skeleton.md`、`kit/patrol-control-plane.md`。同一任务默认复用宿主原生 compact，已有任务文件保留关键决定与证据，压缩后按需重读原文件；不按 token 阈值或压缩次数强制 handoff/造树。当前是流程约定，未新增自动压缩前后写卡或注入的接线；实际偏离且校正无效才考虑新会话。
+- **操作范围闸**：原生 Git hook 读取 `-a` / `--only` 的真实有效 index；push 核每个待推提交（含 merge、后来被 revert 的改动与 rename 源路径）。不在本次范围的脏文件不阻止无关提交/推送。PreToolUse 保留路由和跨仓写入授权，未装原生 hooks 不声称提交保护已启用。
+- **统一审计账本**：record / scan-write / report 默认主 worktree 的同一份 ledger，显式覆盖仅绝对路径；真实 linked worktree 测试确认追加与读链一致，不合并各树独立账本。
+- **构建身份与真实升级**：`build-info --json` 输出编入的源码指纹、commit、版本和可核 release tag。doctor 核宿主 shim 与受管 Git hook 实际调用的二进制；旧包无身份标 UNVERIFIED，内容不同标 STALE。升级回执分别验版本、模板差异/本地偏离与执行面，只改 pin 不能报升级已完成（`boot/settlement.md` / `kit/guard/README.md`）。
+- **分发接线**：共用 skill 和 Claude/Codex plugin hook 只在项目显式开启后采需求摘要与会话/结果回执；不采工具正文与全量 transcript。shim 可转发 capture，保留原 guard。CLI、manifest 与推荐 pin 同步 v0.26.0。
+
+存量安装建议先重建 doctor 显示的实际 executor，再更新插件缓存并重启。已有 `hooks install` 不会替换旧 executor；`~/.cargo/bin/agent-on` 需要 `cargo install --path cli`。巡逻/派工/清道夫均未默认启用，旧 report-only GC 不变。
+
+### 验证范围
+
+本地 Rust 313 项、独立审计 98 项测试全过；Clippy（warnings 视为错误）、fmt 与 release 构建通过；intake-lint 208 张卡六项齐；文档闸覆盖 223 份 Markdown 通过。具体命令、输出与保护用户文件的校验在收口快照。
+
+真实 Git 临时仓与替身 host/窗口启动器覆盖并发去重、已提交重叠、派工前冲突、依赖集成、精确续接、字面参数、真实子进程退出、oncall 目标仓冒充防护、有限回收/占用保护/恢复及新旧定时任务隔离。真实厂商认证调用、Terminal GUI、桌面创建链和系统调度激活未在本项目运行；不以替身测试宣称现场接线完成。
 
 ## v0.25.2（2026-09-26）——补 MIT LICENSE 文件
 

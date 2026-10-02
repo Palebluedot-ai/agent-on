@@ -18,7 +18,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.25.2`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.26.0`。**
 
 ---
 
@@ -38,7 +38,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 ## 核心能力
 
-当前源码新增可选的独立巡逻窗口、Claude/Codex/Grok 派工与有限清道夫（尚在 `[未发布]`）。用户继续只跟原窗口说话；共享改动先归一个任务，巡逻提前检查已提交与未提交的重叠。用法与覆盖边界见 [巡逻执行书](kit/patrol-control-plane.md)。默认流程同时减掉重复续接确认、登记前置和样式改动强制 TDD。
+v0.26.0 提供可选的独立巡逻窗口、Claude/Codex/Grok 派工与有限清道夫。用户继续只跟原窗口说话；共享改动先归一个任务，巡逻提前检查已提交与未提交的重叠。用法与覆盖边界见 [巡逻执行书](kit/patrol-control-plane.md)。默认流程同时减掉重复续接确认、登记前置和样式改动强制 TDD。
 
 **🚀 一句话开工**
 新项目里说「初始化本项目」。AI 先问三个问题给项目定档，然后播种骨架、规则、状态文件——轻量项目一分钟就绪，完整档一小时内第一张任务卡开工。
@@ -99,7 +99,7 @@ AI：先用 S 轻装，长期迭代按实际需要补件。已播种：
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.25.2`** |
+| **推荐 pin** | **`v0.26.0`** |
 | **不是** | npm、Claude 官方总商店、App Store |
 
 | OS | 默认工作仓（setup 会放到这里） |
