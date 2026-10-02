@@ -470,6 +470,173 @@ fn cli_status_and_uninstall_are_real_and_idempotent() {
     assert!(combined(&again).contains("already uninstalled"));
 }
 
+/// Can also audit the installed executable without replacing it or touching a
+/// real project's Git configuration: AGENT_ON_ACCEPTANCE_EXECUTOR=/absolute/path.
+#[cfg(unix)]
+#[test]
+fn blackbox_executor_blocks_real_commit_push_and_both_pretool_payloads() {
+    use std::io::Write;
+    use std::os::unix::fs::symlink;
+    use std::process::Stdio;
+    let fixture = Fixture::new();
+    let executable = std::env::var_os("AGENT_ON_ACCEPTANCE_EXECUTOR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_agent-on")));
+    must_run(
+        &fixture.root,
+        executable.to_str().unwrap(),
+        &["worktree", "hooks", "install"],
+    );
+    let other = fixture._tmp.path().join("other-tree");
+    must_run(
+        &fixture.root,
+        "git",
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "other",
+            other.to_str().unwrap(),
+            "main",
+        ],
+    );
+    fs::write(fixture.root.join("app/base.txt"), "primary dirty\n").unwrap();
+    fs::write(other.join("app/base.txt"), "other dirty\n").unwrap();
+    must_run(&fixture.root, "git", &["add", "app/base.txt"]);
+    let denied = run(&fixture.root, "git", &["commit", "-m", "must stop"]);
+    assert!(!denied.status.success(), "{}", combined(&denied));
+    assert!(combined(&denied).contains("BLOCKED by Agent-On pre-commit"));
+    fs::write(fixture.root.join("README.md"), "unrelated notes\n").unwrap();
+    must_run(
+        &fixture.root,
+        "git",
+        &[
+            "commit",
+            "--only",
+            "README.md",
+            "-m",
+            "unrelated file remains free",
+        ],
+    );
+    must_run(&other, "git", &["restore", "app/base.txt"]);
+    must_run(
+        &fixture.root,
+        "git",
+        &["commit", "-m", "shared change with no other writer"],
+    );
+    fs::write(fixture.root.join("app/base.txt"), "primary dirty again\n").unwrap();
+    fs::write(other.join("app/base.txt"), "other dirty again\n").unwrap();
+    let denied = run(&fixture.root, "git", &["push", "origin", "main"]);
+    assert!(!denied.status.success(), "{}", combined(&denied));
+    assert!(combined(&denied).contains("BLOCKED by Agent-On pre-push"));
+    must_run(&other, "git", &["restore", "app/base.txt"]);
+    must_run(&fixture.root, "git", &["push", "origin", "main"]);
+
+    fs::write(fixture.root.join("CHARTER.md"), "fixture\n").unwrap();
+    fs::write(fixture.root.join("BOOTSTRAP.md"), "fixture\n").unwrap();
+    let outside = fixture._tmp.path().join("outside-project");
+    fs::create_dir(&outside).unwrap();
+    let plugin = fixture._tmp.path().join("plugin");
+    fs::create_dir_all(plugin.join("cli/target/release")).unwrap();
+    symlink(&executable, plugin.join("cli/target/release/agent-on")).unwrap();
+    let shim = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("kit/guard/agent-on-git-guard");
+    let mut invalid = Command::new("bash")
+        .arg(&shim)
+        .env("CLAUDE_PLUGIN_ROOT", &plugin)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    invalid
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"{truncated")
+        .unwrap();
+    let invalid = invalid.wait_with_output().unwrap();
+    assert_eq!(invalid.status.code(), Some(2));
+    assert!(combined(&invalid).contains("verify the host hook"));
+    for host in ["claude", "codex"] {
+        for write in [false, true] {
+            let verb = if write {
+                "commit -m must-stop"
+            } else {
+                "status"
+            };
+            let payload = if host == "claude" {
+                serde_json::json!({"tool_name":"Bash","cwd":outside,"tool_input":{"command":format!("git -C {} {verb}", fixture.root.display())}})
+            } else {
+                serde_json::json!({"tool_name":"exec_command","cwd":outside,"tool_input":{"cmd":format!("git {verb}"),"workdir":fixture.root}})
+            };
+            let mut child = Command::new("bash")
+                .arg(&shim)
+                .current_dir(&outside)
+                .env("AGENT_ON_ROOT", &fixture.root)
+                .env("CLAUDE_PLUGIN_ROOT", &plugin)
+                .env("CLAUDE_PROJECT_DIR", &outside)
+                .env("CODEX_PROJECT_DIR", &outside)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(payload.to_string().as_bytes())
+                .unwrap();
+            let output = child.wait_with_output().unwrap();
+            assert_eq!(
+                output.status.code(),
+                Some(if write { 2 } else { 0 }),
+                "{host}: {}",
+                combined(&output)
+            );
+            if write {
+                assert!(combined(&output).contains("跨仓 git 边界拦截"));
+            }
+        }
+    }
+    println!("BLACKBOX PASS: {} — real commit/push blocked; --only unrelated file allowed; push repaired; Claude/Codex shim write=2 read=0", executable.display());
+}
+
+#[cfg(unix)]
+#[test]
+fn registered_scheduler_failure_is_nonzero_and_still_uninstallable() {
+    let fixture = Fixture::new();
+    let schedule = FakeScheduleEnv::new(&fixture._tmp.path().join("schedule-env"));
+    let repo = fixture.root.to_str().unwrap();
+    let installed = schedule.agent_on(
+        &fixture.root,
+        &["worktree", "hooks", "install", "--daily-gc", "--repo", repo],
+    );
+    assert!(installed.status.success(), "{}", combined(&installed));
+    fs::write(schedule.bin.join("launchctl"), "#!/bin/sh\nif [ \"$1\" = print ]; then printf 'state = not running\\nlast exit code = 78: EX_CONFIG\\n'; fi\nexit 0\n").unwrap();
+    fs::write(schedule.bin.join("systemctl"), "#!/bin/sh\nif [ \"$2\" = show ]; then printf 'ActiveState=failed\\nResult=exit-code\\nExecMainStatus=7\\n'; fi\nexit 0\n").unwrap();
+    let failed = schedule.agent_on(
+        &fixture.root,
+        &["worktree", "hooks", "status", "--repo", repo],
+    );
+    assert!(!failed.status.success(), "{}", combined(&failed));
+    assert!(
+        combined(&failed).contains("registered, last run failed"),
+        "{}",
+        combined(&failed)
+    );
+    assert!(combined(&failed).contains("gc --dry-run --json"));
+    let removed = schedule.agent_on(
+        &fixture.root,
+        &["worktree", "hooks", "uninstall", "--repo", repo],
+    );
+    assert!(removed.status.success(), "{}", combined(&removed));
+    assert!(schedule.scheduler_files().is_empty());
+}
+
 #[cfg(unix)]
 #[test]
 fn daily_gc_cli_is_integrated_and_scheduler_drift_makes_uninstall_atomic() {

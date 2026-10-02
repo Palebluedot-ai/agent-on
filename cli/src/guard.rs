@@ -111,14 +111,20 @@ fn tool_command(data: &Value) -> &str {
 
 fn tool_cwd(data: &Value) -> PathBuf {
     let input = data.get("tool_input").unwrap_or(&Value::Null);
-    let raw = data
-        .get("cwd")
-        .or_else(|| input.get("workdir"))
-        .or_else(|| input.get("cwd"))
-        .and_then(Value::as_str)
-        .unwrap_or(".");
     let process_cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    norm(raw, &process_cwd)
+    let session_cwd = data
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(|raw| norm(raw, &process_cwd))
+        .unwrap_or(process_cwd);
+    // Codex's top-level cwd describes the session; workdir is the actual
+    // command target. A tool argument must not replace session identity.
+    input
+        .get("workdir")
+        .and_then(Value::as_str)
+        .or_else(|| input.get("cwd").and_then(Value::as_str))
+        .map(|raw| norm(raw, &session_cwd))
+        .unwrap_or(session_cwd)
 }
 
 fn parse_git_command(cmd: &str, cwd: &Path) -> ParsedGitCommand {
@@ -318,7 +324,14 @@ pub fn guard_decision(data: &Value) -> i32 {
         {
             let sess = env::var("CLAUDE_PROJECT_DIR")
                 .or_else(|_| env::var("CODEX_PROJECT_DIR"))
-                .unwrap_or_else(|_| cwd.display().to_string());
+                .unwrap_or_else(|_| {
+                    data.get("cwd")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                        .unwrap_or_else(|| {
+                            env::current_dir().unwrap_or_default().display().to_string()
+                        })
+                });
             let sess_path = norm(&sess, Path::new("."));
             if !inside_agent_on(&sess_path, &agent_on) {
                 eprintln!(
@@ -347,14 +360,27 @@ pub fn guard_decision(data: &Value) -> i32 {
 
 pub fn run_from_stdin() -> i32 {
     let mut buf = String::new();
-    if io::stdin().read_to_string(&mut buf).is_err() {
-        return 0;
+    if let Err(error) = io::stdin().read_to_string(&mut buf) {
+        eprintln!("ERROR: cannot read PreToolUse payload: {error}; verify the host hook command and stdin wiring with /hooks before retrying");
+        return 2;
     }
-    let data: Value = match serde_json::from_str(if buf.trim().is_empty() { "{}" } else { &buf }) {
+    let data = match parse_payload(&buf) {
         Ok(v) => v,
-        Err(_) => return 0,
+        Err(error) => {
+            eprintln!("ERROR: invalid PreToolUse payload: {error}; verify the host hook event/JSON wiring with /hooks before retrying");
+            return 2;
+        }
     };
     guard_decision(&data)
+}
+
+fn parse_payload(raw: &str) -> Result<Value, String> {
+    let value: Value = serde_json::from_str(if raw.trim().is_empty() { "{}" } else { raw })
+        .map_err(|error| error.to_string())?;
+    if !value.is_object() {
+        return Err("expected a JSON object, not an array or scalar".into());
+    }
+    Ok(value)
 }
 
 #[cfg(test)]
@@ -364,6 +390,15 @@ mod tests {
     use std::fs;
     use std::process::{Command, Stdio};
     use tempfile::{tempdir, TempDir};
+
+    #[test]
+    fn malformed_hook_input_is_not_silently_treated_as_an_allowed_command() {
+        for raw in ["{broken", "[]", "null", "false"] {
+            assert!(parse_payload(raw).is_err(), "{raw}");
+        }
+        assert_eq!(parse_payload("").unwrap(), json!({}));
+        assert!(parse_payload("{\"tool_input\":{\"command\":\"git status\"}}").is_ok());
+    }
 
     // env-based tests must not run in parallel
     fn with_b_env<F: FnOnce(PathBuf)>(f: F) {
@@ -501,6 +536,34 @@ mod tests {
     }
 
     #[test]
+    fn codex_command_workdir_cannot_move_the_session_into_a_protected_repo() {
+        with_b_env(|b| {
+            let outside = tempdir().unwrap();
+            env::set_var("CODEX_PROJECT_DIR", outside.path());
+            env::remove_var("CLAUDE_PROJECT_DIR");
+            let mut data = json!({
+                "tool_name":"exec_command", "cwd":outside.path(),
+                "tool_input":{"cmd":"git commit -m blocked", "workdir":b}
+            });
+            assert_eq!(tool_cwd(&data), fs::canonicalize(&b).unwrap());
+            assert_eq!(guard_decision(&data), 2);
+            env::remove_var("CODEX_PROJECT_DIR");
+            assert_eq!(guard_decision(&data), 2, "session cwd is still outside B");
+            data["tool_input"]["cmd"] = json!("git status");
+            assert_eq!(guard_decision(&data), 0);
+            data["tool_input"]["cmd"] = json!("git commit -m allowed");
+            data["cwd"] = json!(b);
+            assert_eq!(guard_decision(&data), 0);
+            data.as_object_mut().unwrap().remove("cwd");
+            assert_eq!(
+                guard_decision(&data),
+                2,
+                "tool workdir alone is not a session credential"
+            );
+        });
+    }
+
+    #[test]
     fn claude_and_codex_share_one_plugin_hook_manifest() {
         let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let codex: Value = serde_json::from_str(
@@ -522,6 +585,8 @@ mod tests {
 
     #[test]
     fn legacy_wrapper_accepts_shell_and_python_interpreters() {
+        // The subprocess inherits the environment changed by other guard tests.
+        let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let wrapper = repo.join("kit/guard/agent-on-git-guard.sh");
         for interpreter in ["sh", "bash", "python3"] {

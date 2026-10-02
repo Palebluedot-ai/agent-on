@@ -140,17 +140,27 @@ impl InstallState {
 /// Machine-readable state used by `worktree hooks status`.
 ///
 /// `Absent` is intentionally distinct from a failure because daily GC is opt-in.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ScheduleState {
     Active,
     Absent,
     Drifted,
     Inactive,
+    RunFailed,
     Unsupported,
     Error,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
+enum LastRun {
+    Unknown,
+    Running,
+    Success,
+    Failed(String),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ScheduleStatus {
     pub state: ScheduleState,
     pub installed: bool,
@@ -724,9 +734,16 @@ fn reinstall_existing(state: &InstallState) -> Result<String, String> {
     let report = inspect_installed(state);
     match report.state {
         ScheduleState::Active => Ok(installed_message(state, true)),
-        ScheduleState::Inactive => {
+        ScheduleState::Inactive | ScheduleState::RunFailed => {
             activate_installed(state)?;
-            Ok(installed_message(state, true))
+            let mut message = installed_message(state, true);
+            if report.state == ScheduleState::RunFailed {
+                message.push_str(&format!(
+                    "note: reloaded the exact persisted schedule after a failed run; completed execution remains unverified. Previous observation: {}\n",
+                    report.detail
+                ));
+            }
+            Ok(message)
         }
         _ => Err(format!(
             "existing daily GC installation is not safe to refresh: {}. Resolve the exact persisted-state/config issue, then retry; current PATH and executable were not substituted.",
@@ -808,6 +825,7 @@ pub fn render_status(report: &ScheduleStatus) -> String {
         ScheduleState::Absent => "not installed (optional)",
         ScheduleState::Drifted => "configuration drifted",
         ScheduleState::Inactive => "installed but inactive",
+        ScheduleState::RunFailed => "registered, last run failed",
         ScheduleState::Unsupported => "unsupported",
         ScheduleState::Error => "error",
     };
@@ -900,17 +918,7 @@ fn inspect_installed(state: &InstallState) -> ScheduleStatus {
         };
     }
     match scheduler_active(state) {
-        Ok(true) => ScheduleStatus {
-            state: ScheduleState::Active,
-            installed: true,
-            active: true,
-            detail: format!(
-                "daily {:02}:{:02}; reports at {}",
-                DAILY_HOUR, DAILY_MINUTE, state.stdout_log
-            ),
-            reports_path: Some(state.stdout_log()),
-            errors_path: Some(state.stderr_log()),
-        },
+        Ok(true) => inspect_last_run(state),
         Ok(false) => ScheduleStatus {
             state: ScheduleState::Inactive,
             installed: true,
@@ -930,6 +938,119 @@ fn inspect_installed(state: &InstallState) -> ScheduleStatus {
             reports_path: Some(state.stdout_log()),
             errors_path: Some(state.stderr_log()),
         },
+    }
+}
+
+fn inspect_last_run(state: &InstallState) -> ScheduleStatus {
+    let (health, outcome) = match last_run(state) {
+        Ok(LastRun::Success) => (ScheduleState::Active, "last run succeeded".into()),
+        Ok(LastRun::Running) => (ScheduleState::Active, "currently running; result pending".into()),
+        Ok(LastRun::Unknown) => (
+            ScheduleState::Active,
+            "registered; no completed run confirmed (registration is not execution proof)".into(),
+        ),
+        Ok(LastRun::Failed(reason)) => (
+            ScheduleState::RunFailed,
+            format!("last run failed: {reason}; inspect scheduler status and {} before retrying; no configuration was changed", shell_hint(&state.stderr_log())),
+        ),
+        Err(error) => (ScheduleState::Error, format!("cannot observe last run: {error}")),
+    };
+    ScheduleStatus {
+        state: health,
+        installed: true,
+        // Registered and functioning are distinct facts. Uninstall still uses
+        // scheduler_active, so a failed job cannot become impossible to remove.
+        active: true,
+        detail: format!(
+            "daily {:02}:{:02}; {outcome}; reports at {}; run `agent-on worktree gc --dry-run --json --repo {}` to check the report command",
+            DAILY_HOUR, DAILY_MINUTE, state.stdout_log, shell_hint(Path::new(&state.repo_at_install))
+        ),
+        reports_path: Some(state.stdout_log()),
+        errors_path: Some(state.stderr_log()),
+    }
+}
+
+fn last_run(state: &InstallState) -> Result<LastRun, String> {
+    let (output, parse): (Output, fn(&str) -> LastRun) = match state.kind {
+        SchedulerKind::Launchd => {
+            let target = format!("gui/{}/{}", current_uid()?, state.launchd_label);
+            (
+                run_output("launchctl", &["print".into(), target.into()])?,
+                launchd_last_run,
+            )
+        }
+        SchedulerKind::SystemdUser => {
+            let service = format!(
+                "{}.service",
+                state.systemd_timer_name.trim_end_matches(".timer")
+            );
+            (
+                run_output(
+                    "systemctl",
+                    &[
+                        "--user".into(),
+                        "show".into(),
+                        service.into(),
+                        "--property=Result,ExecMainStatus,ExecMainExitTimestamp,ActiveState".into(),
+                    ],
+                )?,
+                systemd_last_run,
+            )
+        }
+        SchedulerKind::Unsupported => return Ok(LastRun::Unknown),
+    };
+    if !output.status.success() {
+        return Err(format!(
+            "scheduler result query failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(parse(&String::from_utf8_lossy(&output.stdout)))
+}
+
+fn launchd_last_run(text: &str) -> LastRun {
+    // Do not match nested coalition `state = active` lines.
+    if text.lines().any(|line| line.trim() == "state = running") {
+        return LastRun::Running;
+    }
+    for line in text.lines().map(str::trim) {
+        if let Some(raw) = line.strip_prefix("last exit code = ") {
+            if let Ok(code) = raw.split(':').next().unwrap_or("").trim().parse::<i32>() {
+                return if code == 0 {
+                    LastRun::Success
+                } else {
+                    LastRun::Failed(format!("exit {raw}"))
+                };
+            }
+        }
+        if let Some(raw) = line.strip_prefix("last terminating signal = ") {
+            return LastRun::Failed(format!("signal {raw}"));
+        }
+    }
+    LastRun::Unknown
+}
+
+fn systemd_last_run(text: &str) -> LastRun {
+    let property = |name| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(name))
+            .unwrap_or("")
+            .trim()
+    };
+    if matches!(property("ActiveState="), "active" | "activating") {
+        return LastRun::Running;
+    }
+    let result = property("Result=");
+    if !result.is_empty() && result != "success" {
+        return LastRun::Failed(format!(
+            "Result={result}, ExecMainStatus={}",
+            property("ExecMainStatus=")
+        ));
+    }
+    if result == "success" && !property("ExecMainExitTimestamp=").is_empty() {
+        LastRun::Success
+    } else {
+        LastRun::Unknown
     }
 }
 
@@ -1605,6 +1726,41 @@ fn is_executable_file(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loaded_scheduler_does_not_hide_last_execution_failure() {
+        assert_eq!(
+            launchd_last_run("state = not running\nlast exit code = 78: EX_CONFIG\n"),
+            LastRun::Failed("exit 78: EX_CONFIG".into())
+        );
+        assert_eq!(launchd_last_run("last exit code = 0\n"), LastRun::Success);
+        assert_eq!(
+            launchd_last_run("last terminating signal = 9\n"),
+            LastRun::Failed("signal 9".into())
+        );
+        assert_eq!(
+            launchd_last_run("state = running\nlast exit code = 78\n"),
+            LastRun::Running
+        );
+        assert_eq!(launchd_last_run("state = not running\n"), LastRun::Unknown);
+        assert_eq!(
+            systemd_last_run("ActiveState=failed\nResult=exit-code\nExecMainStatus=7\n"),
+            LastRun::Failed("Result=exit-code, ExecMainStatus=7".into())
+        );
+        assert_eq!(
+            systemd_last_run("ActiveState=failed\nResult=signal\nExecMainStatus=9\n"),
+            LastRun::Failed("Result=signal, ExecMainStatus=9".into())
+        );
+        assert_eq!(systemd_last_run("ActiveState=inactive\nResult=success\nExecMainExitTimestamp=Thu 2026-10-01 03:30:00\n"), LastRun::Success);
+        assert_eq!(
+            systemd_last_run("Result=success\nExecMainExitTimestamp=\n"),
+            LastRun::Unknown
+        );
+        assert_eq!(
+            systemd_last_run("ActiveState=activating\nResult=exit-code\n"),
+            LastRun::Running
+        );
+    }
     use tempfile::TempDir;
 
     fn git(cwd: &Path, args: &[&str]) {
