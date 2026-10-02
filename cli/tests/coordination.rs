@@ -391,6 +391,143 @@ fn actual_scan_includes_already_committed_overlap() {
 }
 
 #[test]
+fn dashboard_reads_the_same_tasks_and_results_from_primary_and_linked_trees() {
+    let f = Fixture::new();
+    let task = f.dispatch("panel", "page");
+    let primary = f.ok(&["dashboard", "--json"]);
+    let linked = f.ok(&[
+        "dashboard",
+        "--json",
+        "--repo",
+        task["task"]["worktree"].as_str().unwrap(),
+    ]);
+    assert_eq!(primary["repo"], linked["repo"]);
+    assert_eq!(
+        primary["patrol"]["data"]["tasks"],
+        linked["patrol"]["data"]["tasks"]
+    );
+    assert_eq!(primary["worktrees"].as_array().unwrap().len(), 2);
+    f.ok(&[
+        "task",
+        "progress",
+        "panel",
+        "--state",
+        "working",
+        "--note",
+        "implementing the panel; next run browser checks",
+    ]);
+    let progress = f.ok(&["dashboard", "--json"]);
+    assert_eq!(progress["patrol"]["data"]["tasks"][0]["state"], "working");
+    let result = f._tmp.path().join("result.txt");
+    fs::write(&result, "actual test result; source evidence in test log").unwrap();
+    f.ok(&[
+        "task",
+        "result",
+        "panel",
+        "--file",
+        result.to_str().unwrap(),
+    ]);
+    let next = f.ok(&["status", "--json"]);
+    assert_eq!(next["patrol"]["data"]["results"][0]["verified"], false);
+    assert_eq!(next["patrol"]["data"]["tasks"][0]["state"], "reported");
+    assert!(next["patrol"]["data"]["tasks"][0]["released_head"].is_null());
+    assert!(next["patrol"]["data"]["results"][0]["summary"]
+        .as_str()
+        .unwrap()
+        .contains("actual test result"));
+    fs::write(f.dir().join("tasks/panel.json"), "broken JSON").unwrap();
+    let damaged = f.ok(&["dashboard", "--json"]);
+    assert_eq!(damaged["patrol"]["available"], false);
+    assert_eq!(damaged["worktrees"].as_array().unwrap().len(), 2);
+    assert!(damaged["worktrees"][1]["managed"].is_null());
+}
+
+#[cfg(unix)]
+#[test]
+fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readiness() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new();
+    let value = f.ok(&[
+        "dispatch",
+        "--id",
+        "hermes-task",
+        "--goal",
+        "literal $(touch SHOULD_NOT_EXIST) `echo nope`",
+        "--host",
+        "hermes",
+        "--window",
+        "external",
+        "--worktree",
+        "--path",
+        "page",
+        "--model",
+        "explicit-model",
+    ]);
+    let id = value["session"]["id"].as_str().unwrap();
+    let receipt = f.dir().join("sessions").join(format!("{id}.json"));
+    let mut session: Value = serde_json::from_slice(&fs::read(&receipt).unwrap()).unwrap();
+    session["state"] = "starting".into();
+    session["resume"] = true.into();
+    session["host_session_id"] = "exact-hermes-session".into();
+    fs::write(&receipt, session.to_string()).unwrap();
+    let bin = f._tmp.path().join("bin");
+    fs::create_dir(&bin).unwrap();
+    let exe = bin.join("hermes");
+    fs::write(
+        &exe,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_ARGV\"\nexit 7\n",
+    )
+    .unwrap();
+    fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
+    let argv = f._tmp.path().join("argv.txt");
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let out = f
+        .command()
+        .env("PATH", path)
+        .env("TEST_ARGV", &argv)
+        .args(["patrol", "serve", id])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let result: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(result["session"]["exit_code"], 7);
+    assert_eq!(result["host_success"], false);
+    let args = fs::read_to_string(argv).unwrap();
+    assert!(args.starts_with("chat\n--in\n"));
+    assert!(args.contains("--resume\nexact-hermes-session\n--query\n"));
+    assert!(args.contains("--model\nexplicit-model\n"));
+    assert!(args.contains("$(touch SHOULD_NOT_EXIST)"));
+    assert!(!args.contains("--yolo") && !args.contains("--accept-hooks"));
+    assert!(!Path::new(value["task"]["worktree"].as_str().unwrap())
+        .join("SHOULD_NOT_EXIST")
+        .exists());
+    assert!(!f
+        .cli(&[
+            "dispatch",
+            "--id",
+            "unsupported",
+            "--host",
+            "hermes",
+            "--goal",
+            "read",
+            "--read-only",
+            "--window",
+            "external"
+        ])
+        .status
+        .success());
+    assert!(!f.dir().join("tasks/unsupported.json").exists());
+}
+
+#[test]
 fn overlap_is_caught_before_checkout_or_model_creation() {
     let f = Fixture::new();
     f.dispatch("a", "src/shared/**");

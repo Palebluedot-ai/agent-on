@@ -23,6 +23,7 @@ pub(crate) enum Host {
     Claude,
     Codex,
     Grok,
+    Hermes,
     /// Prepare a receipt; the desktop skill creates the chat and binds its actual id
     CodexApp,
 }
@@ -33,6 +34,7 @@ impl Host {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::Grok => "grok",
+            Self::Hermes => "hermes",
             Self::CodexApp => "codex",
         }
     }
@@ -121,6 +123,14 @@ enum TaskCmd {
         read_only: bool,
     },
     List,
+    /// Record an explicit executor progress update; never marks verification or release
+    Progress {
+        id: String,
+        #[arg(long,value_parser=["working","blocked","waiting"])]
+        state: String,
+        #[arg(long)]
+        note: String,
+    },
     /// Send an actual executor result back to the project's shared local ledger
     Result {
         id: String,
@@ -204,6 +214,8 @@ pub(crate) struct Task {
     pub(crate) evidence: Option<String>,
     #[serde(default)]
     pub(crate) released_head: Option<String>,
+    #[serde(default)]
+    pub(crate) progress: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -289,33 +301,39 @@ impl Store {
         )
     }
     pub(crate) fn lock(&self) -> Result<Lock> {
-        fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
-        let path = self.dir.join("write.lock");
-        let mut options = OpenOptions::new();
-        options.write(true).read(true).create(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(&path).map_err(|e| e.to_string())?;
-        for _ in 0..40 {
-            match file.try_lock() {
-                Ok(()) => {
-                    file.set_len(0).map_err(|e| e.to_string())?;
-                    file.write_all(std::process::id().to_string().as_bytes())
-                        .map_err(|e| e.to_string())?;
-                    return Ok(Lock(file));
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(10)),
-                Err(TryLockError::Error(e)) => return Err(e.to_string()),
-            }
-        }
-        Err(format!(
-            "control ledger busy or owner unknown: {}",
-            path.display()
-        ))
+        lock_path(&self.dir.join("write.lock"))
     }
+}
+
+/// Separate callers may serialize their own writes without holding the task
+/// receipt lock across network I/O. The OS releases each lease on process exit.
+pub(crate) fn lock_path(path: &Path) -> Result<Lock> {
+    let parent = path.parent().ok_or("lock path has no parent")?;
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let mut options = OpenOptions::new();
+    options.write(true).read(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(|e| e.to_string())?;
+    for _ in 0..40 {
+        match file.try_lock() {
+            Ok(()) => {
+                file.set_len(0).map_err(|e| e.to_string())?;
+                file.write_all(std::process::id().to_string().as_bytes())
+                    .map_err(|e| e.to_string())?;
+                return Ok(Lock(file));
+            }
+            Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(10)),
+            Err(TryLockError::Error(e)) => return Err(e.to_string()),
+        }
+    }
+    Err(format!(
+        "shared writer busy or owner unknown: {}",
+        path.display()
+    ))
 }
 
 pub(crate) struct Lock(File);
@@ -522,15 +540,32 @@ fn new_task(
         released_at: None,
         evidence: None,
         released_head: None,
+        progress: None,
     })
 }
 pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
     let store = Store::open(&repo_arg(args.repo))?;
     match args.action {
         TaskCmd::List => Ok(json!({"tasks":store.tasks()?})),
+        TaskCmd::Progress { id, state, note } => {
+            if note.trim().is_empty() {
+                return Err("progress requires a concrete next-action note".into());
+            }
+            let _lock = store.lock()?;
+            let mut task = store.task(&id)?;
+            if matches!(task.state.as_str(), "released" | "reclaimed") {
+                return Err("task is already released; use a new task rather than reviving recovery metadata".into());
+            }
+            task.state = state;
+            task.progress = Some(
+                json!({"at":now(),"note":prompt_summary(&note),"source":"executor-update","verified":false}),
+            );
+            store.save_task(&task)?;
+            Ok(json!({"task":task}))
+        }
         TaskCmd::Result { id, file } => {
             let _lock = store.lock()?;
-            let task = store.task(&id)?;
+            let mut task = store.task(&id)?;
             let raw = fs::read_to_string(&file).map_err(|e| e.to_string())?;
             if raw.len() > 262_144 {
                 return Err(
@@ -542,6 +577,10 @@ pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
                 &store.dir.join("results").join(format!("task-{id}.json")),
                 &result,
             )?;
+            if !matches!(task.state.as_str(), "released" | "reclaimed") {
+                task.state = "reported".into();
+                store.save_task(&task)?;
+            }
             Ok(result)
         }
         TaskCmd::Add {
@@ -716,6 +755,19 @@ fn provider_args(session: &Session, prompt: &str, read_only: bool) -> Result<Vec
                 args.extend(["--tools".into(), "Read,Glob,Grep".into()]);
             }
         }
+        Host::Hermes => {
+            if read_only {
+                return Err("Hermes adapter has no verified read-only sandbox; choose Codex/Claude for patrol or read-only work".into());
+            }
+            args.extend([
+                "chat".into(),
+                "--in".into(),
+                session.cwd.display().to_string(),
+            ]);
+            if session.resume {
+                args.push("--no-restore-cwd".into());
+            }
+        }
         Host::CodexApp => {
             return Err("native Codex chats require the desktop create_thread bridge".into())
         }
@@ -733,6 +785,9 @@ fn provider_args(session: &Session, prompt: &str, read_only: bool) -> Result<Vec
         } else {
             args.extend(["--resume".into(), id.into()]);
         }
+    }
+    if session.host == Host::Hermes {
+        args.push("--query".into());
     }
     args.push(prompt.into());
     Ok(args)
@@ -901,6 +956,12 @@ fn start_patrol(store: &Store, host: Host, window: Window, model: Option<String>
 pub(crate) fn dispatch(args: DispatchArgs) -> Result<Value> {
     let store = Store::open(&repo_arg(args.repo.clone()))?;
     require_dispatch_authority(&store.caller)?;
+    if args.host == Host::Hermes && args.read_only {
+        return Err(
+            "Hermes adapter has no verified read-only sandbox; use another host for --read-only"
+                .into(),
+        );
+    }
     let _lock = store.lock()?;
     validate_id(&args.id)?;
     if store
@@ -1030,6 +1091,9 @@ pub(crate) fn run_patrol(args: PatrolArgs) -> Result<Value> {
             model,
         } => {
             require_dispatch_authority(&store.caller)?;
+            if host == Host::Hermes {
+                return Err("patrol needs enforced read-only tools; Hermes is supported for worker dispatch only".into());
+            }
             start_patrol(&store, host, window, model)
         }
         PatrolCmd::Status => Ok(
