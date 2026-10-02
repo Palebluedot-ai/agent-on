@@ -8,7 +8,9 @@
 import json
 import sys
 import tempfile
+import subprocess
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -16,6 +18,50 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import merge_audit as ma  # noqa: E402
 
 POLICY = json.loads((Path(__file__).resolve().parent / "policy.json").read_text(encoding="utf-8"))
+
+
+class TestSharedLedger(unittest.TestCase):
+    def test_explicit_ledger_is_absolute_and_independent_of_cwd(self):
+        with tempfile.TemporaryDirectory() as temp:
+            ledger = Path(temp) / "shared.jsonl"
+            self.assertEqual(ma.resolve_ledger(str(ledger)), ledger.resolve())
+        with self.assertRaises(SystemExit) as exc:
+            ma.resolve_ledger("ledger/local.jsonl")
+        self.assertEqual(exc.exception.code, ma.EXIT_ERROR)
+
+    def test_primary_and_linked_script_use_the_same_existing_ledger(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            linked = Path(temp) / "linked"
+            root.mkdir()
+            def git(*args):
+                return subprocess.run(["git", "-C", str(root), *args], check=True,
+                                      capture_output=True, text=True).stdout.strip()
+            git("init", "-b", "main")
+            git("config", "user.name", "Audit test")
+            git("config", "user.email", "audit@example.com")
+            (root / "ledger").mkdir()
+            ledger = root / "ledger" / "merge-audit.jsonl"
+            ma.append_record(ledger, {"kind": "claim", "pr": 1, "claimed": "AUTO"})
+            git("add", ".")
+            git("commit", "-m", "base")
+            git("worktree", "add", "-b", "worker", str(linked))
+            for tree in (root, linked):
+                (tree / "tools" / "merge-audit").mkdir(parents=True)
+            with patch.object(ma, "TOOL_DIR", linked / "tools" / "merge-audit"):
+                self.assertEqual(ma.default_ledger(), ledger.resolve())
+                ma.append_record(ma.default_ledger(), {"kind": "claim", "pr": 2, "claimed": "AUTO"})
+            with patch.object(ma, "TOOL_DIR", root / "tools" / "merge-audit"):
+                recs, raw = ma.read_ledger(ma.default_ledger())
+                self.assertEqual(len(recs), 2)
+                self.assertIsNone(ma.verify_chain(raw))
+            self.assertEqual(len((linked / "ledger" / "merge-audit.jsonl").read_text().splitlines()), 1)
+
+    def test_unknown_git_store_does_not_silently_select_another_ledger(self):
+        with patch.object(ma, "repo_root", return_value=Path("/nonexistent/audit-repo")):
+            with self.assertRaises(SystemExit) as exc:
+                ma.default_ledger()
+            self.assertEqual(exc.exception.code, ma.EXIT_ERROR)
 
 
 def pr(number=1, title="t", author="Palebluedot-ai", files=(), body="",

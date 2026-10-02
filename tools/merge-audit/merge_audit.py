@@ -75,7 +75,25 @@ def repo_root() -> Path:
 
 
 def default_ledger() -> Path:
-    return repo_root() / "ledger" / "merge-audit.jsonl"
+    root = repo_root()
+    try:
+        out = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"], cwd=root,
+            capture_output=True, text=True, check=True,
+        ).stdout
+        primary = next(line[9:] for line in out.splitlines() if line.startswith("worktree "))
+        return Path(primary).resolve() / "ledger" / "merge-audit.jsonl"
+    except (OSError, subprocess.CalledProcessError, StopIteration) as exc:
+        die(f"无法确定主 worktree 的审计账本，请明确传 --ledger <绝对路径>：{exc}")
+
+
+def resolve_ledger(value: str | None) -> Path:
+    if not value:
+        return default_ledger()
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        die("--ledger 必须是绝对路径，避免 record/report 随工作目录换账本")
+    return path.resolve()
 
 
 def now_iso() -> str:
@@ -576,7 +594,7 @@ def cmd_precheck(args) -> int:
 
 
 def cmd_record(args) -> int:
-    ledger = Path(args.ledger) if args.ledger else default_ledger()
+    ledger = resolve_ledger(args.ledger)
     rec = {
         "kind": "claim",
         "ts": now_iso(),
@@ -598,7 +616,7 @@ def cmd_record(args) -> int:
 def cmd_scan(args) -> int:
     policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
     repo = args.repo or policy["repo"]
-    ledger = Path(args.ledger) if args.ledger else default_ledger()
+    ledger = resolve_ledger(args.ledger)
 
     prs = load_prs(args, policy)
     if args.since:
@@ -806,7 +824,7 @@ def build_claims(recs: list[dict]) -> dict[int, list[dict]]:
 def cmd_report(args) -> int:
     policy = json.loads(Path(args.policy).read_text(encoding="utf-8"))
     repo = args.repo or policy["repo"]
-    ledger = Path(args.ledger) if args.ledger else default_ledger()
+    ledger = resolve_ledger(args.ledger)
 
     prs = load_prs(args, policy)
     window_full = (not args.from_file) and len(prs) >= args.limit
@@ -883,7 +901,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--policy", default=str(DEFAULT_POLICY), help="规则文件（默认 tools/merge-audit/policy.json）")
     p.add_argument("--repo", default=None, help="覆盖 policy.json 里的仓坐标")
-    p.add_argument("--ledger", default=None, help="账本路径（默认 ledger/merge-audit.jsonl）")
+    p.add_argument("--ledger", default=None, help="账本绝对路径（默认主 worktree/ledger/merge-audit.jsonl）")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("policy", help="打印生效规则（人读）")

@@ -16,6 +16,8 @@
 所以它**不听值守怎么说**，只看 GitHub 上留下的事实：谁写的、改了哪些文件、
 检查是什么结论、评审是什么结论。
 
+默认账本固定为同一 Git 仓的主 worktree `ledger/merge-audit.jsonl`，脚本放在 linked worktree 也读写这份。`record` / `scan --write` / `report` 必须用同一绝对路径；显式 `--ledger` 拒绝相对路径。账本链断或 report 跑不通时退回逐单先问，不合并多树各自追加的账本。
+
 ## 三个动作
 
 ```bash
@@ -46,7 +48,7 @@ python3 tools/merge-audit/merge_audit.py report              # 事后，独立�
 | 级别 | 什么意思 | 为什么它值一次告警 |
 |---|---|---|
 | `VIOLATION` | 硬停单被当成 AUTO/NOTABLE **自动合了**（claim 证明没问用户） | 越界。最重——该停下问的单没问就合了 |
-| `LEDGER_BROKEN` | 账本哈希链断了 | 有人改写/删了记录，或多分支追加后合并（后者是正常事件，看 git 历史判） |
+| `LEDGER_BROKEN` | 账本哈希链断了 | 有人改写/删了记录或多分支追加后混合；立即退回逐单先问并核对原始记录 |
 | `UNVERIFIED_HARDSTOP` | 硬停单合了，但账本里没有「问过用户」的凭据 | 可能批过，但**无法证明**；补一条 record 或说明 |
 | `MERGED_RED` | 评审 changes-requested 或检查红着合了 | 越界 |
 | `UNRECORDED` | **非硬停**单合了，但账本里没有记录 | 悄悄合的，事后说不清当时按什么判 |
@@ -101,9 +103,7 @@ decision commit）。裸 PR-URL 与空指针都不认——URL 不是 git 对象
 - **权威的防篡改来自 git，不是来自链**。账本是仓里的文件，任何改写都必须提交，
   `git log -p ledger/merge-audit.jsonl` 看得见是谁什么时候改的。链的作用是**在提交之前**
   就把静默修改变成必须公开的重写。
-- **多 worktree 协作时链断是正常事件**：两条分支各自追加，合并后必然交错。
-  所以 `LEDGER_BROKEN` 是**需要人看一眼的发现**，不是 dead-man's switch 的自动触发条件——
-  把它接成自动 fail-closed 会在正常协作里天天自锁。
+- **多 worktree 使用同一主树账本**：默认路径固定为主 worktree 的 `ledger/merge-audit.jsonl`，由在班值守追加；分支里已有独立账本不自动拼接或覆盖。链断或报告跑不通时按现行政策退回逐单先问，修复依据核清后再恢复自动合并。
 
 `policy.json` 里的 `ledger_starts_at` 是记账起点：这之前合入的单不产生记账类发现
 （那时还没有账可对，永久报它们只会训练人忽略这份报告），但**越界类发现不受此限**。
