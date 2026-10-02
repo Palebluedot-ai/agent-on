@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.26.0`**（原核心清单减负完成；可选巡逻/跨模型派工/有限清道夫；提交闸读取真实 index、推送闸读取待推历史；审计共用主树账本；build-info 与 doctor 核源码身份和实际 executor。值守三权、机器合并政策与旧 report-only GC 不变。旧安装先重建实际 executor，再更新插件缓存/重启；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
+**最新推荐 pin：`v0.27.0`**（按需本机只读面板、任务进度与动态 PR 证据；Hermes 薄 CLI 适配，自动 hook/认证模型任务未验收；setup 先构建 executor、失败非零；Codex session cwd/workdir 分离与损坏 payload 拦截、每日只读 GC 的 last-run 状态。原可选巡逻/派工/有限清道夫、真实 index/待推历史闸、共用审计账继续保留。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
@@ -49,6 +49,6 @@
 
 ## 不做的事（宪章边界的执行版）
 
-- 不自建通用编排运行时；本仓以文档和模板为主，薄 CLI 复用宿主会话与调度。可执行物为 **Rust CLI**（`cli/`：doctor / guard / intake-lint / audit-lint / check / setup / worktree / tag-release / landing / oncall / patrol / dispatch / task / janitor——以 `agent-on --help` 为准）与 **`tools/merge-audit/`**（Python 标准库，零依赖；值守合并的独立审计员，随 babysit 组件走）
+- 不自建通用编排运行时；本仓以文档和模板为主，薄 CLI 复用宿主会话与调度。可执行物为 **Rust CLI**（`cli/`：doctor / guard / intake-lint / audit-lint / check / setup / worktree / tag-release / landing / oncall / patrol / dispatch / task / janitor / dashboard——以 `agent-on --help` 为准）与 **`tools/merge-audit/`**（Python 标准库，零依赖；值守合并的独立审计员，随 babysit 组件走）
 - 不建远程仓 / 不动三个前身仓的内容，除非用户明确确认。**push 自己的分支与开 PR 不在此列**——那是本轨内部动作，自己做不问（判据见 [playbook/multi-contributor-protocol.md](playbook/multi-contributor-protocol.md) 的「外向硬门的边界」一节）；原句写「不 push」与自举纪律 6「交付轮次必须 push + 打 tag」直接打架，2026-08-19 用户拍板改正
 - 不引入与 GStack / Superpowers 重叠的环节型功能

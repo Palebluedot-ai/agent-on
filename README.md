@@ -18,7 +18,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.26.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.27.0`。**
 
 ---
 
@@ -38,7 +38,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 ## 核心能力
 
-v0.26.0 提供可选的独立巡逻窗口、Claude/Codex/Grok 派工与有限清道夫。用户继续只跟原窗口说话；共享改动先归一个任务，巡逻提前检查已提交与未提交的重叠。用法与覆盖边界见 [巡逻执行书](kit/patrol-control-plane.md)。默认流程同时减掉重复续接确认、登记前置和样式改动强制 TDD。
+v0.27.0 增加按需本机面板：同屏看任务、进度、会话、实际 worktree 与 PR 证据；共享观察器取证，同提交的 CI/审批变化也会更新。入口与真实覆盖边界见 [面板执行书](kit/live-control-plane.md)。已有可选巡逻、Claude/Codex/Grok 派工与有限清道夫继续保留，并新增 Hermes 薄 CLI 适配；Hermes 自动 hook 与认证模型任务尚未验收。用户仍只跟原窗口说话，默认流程不强制登记或运行巡逻。用法见 [巡逻执行书](kit/patrol-control-plane.md)。
 
 **🚀 一句话开工**
 新项目里说「初始化本项目」。AI 先问三个问题给项目定档，然后播种骨架、规则、状态文件——轻量项目一分钟就绪，完整档一小时内第一张任务卡开工。
@@ -99,7 +99,7 @@ AI：先用 S 轻装，长期迭代按实际需要补件。已播种：
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.26.0`** |
+| **推荐 pin** | **`v0.27.0`** |
 | **不是** | npm、Claude 官方总商店、App Store |
 
 | OS | 默认工作仓（setup 会放到这里） |
@@ -121,7 +121,7 @@ cargo install --path cli --force
 agent-on setup --with-plugins --with-symlinks
 ```
 
-`agent-on setup` 会：把工作仓 clone / 更新到默认目录 → checkout 推荐 pin → 写 config →（可选）装 Claude / Codex plugin 与 skill symlink → 跑 `doctor` 自检。已有工作仓只想登记：`agent-on setup --config-only --work-root <路径>`。细节见 [scripts/README.md](scripts/README.md)。
+`agent-on setup` 会：把工作仓 clone / 更新到默认目录 → checkout 推荐 pin → 写 config → 构建实际 CLI →（可选）装 Claude / Codex plugin 与 skill symlink → 跑 `doctor` 自检。目标 pin 或插件安装失败明确返回非零、保留成功步骤，不改用另一版本冒充成功。已有工作仓只想登记：`agent-on setup --config-only --work-root <路径>`。细节见 [scripts/README.md](scripts/README.md)。
 
 ### 2. 按工具补入口
 
@@ -138,7 +138,7 @@ claude plugin install agent-on@agent-on
 
 ```bash
 codex plugin marketplace add Palebluedot-ai/agent-on
-codex plugin install agent-on@agent-on
+codex plugin add agent-on@agent-on
 ```
 
 再把 [codex/AGENTS-global-snippet.md](codex/AGENTS-global-snippet.md) 并入 `~/.codex/AGENTS.md`。开工：`$agent-on init` 或「初始化本项目」。首次运行时在 `/hooks` 里检查并信任 guard hook；agent-on 不会静默改写 `~/.codex/`。详见 [codex/README.md](codex/README.md)。
@@ -167,6 +167,7 @@ agent-on doctor
 | **接管半路项目** | 接管本项目 | `adopt` | 考古 → 定档 → 只补缺的件，不重建、不回填历史 |
 | **换会话接着干** | 握手后继续 | `handshake` | 读目标与现状，明确指令直接续跑；默认原窗口 compact |
 | **看多会话全场** | 检查 worktree | `worktree` | 各执行轨的边界、依赖、漂移、可回收 |
+| **看执行进展** | 看当前状态 / 打开面板 | `dashboard` | 任务、真实回传、worktree、PR 取证时间与下一步 |
 | **自检路径** | agent-on doctor | `doctor` | 打印本机登记与 hook 执行面 |
 | **沉淀回流** | agent-on 结账 | `settle` | 把本项目带证据的教训送进 agent-on 的 `intake/` |
 | **升级方法论** | agent-on 升级 | `upgrade` | 核对 pin、模板差异与实际 hook / CLI，再按授权升级 |
@@ -176,6 +177,10 @@ agent-on doctor
 **入口怎么选**：全新项目 → `init`；已开工但从没接过 agent-on → `adopt`（不是 handshake）；接过的项目每次换会话 → `handshake`。
 
 多会话并行、worktree 控制面、合流队列的完整用法见 [docs/manual.md](docs/manual.md)。
+
+本机执行面板：`agent-on dashboard --serve --refresh-landing`，打开命令返回的 `http://127.0.0.1:8765/`。本机状态每 5 秒观察；显式开启后一个共享观察器每 60 秒更新 PR，多个浏览器不重复取证。不带 `--refresh-landing` 只读已有 PR 快照；`agent-on status --json` 返回同一数据结构。面板可嵌在现有桌面宿主的浏览器侧栏，关闭命令即停止服务。用法与覆盖缺口见 [本机控制面](kit/live-control-plane.md)。
+
+Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配器沿用本机 Hermes 的认证和审批，不安装它、不跳过授权；当前没有自动 Hermes hook 接线或可验证的只读沙箱，结果用现有 `task result` 回传。不能把适配器测试说成真实模型任务已验收。
 
 ## 三档装备：按任务选，不按风险整包升级
 

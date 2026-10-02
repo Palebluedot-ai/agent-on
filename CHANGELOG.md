@@ -2,6 +2,20 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
+## v0.27.0（2026-10-03）——本机执行面板与可变化的 PR 证据
+
+> **minor**：新增可选本机只读面板与薄适配，修执行漏检和失败回执；现行合并/回收授权不变。用户于 2026-10-03 明确批准本批发布到 main，并原子推送 main＋annotated tag。源码及 CLI/插件 manifest、推荐 pin 同步；发布不等于升级本机执行器或插件。
+
+- **统一执行面**：`dashboard`（别名 `status`）提供共读 JSON 与按需 localhost 面板。一个观察器每 5 秒读任务/结果/会话与实际 worktree，显式 `--refresh-landing` 才每 60 秒批量联网。旧树、未启用捕获、损坏记录、陈旧快照、断开与未确认进程分别显示。多个客户端复用投影；无 merge/delete/shell 写 API，用户文本用 textContent。
+- **进度回传**：`task progress --state working|blocked|waiting --note …`；结果到达变为 reported，仍未验证/未释放。已释放的恢复元数据不能用 progress 复活。
+- **修 PR 状态冻结**：同 head/base SHA 继续复用成功取得的文件证据，但每次 refresh 批量更新 CI、审批、mergeable 和 draft；同提交从运行中变绿或被评审打回会更新队列。文件取证失败标 unavailable、不变可合、不证明无重叠，下次同 SHA 仍重取；旧空文件占位也重取。专用仓库级刷新锁防多窗口重复取证，不占任务回执锁；快照私有原子写，inventory 上限不冒充完整。
+- **Hermes 薄适配**：dispatch 沿用本机 `hermes chat --in/--query`、显式模型和精确续接，不绕过审批、不改认证或私有配置。没有可验证的只读沙箱，拒绝巡逻/只读任务；尚未接 Hermes hook、未实跑认证模型任务，runner 退出不冒充 ready。
+- **装机回执**：先构建 executor 再装插件；Codex 探测 add，旧宿主才退 install；构建/插件/pin 失败返回非零，不静默换版本。README 和 Codex 入口对齐。
+- **执行层补漏**：Codex 的 session cwd 与命令 workdir 分开判：workdir 决定 Git 实际目标，不授予会话身份。损坏/非对象 PreToolUse JSON 不再静默 allow，报 wiring 修复指引并 exit 2，空 stdin 兼容探针仍允许。每日报告状态新增 last-run 取证，launchd 已登记但 exit 78、systemd timer active 但 service 失败均非零，面板同样提示；失败不妨碍按原权限卸载。重装仅重载内容仍匹配的既有调度，明确说明运行尚未验收。本机既有 macOS 报告任务失效记录重载后真实 exit 0，未换全局执行器、未启用删除。
+- **纠正文档漂移**：lane 是可选记账；项目端结账只写素材，intake-lint 已实现；升级核模板与执行面。正文与入口模板对表：`playbook/iteration-loop.md` / `kit/worktree-control-plane.md`、`kit/patrol-control-plane.md`、`skill/SKILL.md`。新增唯一面板执行书 `kit/live-control-plane.md`；源码身份包含嵌入的 HTML。
+
+验收与真实现场范围见 [本轮快照](snapshot/2026-10-02-agent-os-live-control.md)。发布前独立复核补两项先红后绿回归，最终完整本批回归 326 passed / 0 failed，clippy/fmt/diff check 与 release 构建通过，真实浏览器验收通过。推荐 pin 与发布元数据同步 v0.27.0；本机 CLI/插件全局安装不在这次发布授权内。原生 desktop、跨机与自动 Hermes hook 不是已交付功能。
+
 ## v0.26.0（2026-10-02）——核心规则精简、可选巡逻派工与有限清道夫
 
 > **minor**：新增可选功能并缩小默认流程；同文件冲突判据保留，但提交/推送检查限定实际操作范围。值守三权与机器审计政策不变。源码构建要求 Rust 1.89+，使用标准库文件锁，未新增运行依赖。用户明确要求按原清单完成并继续提交，收口与验证见 [核心清单收口](snapshot/2026-10-02-core-checklist-completion.md)。
