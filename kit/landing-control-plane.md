@@ -4,7 +4,7 @@
 
 ## 一句话
 
-**管理单元是功能轨 / PR，不是 worktree 路径；所有检查结果绑定 `(PR head SHA, base SHA)`，两者未变绝不重查。**
+**管理单元是功能轨 / PR。文件证据绑定 `(PR head SHA, base SHA)`，未变就复用；CI、审批和 mergeable 每次 refresh 批量更新，因为它们可以在同一 SHA 上变化。**
 
 层级固定为：
 
@@ -57,7 +57,7 @@ agent-on landing plan      # 读快照 → 状态表 + 合流波次
       "checked_head_sha": "…",      // ← 证据键的一半
       "checked_base_sha": "…",      // ← 证据键的另一半
       "checked_at": "…",
-      "evidence": "fresh",          // fresh | reused-same | reused-valid | invalidated
+      "evidence": "fresh",          // fresh | unavailable | reused-same | reused-valid | invalidated
       "ci": "green",                // green | red | pending | none | unknown
       "review": "approved",         // approved | changes-requested | required | none | unknown
       "mergeable": "clean",         // clean | conflicting | unknown
@@ -78,13 +78,14 @@ agent-on landing plan      # 读快照 → 状态表 + 合流波次
 
 ### 缓存键与增量失效（核心不变量）
 
-每条轨的证据绑定 `(checked_head_sha, checked_base_sha)`。`refresh` 先跑一次便宜探针（`gh pr list` 只取 number/branch/headRefOid + `git ls-remote` 取 base 头），再对每条轨做如下判定；**只有判定为「重查」的轨才发昂贵的逐 PR 取证**（CI rollup、mergeable、reviewDecision、files）：
+每条轨的文件证据绑定 `(checked_head_sha, checked_base_sha)`。`refresh` 用一次 `gh pr list` 批量取 head、CI rollup、mergeable、reviewDecision 与 draft，另取 base 头；CI/审批按本次观察覆盖，文件证据再按下表复用或重查。只有重查的轨才取逐 PR 文件详情。多个窗口共享专用 `agent-on/landing/refresh.lock`，不占用任务回执的 `control/write.lock`；部分 inventory 到达 200 上限时明确拒绝，不当完整清单。快照私有且原子写入。按需可用 [本机面板](live-control-plane.md) 的一个共享定时刷新器，不调用模型。
 
 | 探针事实 | 判定 | 说明 |
 |---|---|---|
 | 无缓存记录 | 重查（首查） | |
+| 上次文件取证失败或旧缓存文件表为空 | 重查（失败不复用） | 失败标 `unavailable`，即使 CI 全绿也不能进入 NOW、不能证明无重叠；同 SHA 下次仍重试 |
 | head SHA 变了 | 重查（head 移动） | 作者推了新代码 |
-| head 未变，base 未变 | **SKIP，复用缓存** | 绝不重复检查 |
+| head 未变，base 未变 | **复用文件缓存** | CI/审批/mergeable 仍按批量观察更新；不能永久缓存运行中 CI |
 | head 未变，base 变了，且某依赖轨的 PR 在此期间合入 | 重查（依赖落地） | 依赖图边触发 |
 | head 未变，base 变了，base 移动的文件 ∩ 本轨 files ≠ ∅ | **invalidated → STALE** | 不重查；等 rebase 后 head 移动再查 |
 | head 未变，base 变了，文件无重叠 | **reused-valid**，键的 base 半边推进到新 base | 证据仍有效（PARALLEL 的依据） |
@@ -115,7 +116,7 @@ SKIP      #191  SHA 未变化，不重复检查
 2. **STALE** —— 证据被 base 移动 + 文件重叠打穿，或托管平台报 CONFLICTING：需要 rebase，不需要新代码。
 3. **NOW** —— 全绿（CI green 或无 CI、评审 approved 或无要求、mergeable clean、非 draft）、依赖全部落地、证据有效。多条候选时按「下游依赖数多者优先，再按 PR 号小者优先」排序，**只取第一条**——合并写入严格串行。
 4. **NEXT** —— 仅差一条未合入的依赖（`等 #<dep>`），或全绿但与 NOW 的文件重叠、必须排在其后（`等 #<now>`）。
-5. **PARALLEL** —— 与当前变更（NOW 的文件域）无重叠、证据有效，但还不能合：CI 运行中、评审未到、draft、或 mergeable 未知。准备与验证可以并行推进。
+5. **PARALLEL** —— 与当前变更（NOW 的文件域）无重叠、证据有效，但还不能合：CI 运行中、评审未到、draft、或 mergeable 未知。准备与验证可以并行推进。文件取证失败也保留在此类、明确标注 `unavailable` 与重试指引，不声称已知文件重叠或无重叠，不是合入许可。
 6. **SKIP** —— 计算出的类别是 NEXT / PARALLEL、证据为 reused-same（两个 SHA 都未变）、且类别与上次一致：本轮完全没碰它。NOW / FIX / STALE 是可执行动作，即使证据复用也照常显示，不降级成 SKIP。
 
 没开 PR 的 lane 不进合流表（没有可合对象），只进生命周期段。
@@ -189,4 +190,4 @@ WAVE 2  #184（等 #182）
 
 ## 执行半场：值守（babysit）
 
-v1 的三条命令是规划半场（只读侦察）；在班执行由[值守合并调度](babysit/README.md)承担——landing 出 NOW / 波次当排序输入，值守做「追平 → CI → 拍板 → merge → 记账 → 回执」的串行执行，合完触发一次 `refresh` 走增量失效。上面 auto-merge 挂点描述的入口条件（`NOW` + 证据有效），值守就是它的**有人拍板**实现；无人自动合并仍然不做。
+三条 landing 命令是规划半场；在班执行由[值守合并调度](babysit/README.md)承担。landing 排序后，值守按现行机器合并政策和独立审计处理：只命中硬停清单才需要新的拍板，其余在已授自动合入范围直接执行，逐笔记账；合完 refresh。面板本身没有 merge 写接口，缓存 NOW 不代替当次政策与证据检查。

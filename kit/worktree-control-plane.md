@@ -4,7 +4,7 @@
 
 ## 一句话
 
-**单写会话可以留在主 worktree；一旦同时有两条及以上写会话，每条写会话（包括原主会话）都必须进入独立 worktree，并登记一份轨道合同。**
+**先归并共享改动；确实同时写时各用独立 worktree。单写会话可留在主树，lane 合同是可选记账，不是开工或提交前置。**
 
 “一个会话一个 worktree”只解决环境互踩，没解决工作撞题、文件越界、依赖倒序和遗忘回收。轨道合同补齐五个事实：
 
@@ -41,7 +41,7 @@
 只读调研、审查和值守不计入写会话；一旦它要落文件，就算写者。切到并行模式时：
 
 1. 主树先提交、转存或明确分类现有改动；主树 dirty 时不得再开第二个写者；
-2. 每个写者各建 worktree + branch，并分别 claim lane；
+2. 确实并行的写者各用 worktree + branch；需要边界/依赖记账时才 claim lane；
 3. 主树退回控制轨，直到并行写者归零。
 
 这比“所有项目从第一分钟就必须开 worktree”轻，也比“主会话可以边合边写”清楚。阈值是**同时写的人数**，不是打开了多少聊天窗口。
@@ -61,7 +61,7 @@ git worktree add -b feat/142-auth-api .worktrees/auth-api origin/main
 
 **从隔离会话派子代理并行改代码，让宿主给每个子代理开树**（Claude Code：Agent 的 `isolation: "worktree"`）。别自己 `git worktree add` 再把代理派进去——宿主的隔离钉在派出者会话上，和代理 cd 到哪里无关。Dartify 2026-09-24 三路并行：手工开好三棵树再派代理，三个全撞墙（Write/Edit 被拒「Edit the worktree copy of this file instead of the shared-checkout path」；`cd <别的树> && git …` 被拒；`EnterWorktree` 报成功后连 `pwd` 都被拒），三路成了三份躺在 scratchpad 里的草稿；改用 `isolation: "worktree"` 后，同一天五条代理都跑通了 git / 测试 / `gh pr create`。代理的树从派出者当前 HEAD 长出来：派之前先把自己钉到 `origin/<default>`（`git switch --detach origin/<default>`），免得代理从记账分支头上起步；代理开工第一步用 `pwd` + `git log -1` 自证。宿主换了隔离模型，这条作废。
 
-创建后进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane：
+需要 lane 记账时进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane。使用 dispatch 的受管任务回执也不是强制再 claim 的理由：
 
 ```bash
 agent-on worktree claim \
@@ -139,7 +139,7 @@ merge / squash / cherry-pick / rebase 进行中照旧一律放行。
 
 ## 机械执行层：并行模式一次安装
 
-轨道合同建立后，在仓内任一 worktree 跑一次：
+需要机械提交保护时，在仓内任一 worktree 跑一次；不必先建轨道合同：
 
 ```bash
 agent-on worktree hooks install
@@ -172,7 +172,7 @@ agent-on worktree status
 agent-on worktree status --json
 ```
 
-多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；本页的 lane 合同与边界闸是它的地基。
+多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；统一用户视图见 [本机控制面](live-control-plane.md)。lane 记账、实际 Git 事实与提交闸分别承担各自职责。
 
 人读的 `status` 只回答「这棵树能不能提交」：没撞上打 `ok`；撞上了每个路径一行 `blocked: <路径> is also uncommitted in <另一棵树>`（对方停在 rebase 半路时多一行 `note:`）；本树审计跑不起来打 `error:`。未登记 worktree、边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类只在 `status --json` 里（`unregistered_worktrees` / `overlaps` / `dependency_blocks` / `lanes[]`），不挡 commit。
 
@@ -282,6 +282,12 @@ agent-on worktree hooks uninstall
 ```
 
 macOS 使用用户 LaunchAgent，Linux 使用 systemd user timer，固定每日 03:30；无常驻 daemon。即使从 linked worktree 安装，key、working directory 与 `--repo` 也归一到稳定的 primary worktree，避免功能树回收后定时任务悬空。命令固定为 `worktree gc --dry-run --json`；日志只进用户 state 目录。`uninstall` 保留历史报告，并与 Git hooks 一起先做漂移预检，任一面拿不准则整组不动。
+
+`hooks status` 分开报告“调度已登记”和“最后运行结果”。launchd 的非零退出、systemd service 的失败不能因任务/timer 仍登记而显示正常，整体退出码非零；尚未运行时明确写未确认。可先按输出的 `gc --dry-run --json --repo …` 检查报告程序；调度配置仍匹配时重跑 `hooks install --daily-gc` 可重载既有登记，但重载不等于执行已成功。失败状态不妨碍安全卸载，也不自动删除或重启循环。
+
+PreToolUse 的 Codex `cwd` 是会话上下文，`tool_input.workdir` 才是命令执行位置。跨仓判断读取实际目标，会话身份仍来自宿主项目目录或 session cwd；指定另一个 workdir 不会获得那个仓的写入权限。
+
+损坏或非对象的 hook JSON、stdin 读取失败会报 wiring 指引并 exit 2，不当成已核授权。空输入保留人工兼容探针；配置好但未验证宿主实际调用仍不能宣称接线验收完成。
 
 人工拆掉 worktree 后，若不想保留本机合同历史，可清理精确 metadata：
 

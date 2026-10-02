@@ -21,12 +21,12 @@
 
 ```bash
 codex plugin marketplace add Palebluedot-ai/agent-on
-codex plugin install agent-on@agent-on
+codex plugin add agent-on@agent-on
 ```
 
 仅内网/离线时：先 `git clone https://github.com/Palebluedot-ai/agent-on.git <路径>`，再  
-`codex plugin marketplace add <路径>` → `codex plugin install agent-on@agent-on`。  
-钉版本：clone 后 `git checkout v0.12.1`（plugin 远程装以 marketplace/manifest version 为准）。
+`codex plugin marketplace add <路径>` → `codex plugin add agent-on@agent-on`。
+钉版本：clone 后 checkout README 推荐 tag（plugin 远程装以 marketplace/manifest version 为准）。setup 会先探测真实子命令；只有旧宿主支持 install 时才走兼容路径，失败不报完整成功。
 
 - skill 内核与 PreToolUse guard 都经 plugin 装入；`.codex-plugin/plugin.json` 指向 Claude/Codex 共用的 canonical `hooks/hooks.json`，不存在第二份 Codex 规则。
 - 项目出现并行写会话时，再在该 git 仓跑一次 `agent-on worktree hooks install`：shared `pre-commit/pre-push` 覆盖所有 linked worktree，和 Codex 是否在线无关。可选 `--daily-gc` 只装 report-only 定时报告。

@@ -43,8 +43,9 @@ agent-on setup                     # → 默认目录 + config
 | `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 的主树会话**（开场第四检；宿主不让挪会话时按出口②清场后在 worktree 里消化）；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
 | `doctor` | （本文件 + 跑 `agent-on doctor`） | 打印 read_root / work_root / 登记指引 | 无 |
+| `dashboard` / `status` | `$READ_ROOT/kit/live-control-plane.md` | 统一查看任务、窗口、worktree 与 PR；用户要打开面板则启动可选本机服务 | 项目 git 仓；读取既有本机台账 |
 | `patrol` | `$READ_ROOT/kit/patrol-control-plane.md` | 创建独立巡逻会话，之后复用，原窗口仍是入口 | 项目 git 仓；本机 control 回执 |
-| `dispatch` / `agent-os` | 同上 | 明确目标和共享路径后调用 Claude/Codex/Grok | 项目 git 仓 + 已有执行器；在班派工经值守 |
+| `dispatch` / `agent-os` | 同上 | 明确目标和共享路径后调用 Claude/Codex/Grok/Hermes | 项目 git 仓 + 已有执行器；在班派工经值守 |
 | `task` | 同上 | 登记、真实结果回执、带证据释放 | 项目 git 仓 |
 | `janitor` | 同上 | 默认报告；enable 授权有限回收受管 checkout | 项目 git 仓；不扩展旧 GC 权限 |
 
@@ -54,7 +55,7 @@ agent-on setup                     # → 默认目录 + config
 
 ## 规则
 
-- **空参数**：列子命令表 + 若可能则跑 doctor 一行结论，问用户要哪个。
+- **自然入口 / 空参数**：有明确目标就按现有任务与项目状态续跑，不重复让用户选内部角色或整张子命令表。只问当前确实缺失的信息；完全没有目标才列简短帮助。用户说“看当前状态 / 打开面板”走 dashboard，不重绘项目里的静态 dashboard.html。
 - **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
 - **worktree 参数**：`/agent-on worktree` 空后缀 = 读模式并跑只读 `agent-on worktree status`；有 `claim|set-status|status|check|hooks|gc|forget` 后缀时，先按模式核边界，再把后缀原样交给同名 CLI。并行模式首次用 `hooks install`，可选每日报告才加 `--daily-gc`；`gc` 必须显式带 `--dry-run`，不存在 apply/delete 模式。不得把任何 status/check/hooks/gc 偷换成删除或静默改写用户 Claude/Codex 配置。
 - **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `agent-on setup`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。

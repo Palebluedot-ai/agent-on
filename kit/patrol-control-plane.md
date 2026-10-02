@@ -57,9 +57,13 @@ agent-on dispatch --id investigate --host grok \
 
 第二条只有 `shared-ui` 已释放且成果已进主树才会启动。`--worktree` 明确申请隔离；默认不逐页新建树。只读任务复用项目；同时写同一主树的受管执行会话会被拒绝。派发前声明路径重叠会直接返回任务归属提示；普通 `task add` 和 `patrol scan` 只提示，不给旧会话增加提交闸。
 
-`--model` 可显式选择该 host 实际支持的模型，默认沿用 host 设置。三个适配器调用本机已安装的 CLI，继承它们的登录与审批；不代装工具，不共用登录，不带绕过权限参数。角色不固定绑定某个模型。缺 CLI/终端能力时明说原因，不用拟造会话替代。
+`--model` 可显式选择该 host 实际支持的模型，默认沿用 host 设置。Claude/Codex/Grok/Hermes 适配器调用本机已安装的 CLI，继承它们的登录与审批；不代装工具，不共用登录，不带绕过权限参数。角色不固定绑定某个模型。缺 CLI/终端能力时明说原因，不用拟造会话替代。
 
-任务也可只登记：`task add <id> --goal '…' --path '…'`；执行窗口退出后，由入口/作者以实际证据 `task release <id> --evidence '…'`。发布、merge、update-branch 和权限仍归值守，dispatch 不获得这些权力。
+Hermes 执行任务用 `dispatch --host hermes`，调用 `hermes chat --in <实际树> --query <字面 prompt>`，精确续接用 --resume 与 --no-restore-cwd，防止恢复到另一目录。当前 adapter 不接管 Hermes 私有配置或 host hooks，没有可验证的只读沙箱，因此拒绝 Hermes 巡逻与 --read-only。进程状态由 runner 回传，缺 hook 时保持未确认，结果沿现有 task result；真实认证模型任务另需实测。官方接口见 [Hermes CLI reference](https://hermes-agent.nousresearch.com/docs/reference/cli-commands/)。
+
+日常状态可直接打开 [本机面板](live-control-plane.md)。它统一显示已有回执与旧树，空台账会如实说明覆盖缺口；不为显示状态另开模型窗口。
+
+任务也可只登记：`task add <id> --goal '…' --path '…'`。执行者用 `task progress <id> --state working|blocked|waiting --note '当前事实和下一步'` 显式回传；`task result` 后为 reported，表示已有结果自述、未验收。它们不改变验证标记、不释放任务；已释放任务不能被 progress 复活。执行窗口退出后，由入口/作者以实际证据 `task release <id> --evidence '…'`。发布、merge、update-branch 和权限仍归值守，dispatch 不获得这些权力。
 
 ## Codex 桌面原生桥接
 
