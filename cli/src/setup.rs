@@ -96,9 +96,22 @@ pub fn run_setup(opts: &SetupOpts) -> i32 {
         }
     }
 
+    // Build the executor before a marketplace copies the package into its cache.
+    // A failed required step cannot be reported as a complete installation.
+    if !opts.config_only && work_root.join("cli/Cargo.toml").is_file() {
+        if let Err(error) = install_cli(&work_root) {
+            eprintln!("SETUP PARTIAL: config 已登记；executor 未就绪：{error}");
+            return 1;
+        }
+    }
+    let mut failures = Vec::new();
     if opts.with_plugins {
-        try_plugin_claude(&work_root);
-        try_plugin_codex(&work_root);
+        if let Err(error) = try_plugin_claude(&work_root) {
+            failures.push(error);
+        }
+        if let Err(error) = try_plugin_codex(&work_root) {
+            failures.push(error);
+        }
     }
     if opts.with_symlinks {
         let home = env::var_os("HOME")
@@ -109,26 +122,16 @@ pub fn run_setup(opts: &SetupOpts) -> i32 {
         link_skill(&work_root, &home.join(".agents/skills/agent-on"));
     }
 
-    // Install this CLI into cargo bin if possible (best-effort)
-    if let Some(cargo) = which("cargo") {
-        let manifest = work_root.join("cli/Cargo.toml");
-        if manifest.is_file() {
-            let _ = Command::new(cargo)
-                .args([
-                    "install",
-                    "--path",
-                    work_root.join("cli").to_str().unwrap_or("cli"),
-                    "--force",
-                ])
-                .status();
-        }
-    }
-
     println!();
     println!("--- doctor ---");
     print!("{}", doctor_report(None));
 
     run_intake_lint(&work_root);
+    if !failures.is_empty() {
+        eprintln!("SETUP PARTIAL: {}", failures.join("\n"));
+        eprintln!("已成功的步骤保留；修复失败项后重跑 setup，当前结果不能当完整就绪。");
+        return 1;
+    }
     print_next_steps(&work_root);
     0
 }
@@ -155,11 +158,7 @@ fn clone_or_update(work_root: &Path, pin: &str, remote: &str) -> Result<(), Stri
             true,
         )?;
     } else {
-        let _ = run_cmd(
-            &["git", "fetch", "--tags", "--force", "origin"],
-            Some(work_root),
-            false,
-        );
+        run_cmd(&["git", "fetch", "--tags", "origin"], Some(work_root), true)?;
     }
 
     let out = Command::new("git")
@@ -168,13 +167,10 @@ fn clone_or_update(work_root: &Path, pin: &str, remote: &str) -> Result<(), Stri
         .output()
         .map_err(|e| e.to_string())?;
     if !out.status.success() {
-        eprintln!("WARN: checkout {pin} 失败，尝试 origin/main …");
-        let _ = run_cmd(&["git", "checkout", "main"], Some(work_root), false);
-        let _ = run_cmd(
-            &["git", "pull", "--ff-only", "origin", "main"],
-            Some(work_root),
-            false,
-        );
+        return Err(format!(
+            "checkout {pin} 失败，未换成另一版本：{}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
     } else {
         println!("checked out {pin}");
     }
@@ -188,10 +184,28 @@ fn clone_or_update(work_root: &Path, pin: &str, remote: &str) -> Result<(), Stri
     Ok(())
 }
 
-fn try_plugin_claude(work_root: &Path) {
+fn install_cli(work_root: &Path) -> Result<(), String> {
+    let cargo = which("cargo").ok_or("cargo 不在 PATH；请安装 Rust 1.89+ 后重跑 setup")?;
+    run_cmd(
+        &[
+            cargo.to_str().ok_or("cargo 路径不是 UTF-8")?,
+            "install",
+            "--path",
+            work_root
+                .join("cli")
+                .to_str()
+                .ok_or("工作仓路径不是 UTF-8")?,
+            "--force",
+        ],
+        None,
+        true,
+    )
+}
+
+fn try_plugin_claude(work_root: &Path) -> Result<(), String> {
     let Some(claude) = which("claude") else {
         println!("skip claude plugin: claude 不在 PATH");
-        return;
+        return Ok(());
     };
     let r1 = Command::new(&claude)
         .args(["plugin", "marketplace", "add", "Palebluedot-ai/agent-on"])
@@ -199,45 +213,91 @@ fn try_plugin_claude(work_root: &Path) {
         .stderr(Stdio::null())
         .status();
     if r1.map(|s| !s.success()).unwrap_or(true) {
-        let _ = Command::new(&claude)
+        let fallback = Command::new(&claude)
             .args([
                 "plugin",
                 "marketplace",
                 "add",
                 &work_root.display().to_string(),
             ])
-            .status();
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !fallback.success() {
+            return Err(
+                "Claude marketplace 注册失败；重跑 claude plugin marketplace add <工作仓>".into(),
+            );
+        }
     }
-    let _ = Command::new(&claude)
+    let installed = Command::new(&claude)
         .args(["plugin", "install", "agent-on@agent-on", "-s", "user"])
-        .status();
-    println!("claude plugin: 已尝试 install agent-on@agent-on（失败可手动重跑）");
+        .status()
+        .map_err(|e| e.to_string())?;
+    if !installed.success() {
+        return Err(
+            "Claude plugin 安装失败；重跑 claude plugin install agent-on@agent-on -s user".into(),
+        );
+    }
+    println!("claude plugin: install 成功（宿主重启和信任仍需自检）");
+    Ok(())
 }
 
-fn try_plugin_codex(work_root: &Path) {
+fn codex_install_command(codex: &Path) -> Result<&'static str, String> {
+    for command in ["add", "install"] {
+        if Command::new(codex)
+            .args(["plugin", command, "--help"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+        {
+            return Ok(command);
+        }
+    }
+    Err("Codex 不支持 plugin add/install；升级宿主，或用 --with-symlinks 接入共享 skill".into())
+}
+
+fn try_plugin_codex(work_root: &Path) -> Result<(), String> {
     let Some(codex) = which("codex") else {
         println!("skip codex plugin: codex 不在 PATH");
-        return;
+        return Ok(());
     };
-    let r1 = Command::new(&codex)
+    install_codex_plugin(&codex, work_root)
+}
+
+fn install_codex_plugin(codex: &Path, work_root: &Path) -> Result<(), String> {
+    let install = codex_install_command(codex)?;
+    let r1 = Command::new(codex)
         .args(["plugin", "marketplace", "add", "Palebluedot-ai/agent-on"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
     if r1.map(|s| !s.success()).unwrap_or(true) {
-        let _ = Command::new(&codex)
+        let fallback = Command::new(codex)
             .args([
                 "plugin",
                 "marketplace",
                 "add",
                 &work_root.display().to_string(),
             ])
-            .status();
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !fallback.success() {
+            return Err(
+                "Codex marketplace 注册失败；重跑 codex plugin marketplace add <工作仓>".into(),
+            );
+        }
     }
-    let _ = Command::new(&codex)
-        .args(["plugin", "install", "agent-on@agent-on"])
-        .status();
-    println!("codex plugin: 已尝试 install agent-on@agent-on");
+    let installed = Command::new(codex)
+        .args(["plugin", install, "agent-on@agent-on"])
+        .status()
+        .map_err(|e| e.to_string())?;
+    if !installed.success() {
+        return Err(format!(
+            "Codex plugin 安装失败；重跑 codex plugin {install} agent-on@agent-on"
+        ));
+    }
+    println!("codex plugin: {install} 成功（宿主重启和信任仍需自检）");
+    Ok(())
 }
 
 fn link_skill(work_root: &Path, dest: &Path) {
@@ -369,5 +429,28 @@ mod tests {
         let got = PathBuf::from(wr);
         let expect = fs::canonicalize(d.path()).unwrap();
         assert_eq!(got, expect);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn codex_add_is_preferred_and_failed_install_is_not_success() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempdir().unwrap();
+        let executable = d.path().join("codex");
+        fs::write(&executable,"#!/bin/sh\nif [ \"$3\" = --help ]; then [ \"$2\" = add ]; exit $?; fi\nif [ \"$2\" = marketplace ]; then exit 0; fi\nexit 7\n").unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(codex_install_command(&executable).unwrap(), "add");
+        assert!(install_codex_plugin(&executable, d.path())
+            .unwrap_err()
+            .contains("plugin add"));
+        fs::write(
+            &executable,
+            "#!/bin/sh\nif [ \"$3\" = --help ]; then [ \"$2\" = install ]; exit $?; fi\nexit 0\n",
+        )
+        .unwrap();
+        assert_eq!(codex_install_command(&executable).unwrap(), "install");
+        assert!(install_codex_plugin(&executable, d.path()).is_ok());
+        fs::write(&executable, "#!/bin/sh\nexit 2\n").unwrap();
+        assert!(codex_install_command(&executable).is_err());
     }
 }
