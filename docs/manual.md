@@ -4,10 +4,10 @@
 
 ## 一、多会话并行：worktree 控制面与合流
 
-同时开了多个写代码会话 / worktree 时，先让每条执行轨登记互斥文件域，再看全场：
+多个窗口先归并共享组件和样式修改，再按需派发独立任务；claim 是可选记账，未登记也能开工。自动独立巡逻、跨模型派发和有限清道夫见 [巡逻执行书](../kit/patrol-control-plane.md)。旧控制面命令如下：
 
 ```bash
-# 在各 feature worktree 内登记一次
+# 需要 lane 记账时在 feature worktree 内登记
 agent-on worktree claim --id auth-api --goal "登录 API" --base origin/main --owns api/auth --owns tests/auth
 
 # 任意 worktree 查看全场；提交/合流前用严格闸
@@ -30,7 +30,7 @@ agent-on landing status
 agent-on landing plan
 ```
 
-一次 `hooks install` 把 `pre-commit` / `pre-push` 放进 common git dir、设成仓库级 shared `core.hooksPath`，primary 与所有 linked worktree 同时生效。两个 hook 都只判**本树**，会拦提交的只有一条：**本 worktree 的某个未提交文件（staged / unstaged / untracked），在另一棵 worktree 里也是未提交的，而且那一份在 7 天内被人碰过**——人读输出一行 `blocked: <路径> is also uncommitted in <另一棵树>`；本树审计跑不起来也拦（`error`）；没撞上，hook 静默，`status` / `check` 打 `ok`。pre-push 另判**推上去的是什么**：把 `origin/<default>` 并进来的本地 merge commit（committer ≠ GitHub、merge 干净）推向开着同仓、进默认分支的 PR 的分支，拦下并给出完整的 `gh api -X PUT …/pulls/<N>/update-branch`；有冲突的 merge、没有这样 PR 的分支都放行（playbook `multi-contributor-protocol.md` §三½.8）。lane 登记只给 `claim` / `edit` 用，commit / push 不读它：`UNREGISTERED`、`OVERLAP`、`OUT-OF-BOUNDS`、`MISSING` 只留在 `--json` 里，不挡 commit；主 worktree 与没登记的树都和别人一样按这一条判。merge / squash-merge / cherry-pick / revert / rebase 控制态自动放行；clean `git merge --no-ff` 走 `pre-merge-commit`，不调用这两个 hook，所以 clean merge 本身仍须走控制轨合流清单。Claude/Codex plugin 的 PreToolUse guard 在 Agent 发出 `commit/push` 前跑同一条判据（本地 merge 那条只在 Git pre-push 里：它要 git 给的待推范围）。可选调度只执行 `gc --dry-run --json`，输出动态 `candidates`，**不自动删**。判据与三条设计约束见 [kit/worktree-control-plane.md](../kit/worktree-control-plane.md)「闸只拦真冲突」。
+一次 hooks install 在 common git dir 安装 shared pre-commit/pre-push。commit 检查实际 index（包含 -a/--only 的临时 index），push 读取实际 ref 更新、逐提交计算涉及路径；仅范围内本树与另一棵树都有新鲜未提交文件时拦。status/check 仍展示本树全部重叠，未登记或纸面 owns 不构成提交前置。PreToolUse 只核跨仓与值守路由，不重复猜提交范围；未装 shared hooks 就不能宣称同文件机械保护已启用。控制态和本地 merge 的 PR 判据保留。细节见 [控制面](../kit/worktree-control-plane.md)。旧 GC/daily-gc 只报告，janitor 仅显式启用时按有限策略回收。
 
 多 PR 并行时，`landing` 三条命令是合流协调面：所有检查结果绑定 `(PR head SHA, base SHA)`，两者未变直接 SKIP 复用；main 每合入一条只重查有依赖边或文件重叠的 PR。`status` 首页只给五个数（现在做 / 下一批 / 等待中 / 需抢救 / 可回收），全部 worktree 自动落进 ACTIVE/WAITING/PARKED/RESCUE/REAPABLE 五类之一；活跃轨有上限（默认 3，`--parked` 排队不占额）。v1 严格只读：不驻后台、不自动 merge、不自动删树。完整数据模型与分类规则见 [kit/landing-control-plane.md](../kit/landing-control-plane.md)。
 

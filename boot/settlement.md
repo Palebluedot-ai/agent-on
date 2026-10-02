@@ -67,7 +67,7 @@
 
 - 开场收件扩:未跟踪 intake、**已 merge 的 intake 提交**、以及标注 `source: issue #N` 的转录,同一套三态分诊  
 - **禁止**「贡献者 PR 已改 playbook → 消化会话直接 fast-forward」——canonical 只能由消化会话自己的 commit 写入(单写者);若误开了 canonical PR,revert 后改收 intake  
-- 频次扫描照旧:跨贡献者同 slug ≥2 → 置顶升 L3
+- 频次扫描照旧:跨贡献者同 slug ≥2 → 置顶归因，不自动升 L3
 
 ### 明确不做什么
 
@@ -81,7 +81,7 @@
 为什么必须换:会话上下文 = 装载的规则集,没读 agent-on 的 AGENTS.md 的会话,不许动它的 canonical(单写者不变量)。
 
 0. **开场四检 + 收件**(单写者安全门,四检不过不动 canonical):`git fetch` 后核本地=origin(分叉先并);`git worktree list` 无未知活跃工作树;工作区干净(**未跟踪的 `intake/*.md` 除外**——那是项目端按跨仓边界落盘、等着收件的队列);**第四检:本会话在 WRITE_ROOT 的主树里**——`git rev-parse --git-dir` 与 `--git-common-dir` 是同一个目录,且 `--show-toplevel` = WRITE_ROOT(`agent-on doctor` 在 linked worktree 里会多打一行 `worktree = linked …`,是 WRITE_ROOT 的仓就点名这一检)。承接队列和任何没收尾的 canonical 改动都只在主树里;消化开在宿主自建的 linked worktree 里,收件扫到零、工作区一片干净,就会得出「没有积压」的假结论(2026-09-26 实证:桌面宿主把「agent-on 消化」开进了自建 worktree,主树里却躺着 5 份 intake 和一场 09-21 没提交的消化,案 48)。**第四检不过,出口二选一**:① 请用户在主目录另开会话(终端 `cd <WRITE_ROOT> && claude`,或桌面端开会话时不建 worktree);② 宿主不让挪会话时,先把主树的未跟踪 intake 和未提交改动**原样拷进本 worktree、逐字节比对**,再请用户在主树跑一条 `git -C <WRITE_ROOT> stash push -u -m "digest-handover-<日期>" -- intake bench boot kit playbook`(可逆;不清场,同文件闸会拦下本 worktree 的每一次提交),然后在 worktree 里消化、推 `HEAD:main`、打 tag,收尾请用户在主树 `git pull --ff-only`、核对无误后删掉那条 stash。只写「停下」不给出口,就是案 40 那种死锁。四检过后先**收件**:每个未跟踪 intake 文件单独 commit(`intake(<项目名>): 收件`),再开始分诊。——2026-07-12 实证:消化会话检查与推送之间的几十秒里,另一个项目的结账刚好落盘,靠这道检查当场发现而非事后撞车。
-1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶,强制升 L3。**分组别只认 slug 字面**——slug 是各结账会话的 AI 起的,会漂;claim 说的是同一个坑就按同类归并,slug 不同照样置顶。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
+1. **开场频次扫描**:grep `intake/` 全部未收口卡的 pattern slug,同 slug ≥2 个项目 → 置顶，先归因再选择最小有效解法，不自动升 L3。**分组别只认 slug 字面**——slug 是各结账会话的 AI 起的,会漂;claim 说的是同一个坑就按同类归并,slug 不同照样置顶。**同类多条散文条目 → 先合并抽象成一条 L2 再落地,不逐条搬运**(memory-layering:L1 现象与可复用 loop 分开拎)。
 2. **三态分诊**([../bench/correction-loop.md](../bench/correction-loop.md)):
    - 低风险(措辞 / 错链 / bench 案例追加):AI 直落 canonical
    - 中风险(模板行 / checklist 行 / playbook 段落)与高风险(schema 必填 / BOOTSTRAP 语义 / 不变量):**打包成一组选择题**(每题 = 卡摘要 + 建议落点 + 采纳/拒绝/缓议),用户一次拍完
@@ -89,7 +89,7 @@
    - **预算线(硬)**:选择题一场一组、≤10 题;超线不硬撑——按 intake 文件先旧后新,处理到预算线即收口(收尾三件照做),剩余原样留承接层,播报「本批消化 X 份,剩 Y 份下批」
 3. **落地**:每张采纳卡 = 具体文件修改;L3 规则强制双落点(playbook 正文 + kit 模板或 checklist 行,别停在 playbook);卡在 intake 文件里**原地**标 `landed@<commit>` / `rejected(原因)` / `deferred`。**禁止预写未来版本号**:去向只能引用已经存在、并且确实包含落点改动的 commit 或 tag——`landed@vX.Y.Z` 在那个 tag 打出来之前就是假账,号还可能被别的提交用掉(2026-09-21 草稿标了 23 个 `landed@v0.22.0`,落点一处没提交;v0.22.0 随后钉在另一场的 commit 上,只顺带发出其中两处,案 48)。`agent-on tag-release` 会拒绝 intake 里指向未打 tag 的 `landed@vX.Y.Z`。**一卡一 commit**:每张卡落完当场 commit(去向标注与落地改动同 commit,hash 自指写不了就标 `landed@同批`+文件落点),不许攒批——agent-on 工作区是所有项目会话的服务面(执行书按路径读工作区,不按 pin 读),攒批 = 拉长 canonical 中间态窗口,并发读者会读到半截规则(2026-07-13 实证:第六次消化 12 文件一批收口,窗口期被 Euan 会话撞见未提交 BOOTSTRAP)。
 4. **收尾四件**(缺一 = 消化失败;**tag 是硬门,不是可选项**):
-   - 至少一处具体文件改动(meta-principles 第三条:反思必须产出协议升级)
+   - 处理结论留痕：修正/合并/删除/退出默认/保留案例/有理由拒绝均可，不为消化指标制造新规则
    - CHANGELOG 条目:动了什么、来自哪份 intake、L3 改动成对列双落点、semver 档位(用户确认:major=不动手会坏 / minor=不动手不坏 / patch=不用知道)
    - **发版硬门(2026-08-02 立;2026-08-03 扩到本仓一切对话交付,防下游「无可升级版本」)**:
      - **范围**:不限消化——**agent-on 本仓直接对话**凡 `git commit` 并 push 交付的改动,收尾都必走下列三步(用户 2026-08-03 拍板:本库对话所有 commit 都要有 tag;goal 写「不要求 tag」无效)
@@ -107,7 +107,9 @@
 ## 升级(独立口令「agent-on 升级」,在项目仓)
 
 1. 读 CHANGELOG 自 pin 以来的区间
-2. **patch / minor**:改 lock 的 pin 行即完成——存量实例化文件不动,新工件自然用新模板
-3. **major**:按迁移注记对已实例化文件(看头部 `instantiated-from` 行定基准)出 diff 提案,用户逐条批准后执行
+2. **patch / minor**：更新 lock pin，并按 CHANGELOG 列出本项目已实例化、确实相关的规则差异。复用 instantiated-from 基准做最小 diff，保留项目本地偏离；获本轮升级授权的可逆修正直接做，未知意图再问。不应用的差异写明原因，不能只改 pin 就声称存量规则已更新。
+3. **major**：按迁移注记提供具体 diff；已有授权直接执行，新增迁移或破坏性范围才请求批准。
 4. **永不从 kit 重拷覆盖实例化文件**——它们是项目自己的 canonical。
 5. **升级后核执行面(2026-09-26)**:升级改的是 lock 的 pin,宿主上实际挂着的 hook 不跟着换。对一遍 agent-on 的 hook 条目(Claude:`~/.claude/settings.json` 与已启用插件的缓存 `hooks.json`;Codex:`~/.codex/hooks.json`):插件版本与仓里 `plugin.json` 一致、hook 经 `kit/guard/agent-on-git-guard` 转发到 `agent-on guard`——对不上就提示用户 `claude plugin update agent-on@agent-on`(重启生效;改 `~/.claude` 是用户动作)。`agent-on doctor` 的「hook 执行面」一段只读核完这些,还往下追到 shim 最终跑的二进制——目录型 marketplace 会把 `cli/target/` 拷进缓存,二进制落后时先重编再 `plugin update`。步骤见 [kit/guard/README.md](../kit/guard/README.md)「执行面自检」。
+
+**升级回执三栏**：选用 tag/commit；已应用模板差异与保留的 local_deviations；实际 CLI/hook 构建身份与未更新的缓存。跑 agent-on build-info --json 与 doctor 留实际输出。旧包只提供版本号时标执行版本未核实，未安装/未信任原生 hooks 也须明说；pin、模板和执行面分别验收。

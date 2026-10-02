@@ -5,31 +5,31 @@
 
 ## 0. 你在做什么
 
-用户要开一个新项目。你的任务：在当前目录搭起 Loop Engineering 骨架，让后续所有会话（换窗口、换模型、换工具都算）零铺垫接续工作。**如果项目已经初始化过、你只是新会话来续跑——不走本文件，走 `boot/session-handshake.md` 的三步握手。**
+用户要开一个新项目。你的任务：在当前目录搭起 Loop Engineering 骨架，让后续所有会话（换窗口、换模型、换工具都算）零铺垫接续工作。**如果项目已经初始化过、你只是新会话来续跑——不走本文件，走 `boot/session-handshake.md` 的简短对齐续跑。**
 
 一条底层原则贯穿全部：**prompt 易挥发，文件系统持久**——规则、状态、决策、契约，一切关键资产都必须落成文件，不许只活在对话里。
 
 ## 1. 先定档，再收需求（一次问完，别挤牙膏）
 
-**第一组 · 定档三问**（决定装备重量——防高射炮打蚊子）：
+**第一组 · 三个核对点**（已有文件和指令能确定的直接采用，只问真实缺口）：
 
 1. 有真实用户或真实数据吗？
 2. 几天内搞完，还是持续迭代几周以上？
 3. 碰钱 / 安全 / 对外服务吗？
 
-判定：问 3 任一为是 → **L 全装**；有真实用户或持续迭代 → **M 标准**；都不是 → **S 轻装**。**默认心态偏 S**：拿不准取低档——**允许升档、不许静默降档**（升档协议见 boot/adopt.md §二）；S 档项目开始碰真实数据的那天，就是升档日。别为了「看起来专业」默认播 M/L。
+判定：装备按协作复杂度选，验证按本次改动风险选。单人或目标明确默认 **S 轻装**；确实需要跨会话状态才加 **M 标准**；确实需要接口两侧并行才加 **L 并行件**。真实用户、支付或外部服务会提高相关行为的验证要求，**不自动要求补齐整套 MRD、仪表盘和台账**。既有用户禁令、发布授权和安全检查照旧；调整装备时记录原因，不静默撤销已批准的约束。
 
-> **第四问（条件触发，2026-09-14 aster-agent 实证）**：项目依赖**第三方控制的测试环境**吗（交易所 testnet / 沙箱 / staging）？依赖就**当场用只读方式验证拿得到测试资源**（水龙头、沙箱 key、配额）——拿不到 → **按真实环境定档**，不许以「有测试网」为由默认 S 档。实证：aster 测试网水龙头页面明写白名单制、2025-12-22 已截止（36 万选 1000），升档当天「有测试网」这个假设当场作废，改走主网小额；定档三问答的都是**你这边**的风险，第四问答的是**别人给你的环境会不会消失**。
+> **测试资源（条件触发）**：项目依赖第三方 testnet / 沙箱 / staging 时，先只读确认能拿到资源。不可用就记录验证缺口，选择可用的验证方式；使用真实环境仍须已有明确授权，不由“测试网不可用”推成主网执行授权，也不自动整包升档。来源：aster-agent 2026-09-14 测试资源过期实证。
 
 | 档 | 播种 | 不播 |
 |---|---|---|
-| **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md）+ thoughts-and-ideas.md | phase 卡、progress.yaml、契约、run 台账、dashboard 全免 |
-| **M 标准** | 完整 AGENTS 骨架 + progress.yaml + phase 卡 + dashboard.html + thoughts-and-ideas.md + S 的三件 | contracts/ 与并行装备（用到再加） |
-| **L 全装** | 全套（§2 七步一步不少） | — |
+| **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md） | 想法箱、phase 卡、progress.yaml、契约、run 台账、dashboard 按需 |
+| **M 标准** | S 的三件 + 需要时加状态源与自包含任务卡 | MRD / PRD / dashboard 只按实际需要添加 |
+| **L 并行件** | M + 接口契约 / 派工回执 / 共享改动协调 | 未使用的模板与全套流程不播种 |
 
-> **两个默认件**（v0.4）：`thoughts-and-ideas.md`（全档，你随手写想法、AI 整理）+ `dashboard.html`（M/L，人机共读的项目全貌，合流必更）。维护协议见两个模板各自的头部。
+> `thoughts-and-ideas.md` 按需记录新想法；`dashboard.html` 是可选视图。没有实际读者就不生成第二份状态面。
 
-**第二组 · 需求六问**（S 档只问 1 / 2 / 6 三题；复杂 / 高风险项目用深挖版 `boot/new-project-questionnaire.md` 替代）。偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手：
+**第二组 · 需求核对**（复用已确认内容，只问会影响实现的缺口；复杂 / 高风险项目可选深挖版 `boot/new-project-questionnaire.md`）。偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手：
 
 1. 项目一句话：做什么，给谁用？
 2. 有没有参照物（长得像哪个产品 / 网站 / App）？——品味前置，选择比描述便宜十倍；参照物落进规格时拆两栏：**学什么**（信息架构/交互/指标语法）/**不复制什么**（资产/商标/付费墙绕过），自研补齐对方付费体验要写清能力对等边界。竞品**公开面挖不到**的私有栈（DB 引擎名等）**不得阻塞**本项目选型——用可验证产品约束 + 可逆分层锁定。
@@ -38,28 +38,26 @@
 5. 单人 + AI，还是有其他协作者？这台机器上有没有已装的**环节** skill（如 GStack）？——有则审查/发布/调试点名走它；**制度永远在 agent-on**（证据/禁令/结账）。**不**默认叠 Superpowers 全流程（偏重、易抢跑），见 §4 尾注与 AGENTS §skill 路由。
 6. 有没有明确不做 / 暂缓的事？（暂停项要写成禁令，不是删掉——后置的渠道/触点（推送/移动端/多租户）也算暂停项，别只留在对话里）
 
-## 1.5 规划链（定档后、播骨架前；S 档跳过本节）
+## 1.5 规划工具箱（按需要选用）
 
-想法到 phase 卡之间隔着一串文档：调研 → MRD → 需求澄清 → PRD → 技术方案 → 审查 → 拆解。原则：**拆解责任在框架不在用户；有强 skill 就路由调用，不自研提问流**（本机 skill 体系从 §1 第 5 问得知）。产物一律转录进项目 `docs/`（§4 L8），每环节收口一个 commit。
+最小规划是一份能开工的说明：目标、范围、验收、风险、下一步。需求已明确就直接实现；按缺口选择下表工具，不要求完整链。不要把同一内容重抄成 MRD、PRD、plan 和卡片。用过的外部 skill 产物保存入仓；同一决策批次可以一起提交。
 
-| # | 环节 | 有 GStack 时路由 | 产物落盘 | M | L |
-|---|---|---|---|---|---|
-| 1 | 调研 | office-hours 自带 landscape 搜索；深调研点名 deep-research；UI 项目加 /design-consultation | `docs/research/landscape.md` | 可选 | 必 |
-| 2 | MRD | `/office-hours` **强制 Startup mode**（禁 Builder 路由，忽略其营销收尾） | 转录 → `docs/product/mrd.md` | 必 | 必 |
-| 3 | 需求澄清 | 无 skill：`kit/requirement-pack-template.md` 问卷化（见下） | `docs/requirements/` | 可选（多角色/有权限面才做） | 必 |
-| 4 | PRD | 无 skill：`kit/prd-template.md`——先从 MRD 机械转录，再补问首发范围/非功能 | `docs/product/prd.md` | 必 | 必 |
-| 5 | 技术方案 | plan mode 按选定 approach 写 rough plan（正是 autoplan 的输入假设） | `docs/plans/<里程碑>-plan.md` | 必（可粗） | 必 |
-| 6 | 审查 | `/autoplan`（**per-milestone 喂，禁整本 PRD**） | plan 原地改写，test plan 拷回 `docs/plans/` | 可选 | 必 |
-| 7 | 拆解 | agent-on 自持：§2 的 phase 卡 | `docs/phases/phase-*.md` | 必 | 必 |
-| 7b | 单卡精修 | `/spec`（issue 级——只在这里用，放产品层 = 层级错位） | 精修后的 phase 卡 | 复杂卡可选 | 复杂卡可选 |
+| 环节 | 适用缺口 | 可选路由与产物 |
+|---|---|---|
+| 调研 | 选型或外部事实不清 | 已安装的调研 skill；保存相关依据 |
+| MRD / PRD | 产品范围、用户问题或复杂需求未对齐 | office-hours 或 kit 的对应模板；已有规格直接复用 |
+| 技术方案 | 存在架构选择或高风险迁移 | 一份可审查的 plan，记录取舍与验证 |
+| 审查 | 当前方案的复杂度或风险需要复核 | 已安装的 autoplan / review，输入本次范围 |
+| 任务卡 | 长任务或跨会话需要可续接目标 | 自包含任务卡；已有任务记录直接复用 |
+| 单卡精修 | 一个任务有实质歧义 | 已安装的 spec；只澄清该任务 |
 
 **模板问卷化协议**（第 3、4 环节的引导方式，也是无 GStack 机器的全链兜底）：凡实例化 `kit/prd-template.md` / `kit/requirement-pack-template.md`，每个空节 = 一轮「**AI 从上游文档与对话草拟 + 用户勘误**」，不拿空表逼问（选择比描述便宜十倍）；用户答不上的落 `99_待确认与决策记录`，**禁止 AI 编内容填空**。
 
 ## 2. 搭骨架
 
-**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`；实例化 `kit/thoughts-and-ideas-template.md` → `thoughts-and-ideas.md`（想法收集箱，全档都建）；**initial commit**（没仓先 `git init`，骨架全部入 git——落盘未 commit = 初始化未完成）。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
+**S 轻装捷径（三件套，一分钟）**：拷 `kit/AGENTS-lite.md` → 项目根 AGENTS.md 填空（暂停项禁令别空着），另建一行 `CLAUDE.md`「规则见 AGENTS.md」；建空 `loop-notes.md`；实例化 `kit/agent-on-lock-template.md` → `agent-on.lock.md`；需要想法箱时再实例化 `kit/thoughts-and-ideas-template.md`；**initial commit**（没仓先 `git init`，骨架全部入 git——落盘未 commit = 初始化未完成）。完——下面七步全部跳过，§4 铁律只守 AGENTS-lite 那三条底线，§6 沉淀纪律照常（**闭环不分档**：小项目的教训一样回流）。
 
-**M / L 档走七步**（M 档第 1 步的 `contracts/` 与 §5 并行装备可等用到再加）：
+**M / L 按需选下面的组件**（M 档第 1 步的 `contracts/` 与 §5 并行装备可等用到再加）：
 
 1. 建目录：`docs/{state,phases,snapshots}/`；走了 §1.5 规划链就加 `docs/{product,requirements,plans}/`（做了调研另加 `docs/research/`）；将来有接口两侧并行的可能就加 `contracts/fixtures/`
 2. 拷 `kit/AGENTS-skeleton.md` → 项目根 `AGENTS.md`，用 §1 的答案填空（不留 `[占位]`）；另建一行 `CLAUDE.md`：「规则权威见 AGENTS.md」——AGENTS.md 是 Claude Code 与 Codex 的共同标准，双工具通吃
@@ -68,27 +66,27 @@
 5. 需求三分法：已确认 → AGENTS §硬约束；有方向没定死 → `docs/requirements.md` 待拍板区；缺信息 → 回 §1 追问。**暂停项写成禁令条款**
 6. 写第一张 phase 卡 `docs/phases/phase-s0.1-<slug>.md`：自包含（新会话只读这张卡就能干活）、验收 ≤8 条、每条能翻译成测试名或命令输出
 7. 实例化 `kit/agent-on-lock-template.md` → 项目根 `agent-on.lock.md`（pin 当前 agent-on 的 tag+commit）；AGENTS.md 首节加一行「agent-on 映射见 agent-on.lock.md」。此后凡从 kit 实例化文件，头部都加 `<!-- instantiated-from kit/<文件> @ vX.Y.Z -->`
-8. 实例化两个默认件：`kit/thoughts-and-ideas-template.md` → 项目根 `thoughts-and-ideas.md`（全档）；`kit/dashboard-template.html` → 项目根 `dashboard.html`（M/L 档，填项目名后从真相源初绘一次）。维护协议见各自模板头部；告诉用户两个口令：「整理想法」「更新仪表盘」
-9. **initial commit**：骨架文件全部入 git（没仓先 `git init`）——**落盘未 commit = 初始化未完成，禁止向用户报完成**；此后规划链每环节与口令动作收口即 commit（§4 L8）
+8. 按需添加想法箱；用户确实需要图形全貌时才添加仪表盘。状态只从原有真相源读取，不新增手工维护义务。
+9. **initial commit**：骨架文件全部入 git（没仓先 `git init`）——**落盘未 commit = 初始化未完成，禁止向用户报完成**；此后按完整决策/交付批次提交，保留清晰回退点（§4 L8）
 
 ## 3. 车道判定（每个任务先过这道门）
 
-- **Explore 车道**：原型 / 视觉 / 概念验证——错误不算错误的域。放飞，一把梭，产物可丢弃，不进主干。
-- **Ship 车道**：碰数据、钱、安全、真实用户——全纪律（§4）。
-- **两道不许串**：Explore 产物要进主干，必须走 Ship 流程重做。（原理见 playbook/freedom-vs-discipline.md）
+- **Explore 车道**：原型 / 视觉 / 概念验证，先用预览、交互与用户反馈验证。
+- **Ship 车道**：进入实际使用的改动，按影响范围补齐验证与权限检查。
+- **转入 Ship**：检查原型的质量与依赖，补足缺失验证；合格部分直接复用，不为流程名义强制重写。
 
 ## 4. Ship 车道铁律（编号化，违反 = 返工）
 
-- **L1 TDD**：没有失败的测试，不写生产代码
+- **L1 验证按风险**：业务行为、权限、数据与回归缺陷优先用失败测试固定规格；纯样式、文案、文档和探索任务用相关预览/检查，不为满足流程写镜像测试。TDD 是可选执行方法，完成证据仍是硬要求。
 - **L2 完成 = 贴命令实际输出**：禁止「应该没问题」「理论上可行」
-- **L3 单一状态写者**：progress.yaml 只有主会话写；子代理只干活汇报
+- **L3 单一状态写者**：已采用的共享状态源由入口写；执行者只干活汇报，不为满足规则额外生成 progress.yaml
 - **L4 契约先行**：接口两侧并行前先冻结 fixtures，**连语义一起冻**（排序 / 空值 / 上限）
 - **L5 暂停项 = 禁令**：未写明允许即禁止
 - **L6 Error Signal 四要素**：报障必须带 What / Where / How / Severity
 - **L7 外部服务第一天**：真实载荷形状对账、函数区 = 数据区、部署后 GET 和 POST 都冒烟
 - **L8 产物入仓 + 收口 commit**：走外部 skill（GStack 等）的规划/审查环节，产物常落 `~/.gstack/` 等仓外路径——收口 = 转录进项目 `docs/` + 一个 commit（中文语义化 message），否则该环节不算完成；orchestrator 主会话是规划链落盘与 commit 的唯一责任人（与 L3 同构）。口令动作（整理想法/更新仪表盘/结账）收口同样即时 commit——**commit 时间线就是用户的回退时间线**
 
-**动手前扫坑**（M/L 必读）：接外部服务 / 上多 agent 并行 / 给用户交付产出前，先扫 agent-on `bench/cases/README.md` 的「使用时机表」——17 张实战翻车案例按场景索引，别人踩过的坑动手前先认一遍。
+**相关案例按需读取**：接外部服务、并行协作或出现相似失败时，从 `bench/cases/README.md` 的场景索引选相关案例，不为档位把整套历史装入每轮上下文。
 
 **skill 分工尾注（2026-08：制度优先，Superpowers 退出默认）**：
 - **agent-on** = 制度层（定档/骨架/完成=证据/单写者/结账回流/跨仓闸）——主责，不外包。
@@ -101,30 +99,30 @@
 
 **单 agent 能干完就别上多 agent**（上下文边界优先）。确要并行时走六步协议：冻契约 → 轨道 = 目录 + git worktree 物理隔离 → 各轨 Fake 对方 → 契约测试当裁判 → 单一状态写者 → 先契约后实现合流。
 
-**第二个写代码的会话出现时，各用一棵 worktree，不必先登记。** commit / push 只在一件事上停：本树某个未提交文件，另一棵树里也未提交，而且那一份 7 天内被人碰过。没撞上就静默通过。`agent-on worktree status` 一行，`ok` 或被哪棵树挡住。`claim` / `owns` 仍可记账，不挡提交。仓内要装 Git hook 时跑一次 `agent-on worktree hooks install`（Claude/Codex 的 PreToolUse 跑同一条规则）。需要每日 03:30 的 report-only 盘点才显式用 `hooks install --daily-gc`。完整模式：`kit/worktree-control-plane.md`。多会话 PR 排队成常态或分支保护开 up-to-date 硬门时，按 `kit/babysit/SETUP.md` 三步开值守合并调度（合并权中央化，功能会话开 PR 即交付）。
+**先合并共享任务，再决定是否并行。** 不同页面不自动对应不同 worktree/PR；同一组件、token、路由或锁文件交给一个任务，其余先等它合入。确实同时写代码时各用一棵树，不必先 claim。可选 `agent-on patrol start` 自动创建独立巡逻窗口，原窗口继续作为统一入口；`dispatch` 可调用 Claude/Codex/Grok，`--worktree` 才申请独立写树。流程与实测边界见 [kit/patrol-control-plane.md](kit/patrol-control-plane.md)。commit/push 现有同文件闸保持兼容；值守仍拥有原有合并权。`worktree gc --dry-run` 仍只报告；单独启用 janitor 才授权回收本功能创建、明确释放且可恢复的 checkout。
 
-模板：`kit/track-prompt-template.md`（派工，含按模型能力调档的脚手架旋钮）、`kit/review-prompt-template.md`（对抗式独立审查）、`kit/merge-checklist.md`（合流七步）、`kit/worktree-control-plane.md`（多会话边界/依赖/回收）、`kit/babysit/`（值守合并调度：PR 排队时合并权中央化）。换新模型先跑 `bench/capability-probe.md` 定档。
+模板按实际任务选：`kit/track-prompt-template.md` 派工、`kit/review-prompt-template.md` 复核、`kit/merge-checklist.md` 合流、`kit/worktree-control-plane.md` 边界/依赖/回收、`kit/babysit/` 值守。能力探针只在用户明确比较或任务暴露实际缺口时使用。
 
 ## 6. 沉淀纪律（迭代闭环的采集站，机制见 playbook/iteration-loop.md）
 
 - 六类触发**当场**记一行进 `loop-notes.md`（单行五字段 `日期|触发|一句现象|证据指针|候选层`）：返工（完成声明被推翻）/ 撞车 / 用户纠正 / Error Signal 中高严重度 / 手工重复第 2 次 / **脚手架不合身**（这条另记 agent-on.lock.md 的 local_deviations）
-- 用户随口冒出的**产品想法/待办**（非 debug、非状态询问）：AI 当场代笔进 `thoughts-and-ideas.md` 速记区（日期+「对话捕获」标），确认一句继续主线——只进速记区，升级成需求永远由用户拍板
+- 用户随口冒出的**产品想法/待办**：记录到项目已有待办；启用了想法箱才写 `thoughts-and-ideas.md`。建议与已确认需求分开，记录后继续主线
 - 跨项目可复用的升 memory_card（`suggested_location=agent_on`），**evidence 必填**——没证据的心得出不了仓
 - 每次编排 run 合流时记 run 台账一行（`ledger/run-card-logging.md` 规范）
 - 里程碑时用户说「**agent-on 结账**」→ 按 `boot/settlement.md` 执行（升级另有口令「agent-on 升级」）
 
 **两个项目内口令（v0.4）**：
 - 「**整理想法**」→ 读 `thoughts-and-ideas.md` 速记区，归类成文标去向进「已整理」，清空速记区（换会话握手若发现速记区非空，主动提醒一次）
-- 「**更新仪表盘**」→ 从真相源（progress.yaml / 决策 / phase 卡）重绘 `dashboard.html`（M/L）；合流时也必更（见 merge-checklist 第 7 步）。**数据只从真相源读，禁手填**
+- 「**更新仪表盘**」→ 已启用时从真相源重绘 `dashboard.html`，合流按实际状态变化更新；数据只从真相源读
 
-## 7. 初始化完成的验收（对用户交付；S 档只查第 1、3、4、5、7 条，第 1 条查 AGENTS-lite）
+## 7. 初始化完成的验收（只查本项目选用的组件）
 
 - [ ] AGENTS.md 已填空，无 `[占位]` 残留；CLAUDE.md 指针就位
-- [ ] progress.yaml、phases/_TEMPLATE.md、第一张 phase 卡就位
+- [ ] 已选择的状态源与任务卡就位；已有等价文件直接复用
 - [ ] `agent-on.lock.md` 就位（pin 已锚定 tag+commit）
-- [ ] `thoughts-and-ideas.md` 就位（全档）；`dashboard.html` 就位并初绘一次（M/L）
+- [ ] 想法箱或仪表盘仅选择启用时就位
 - [ ] 需求三分法讲给用户听过：已确认 / 待拍板 / 暂停禁令三张清单
-- [ ] 用户知道四个口令：「agent-on 结账」「agent-on 升级」「整理想法」「更新仪表盘」（后两个 S 档只有「整理想法」）
+- [ ] 用户知道「agent-on 结账」「agent-on 升级」；其他口令只说明已启用的功能
 - [ ] 骨架已 commit：`git log --oneline` 非空且含骨架文件（落盘未 commit = 初始化未完成）
 - [ ] 以上每条都有实际文件路径或命令输出作证（L2 对你自己同样生效）
 

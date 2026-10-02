@@ -7,9 +7,9 @@
 - source:<项目名> @ <项目 commit> | pin vX.Y.Z
 - evidence:<commit / 命令输出摘录 / run_id+行号——至少一个可回放锚点>
 - confidence:<high|medium|low>(只在本项目见过一次 = low)
-- claim:<可复用规则,一句祈使句>
-- suggested_landing:<建议落点:bench 案例 / playbook 哪篇 / kit 哪个模板哪一行>
-- rollback:<这条规则若错了怎么撤(通常 = revert 落地 commit)>
+- claim:<带证据的结论，可为规则修正/合并/删除/退出默认/保留案例，不要求提出新规则>
+- suggested_landing:<建议处理与落点:bench 案例 / playbook 哪篇 / kit 哪个模板哪一行；不改正文也写明理由>
+- rollback:<采纳动作若错了怎么撤(通常 = revert 落地 commit；未改正文则写不适用及依据)>
 - trace:<来源 memory_card 的 run_id/task_id,或 loop-notes 行号>
 - 状态:pending  <!-- 消化后原地改 landed@<commit> / rejected(原因) / deferred;只引用已存在的 commit/tag,禁止预写版本号 -->
 ```

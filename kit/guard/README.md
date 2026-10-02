@@ -1,6 +1,6 @@
 # kit/guard — 跨仓、worktree 与跨窗口边界（机械闸）
 
-> 职责：①项目端会话对 agent-on **工作仓 B** 只写 `intake/`，禁止 add/commit/push；②在 Claude/Codex 发起 `git commit/push` 前判**本树**：本树某个未提交文件，另一棵工作树里也未提交、且那一份 7 天内被碰过，才拦（2026-09-24 起不读 lane 登记；见 [kit/worktree-control-plane.md](../worktree-control-plane.md)「闸只拦真冲突」）；③**跨窗口指令路由**——值守在班时，非值守窗口的合并 / 对外通信 / 横向消息拦下并给出转投模板（协议见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md)，登记命令是 `agent-on oncall`，无人在班则整条闸 fail-open）。
+> 职责边界：PreToolUse 核跨仓 Git 写入与值守路由授权；同文件保护由 shared Git hooks 在实际 index / 推送范围确定后执行，见 [控制面](../worktree-control-plane.md)。项目端对 Agent-On B 只写 intake、不执行 Git 写入；值守在班时合并/对外通信/横向消息归在班窗口。
 > **实现**：逻辑在 Rust CLI 的 `agent-on guard`；本目录 extensionless 文件是 canonical Bash shim，`.sh` 仅为旧个人 hook 的 Bash/Python 双兼容入口。
 
 ## 路径 / doctor
@@ -21,7 +21,7 @@ Claude（`hooks/hooks.json`）：
 { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"" }
 ```
 
-Codex plugin manifest 指向**同一份** `hooks/hooks.json`，不另养副本。guard 对非 git、git 读命令立即放行；只在 `commit/push` 前跑本树的边界判定（`gate_for`，与 Git hook 同一把尺子）。值守在班时，值守窗口每一次经 guard 的调用还会顺手续一次在班心跳（见 [kit/babysit/ROUTING.md](../babysit/ROUTING.md) §4）。
+Codex plugin manifest 指向同一份 hooks/hooks.json。PreToolUse 不重复扫描脏树，只核跨仓和路由授权；同文件判据在 shared Git hooks 执行。未安装原生 hooks 时不能宣称提交保护已启用。值守调用继续续心跳。
 
 先保证：
 
@@ -47,9 +47,9 @@ echo '{"tool_input":{"command":"git commit -m x"},"cwd":"'"$AGENT_ON_ROOT"'"}' \
 echo '{"tool_input":{"command":"git -C '"$AGENT_ON_ROOT"' status"},"cwd":"/tmp"}' \
   | CLAUDE_PROJECT_DIR=/tmp agent-on guard; echo "expect 0"
 
-# 当前 repo 的 commit/push → 只判本树
+# 当前 repo 的 commit/push → 路由/跨仓检查，操作范围交给 Git hooks
 echo '{"tool_input":{"command":"git commit -m probe"},"cwd":"'"$PWD"'"}' \
-  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0, or 2 only if another worktree has the same uncommitted file touched within 7 days"
+  | CLAUDE_PROJECT_DIR="$PWD" agent-on guard; echo "expect 0 unless cross-repo/oncall authorization blocks"
 ```
 
 若 stderr 含 `blocked:`，那一行写了路径和另一棵树。把该文件在其中一棵树里提交或还原即可；超过 7 天没人碰的那一份不会拦。`error:` 是这棵树的审计没跑起来，先修检查器，不以跳过 hook 当修复。
@@ -86,11 +86,11 @@ cargo build --release --manifest-path <WRITE_ROOT>/cli/Cargo.toml
 claude plugin update agent-on@agent-on
 ```
 
-`doctor` 的「hook 执行面」逐条列 `~/.claude/settings.json` 与已启用插件（`installed_plugins.json` 的 `installPath`）`hooks.json` 里的 agent-on 条目，核四层：①插件版本对 READ_ROOT 的 `.claude-plugin/plugin.json`；②`hooks.json` 对 READ_ROOT 的 `hooks/hooks.json`；③每个被执行的脚本按字节对 READ_ROOT 同名文件；④脚本与仓里一致时，按 shim 自己的转发顺序（插件目录里编好的 `cli/target/release/agent-on` → 脚本所在仓编好的那份 → PATH 上的 `agent-on`）找到真正执行的二进制，比它的编译时间与 READ_ROOT 最近一次 `cli/src` 提交。落后报 `STALE`，shim 找不到二进制（fail-open，闸不生效）报 `GUARD OFF`，名字带 agent-on、却追不到任何 agent-on 树的脚本（多半是早先拷出来的老闸）报 `UNTRACED`；软链先解析到真身再判。
+doctor 按插件版本、hook 配置、脚本字节与 shim 的真实二进制转发路径逐层核对。新二进制提供 build-info --json：编入的源码内容标识、commit、版本和可核的 release tag。doctor 比较实际二进制与 READ_ROOT/cli 的内容标识；相同源码可在不同路径/时间编译，版本号相同也不能掩盖源码不同。
 
-**第④层是 2026-09-26 实测补的**：脚本哈希全一致时只核脚本会报「一致」，可目录型 marketplace 装插件会把 `cli/target/` 一起拷进缓存，shim 又优先跑插件目录里那份——本机两份在跑的二进制都编于 09-24，v0.23.0 起的闸修复一个都不在执行面上。所以要先重编、再 `plugin update`，顺序反了缓存里还是旧的。
+旧二进制没有构建身份时标 UNVERIFIED，mtime 只用来提示明显陈旧，不能证明包含某次修复。源内容不同标 STALE；shim 无二进制标 GUARD OFF。doctor 只给出实际结果和修法，不修改全局 hook/插件缓存。
 
-判据：插件版本对不上仓里的 `plugin.json`，或者 hook 命令指向一份不经 `agent-on-git-guard` shim 转发的脚本，或者 shim 最终跑的二进制早于仓里最近一次 `cli/src` 提交，就是执行面陈旧。拦截文案里点名的执行体路径是第一线索——指向缓存目录时先查这里，别先改判据，也别教被拦的会话改写命令。
+doctor 还读取当前仓的受管 Git hook 安装回执，核对它实际调用的 executor。`worktree hooks status` 健康只说明配置与脚本未漂移；已安装时再跑 `hooks install` 不会替换原 executor。按 doctor 显示的实际路径重建/升级：指向 `~/.cargo/bin/agent-on` 时用 `cargo install --path cli`，指向仓内 release 时用 release 构建；插件缓存还须更新与重启。未更新的执行面在升级回执中单列。
 
 ## 分类器/闸拒诊断（命令字面 ≠ 目标）
 

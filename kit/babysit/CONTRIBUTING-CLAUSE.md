@@ -27,9 +27,9 @@
    `gh run list --json headSha,status,conclusion` 确认这个 head 的 run 已经 completed，再看
    `gh pr checks` 和 `mergeStateStatus`——checks 只是「此刻挂着什么」的快照，update-branch 刚返回时
    仓内 CI 可能还没起跑。
-3. **交单**：开完 PR 向值守 SendMessage 交单（模板↓）。收件地址从
-   <值守文档，如 docs/babysit.md> 交接快照读「在班值守地址」；读不到才退回
-   ListAgents 人工辨认（看名字与启动时长——值守通常是在班最久的长时会话）。
+3. **交单**：开完 PR 向值守交单（模板↓）。收件地址以 `agent-on oncall status`
+   的当前登记为准；分支里的交接快照仅供人看，不用名字或窗口时长猜在班者。
+   登记不存在就按本仓无值守规则交付；读取失败先说明缺口，不向猜测的窗口发消息。
    交单是门铃不是账本——值守以 open PR 列表为队列真相源，消息丢失不丢单。
 
    【交单】PR #<号>｜标题｜目标分支｜CI：已触发/已绿｜依赖：无 / depends on #<号>

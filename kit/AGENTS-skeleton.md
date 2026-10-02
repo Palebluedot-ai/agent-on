@@ -28,12 +28,14 @@
 
 ## §2 纪律四件套
 
-1. **TDD**:没有失败测试不许写生产代码。
+1. **风险相称的验证**:行为/数据/权限/回归缺陷优先用失败测试；样式、文案和文档用相关预览与检查，不机械要求 TDD。
 2. **Error Signal 四要素**:异常上报必含 What/Where/How(复现)/Severity;禁止静默绕过。
 3. **验证后才说完成**:任何「完成」声明必须附验证命令的实际输出;外部依赖缺位=标 ⏸ 挂账+写清事后步骤,**严禁伪造证据**。
-4. **单一状态写者**:`docs/state/progress.yaml` 只有 orchestrator(主会话)写;轨道 agent 不写状态、不 push。
+4. **共享状态一个写者**:只对已采用的共享状态源指定入口写者；任务作者维护自己的记录。子助手不独立发布，功能会话可推自己的分支并交 PR，不强制新建 progress.yaml。
 
 **提交纪律(半句)**:声明原子提交前 `git status --short` 读**全暂存区**——`git add <路径>` 不限定提交范围,残留会被吞进 commit。
+
+**上下文续接**：同一任务默认在原窗口使用宿主原生 compact。自然收口或准备主动压缩时更新已有任务记录中的目标、用户决定、未完项和证据位置；压缩后按需重读原文件与实际 diff，直接续跑。反复偏离且校正无效才考虑新会话，不按压缩次数强制开窗，不为每次压缩新建交接文档。完整约定见 agent-on `boot/session-handshake.md`。
 
 **浏览器入口不得 re-export Node**:给 CSR/浏览器的公共 barrel 禁止再导出引用 `node:fs` / `path` / `child_process` 的模块。读数与写盘分成两个入口;禁止用「反正 tree-shake」赌打包器。
 
@@ -54,17 +56,17 @@
 ## §10 编排并行协议(orchestrated-parallel)
 
 1. **契约先冻结**:`contracts/fixtures/*.json` 只许主会话改;冻结时把**语义**(排序/空值/上限/口径)一起写死。
-2. **轨道=目录+git worktree+合同**:单写会话可留主树；一旦同时有 ≥2 条写会话，主树先 clean 并退为控制轨，**每个**写会话进入独立 worktree，再用 `agent-on worktree claim` 登记单一目标/互斥 `owns`/依赖/base。首次进入并行模式先运行 `agent-on worktree hooks install`，其 shared `pre-commit` / `pre-push` 覆盖本仓所有 worktree；若与已有 hook 或 `core.hooksPath` 冲突则不覆盖，改为每次 commit/push 前手工运行 `agent-on worktree check`。每轨只许改自己目录,双向禁入,禁碰 contracts/ docs/;提交与合流前检查非零即停。
+2. **轨道按共享改动划分**:先把共享组件、token、路由和锁文件归一个任务；不同页面不自动开新轨。确实并行写入时各用独立 worktree，claim/owns 只是可选记账，不是开工前提。可选巡逻自动记录意图与实际 diff；同文件闸在实际暂存区/推送历史范围内检查未提交重叠；PreToolUse 保留路由与跨仓授权。
 3. **互相 Fake**:每轨用 fixture 种子造对方的假实现,自身闭环可测。
 4. **契约测试当裁判**:双端各自直接 import 同一份 fixture 断言。
-5. **报告即数据**:所有会话与子代理的每轮输出**统一走 agent-on `kit/output-contract.md`**(状态面板在前 → 拍板收成一节带默认值 → 结论三格 → 撤销两栏 → 球在谁那 → 之后才是过程)。轨道最终回复在该契约内必填:逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **「我按这个假设做了,你不否就当成立」**(把假设显式交出来,每条写清否掉要重做什么)+ commit hash;不 push。类别一律中文人话,机器类别名只准放括号里。
-6. **合流顺序**:先契约后实现;未验证假设集中裁决;翻转 Fake→真;全量回归;上机;记 run-ledger。
+5. **报告即数据**:输出按复杂度使用 agent-on `kit/output-contract.md`；普通回复直接给结果与必要证据，多任务交付才用完整结构(状态面板在前 → 拍板收成一节带默认值 → 结论三格 → 撤销两栏 → 球在谁那 → 之后才是过程)。轨道最终回复在该契约内必填:逐条验收 ✅/❌/⏸ + 测试输出末行 + 文件清单 + **「我按这个假设做了,你不否就当成立」**(把假设显式交出来,每条写清否掉要重做什么)+ commit hash;不 push。类别一律中文人话,机器类别名只准放括号里。
+6. **合流顺序**:需要契约时先冻结，再集成实现；未验证假设集中裁决。涉及 Fake→真时验证真实接线；按受影响行为选择回归与上机验证，复用任务结果记录，不给每页重复跑整套 CI。
 
-**衍生功能不扩轨**:执行中长出可独立目标 → 新 phase + 新 worktree/lane,用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
+**衍生功能先归并**:执行中长出独立目标先记录，由入口判断与现有任务合并还是另开隔离窗口，用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
 
-**开轨与回收硬句**：优先用宿主原生 worktree 工具；手工路径沿用本项目声明的 root，未声明可用 `.worktrees/<lane-id>`（Claude 原生路径 `.claude/worktrees/<lane-id>` 同样合法）。分支名 `<type>/<issue-or-lane>-<slug>`，每个新目标必须先 fetch 并从 fresh `origin/<default>` 创建，禁止从上一任务 HEAD 续长。握手、每日一次、每次合流后盘点；每日命令为 `agent-on worktree gc --dry-run --json`，也可选择 `agent-on worktree hooks install --daily-gc` 安装同一 report-only 盘点，其 `candidates` 是动态 known reclaim list，不另写静态清单，任何模式都永不自动删除 worktree 或分支。
+**开轨与回收硬句**：优先用宿主原生 worktree 工具；手工路径沿用本项目声明的 root，未声明可用 `.worktrees/<lane-id>`（Claude 原生路径 `.claude/worktrees/<lane-id>` 同样合法）。分支名 `<type>/<issue-or-lane>-<slug>`，新写任务从入口确定的集成基线创建；一批任务可共享一次已核对的 base，不为每页重复 fetch。握手、每日一次、每次合流后盘点；每日命令为 `agent-on worktree gc --dry-run --json`，也可选择 `agent-on worktree hooks install --daily-gc` 安装同一 report-only 盘点，其 `candidates` 是动态 known reclaim list，不另写静态清单，原有 gc 永不删除。单独启用 janitor 才允许有限回收受管、已释放且可恢复的 checkout；不删除分支。
 
-**回收权限**：自动化只检查并写本机报告；删除 worktree/本地或远端分支、`--force`、跨 worktree add/commit 必须人工且目标明确授权。locked、dirty、unknown 永不删；squash 场景以 PR 状态为权威，不能只信 `merge-base --is-ancestor` 的否定结果。
+**回收权限**：原有 GC 只报告。用户启用 janitor 后，有限策略可回收本功能创建的 checkout（执行书 `kit/patrol-control-plane.md`）；其余删除、本地或远端分支、`--force`、跨 worktree add/commit 仍须目标明确授权。locked、dirty、unknown 永不删；squash 场景以 PR 状态为权威，不能只信 `merge-base --is-ancestor` 的否定结果。
 
 ## §QA 三桶(跑通阶段只记账不停下)
 
@@ -77,7 +79,7 @@ A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 d
 | 环节 | 本项目默认 | 无则 fallback |
 |---|---|---|
 | 规划设计 | [GStack /autoplan · 若已装] | 主会话 + 用户拍板;禁 brainstorming 抢规划 |
-| 实现执行 | **主会话 / 按需子代理** + agent-on 铁律(TDD·完成贴证据) | agent-on 六步协议(并行时);**不**默认 Superpowers subagent-driven-development |
+| 实现执行 | **主会话 / 按需子代理** + 风险相称的验证与完成证据 | 实际接口并行时选 agent-on 协作协议；默认沿已授权目标推进 |
 | 代码/PR 审查 | [GStack /review · 若已装] | kit/review-prompt-template.md(只保留一套审查) |
 | 合流验收 | [GStack /qa · 若已装] | kit/merge-checklist.md |
 | 发布部署 | [GStack /ship · 若已装] | 项目自有 checklist;agent-on pin/结账照常 |
@@ -91,4 +93,4 @@ A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 d
 
 ## §二车道(见 agent-on 的 playbook/freedom-vs-discipline.md)
 
-Explore(视觉/原型/概念:一把梭可丢弃,不写测试,只守 token 色/真实感数据/触达底线)× Ship(碰数据/钱/安全:全纪律)。**两道不许串**:Explore 代码不直接 merge(重写),Ship 流程不管 Explore。
+Explore(视觉/原型/概念:一把梭可丢弃,不写测试,只守 token 色/真实感数据/触达底线)× Ship(碰数据/钱/安全:对应风险的验证与授权)。Explore 转 Ship 前补齐对应风险的验证；合格部分可复用，不强制重写。

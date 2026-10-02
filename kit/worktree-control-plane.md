@@ -126,7 +126,7 @@ agent-on worktree claim \
 三条设计约束，改判据时别动：
 
 1. **只看未提交改动，不看相对 base 的已提交发散。** 已提交的东西在它提交那一刻已经过过闸（或被人有意 `--no-verify` 跳过）；死分支落后一百多个提交的旧发散不该跟着每一次新提交跑。这一条同时消掉「squash 后永远 changed N」与「主树本地 merge 完 push 被自己刚合的 lane 拦住」两类假红。
-2. **只算到当事那棵树头上。** PreToolUse、Git hook、`status`、`check` 都只回答「这棵树能不能提交」。别的树互相撞，不记到这棵树上。
+2. **只算到当事那棵树和本次操作。** status/check 展示本树全部未提交重叠；Git hook 只在实际 index / 推送路径中判同一冲突。别的树互相撞、不提交的脏文件不阻止本次操作。PreToolUse 保留跨仓和路由授权。
 3. **超过窗口没人碰的那一份不参与。** 判据是那个文件的 mtime，不是 lane 状态，登记了没有也不看。
 
 merge / squash / cherry-pick / rebase 进行中照旧一律放行。
@@ -148,16 +148,16 @@ agent-on worktree hooks status
 
 安装器把 `pre-commit` / `pre-push` 放在 common git dir 的 Agent-On 专属目录，并设置仓库级 shared `core.hooksPath`，所以 primary 与所有 linked worktree 同时生效：
 
-- 两个 hook 都只判**本树**：本树未提交文件与另一棵树 7 天内改过的同一未提交文件相撞 → 拦；本树审计跑不起来 → 拦；没撞上 → 静默；
+- 两个 hook 只判本树与本次操作：commit 读取 Git 交给 hook 的实际 index（包括 -a、--only 的临时 index）；push 从 ref 更新读取推送范围，逐提交检查涉及路径，包含合并两侧和后来还原的改动。仅范围内双方都有新鲜未提交改动才拦；无法核范围或本树审计失败也拦。纯 tag / 删除 ref 无工作区写入范围，授权仍由路由判。
 - pre-push 另判**推上去的是什么**：把 `origin/<default>` 并进来的本地 merge commit（committer ≠ GitHub、merge 干净）推向开着同仓、进默认分支的 PR 的分支 → 拦，文案给出完整的 `gh api -X PUT …/pulls/<N>/update-branch`；有冲突的 merge、git 太老判不了冲突的 merge、没有这样 PR 的分支、推默认分支本身都放行（判据与两个出口见 playbook/multi-contributor-protocol.md §三½.8）；
 - merge / squash-merge / cherry-pick / revert / rebase 控制态通过 git-admin marker 自动放行；
 - 成功时静默；失败时打印原因与下一条修复命令；
 - 已存在真实 hook 或任何 `core.hooksPath` 时拒绝接管，不覆盖、不绕开；先人工组合后再安装；
 - `status` 会验配置与内容漂移；`uninstall` 只移除仍与安装指纹一致的 Agent-On 资产，漂移时整组不动。
 
-Git 自带的人工 `--no-verify` 仍可绕过 Git hook，产品不伪称不可绕过。Claude/Codex plugin 的共用 PreToolUse guard 会在 Agent 发出 `commit/push` 前再跑同一条判据（本树未提交文件与另一棵树 7 天内碰过的同一未提交文件相撞，或本树审计跑不起来，才拦；不读 lane / owns），拦下时打印同样的 `blocked:` / `error:` 行；本地 merge 那条只在 Git pre-push 里（它要 git 给的待推范围）。其余 git 写命令只过跨仓检查，非 git 与 git 读命令不过这道闸。Codex 非 managed hook 首次需在 `/hooks` 检查并信任，Agent-On 不改用户 home。
+Git 自带的 --no-verify 仍可绕过原生 hook。Claude/Codex 共用 PreToolUse guard 保留跨仓 Git 与值守路由授权；同文件检查统一由原生 Git hook 在操作范围确定后执行，避免链式 add、--only 或隐式 refspec 被提前误判。未安装原生 hooks 时，插件不提供同文件提交保护。Codex 的信任遵宿主流程，Agent-On 不改用户 home。
 
-**Git hook 的边界也要诚实**：clean `git merge --no-ff` 走 `pre-merge-commit`，不会调用本版安装的 `pre-commit/pre-push`，PreToolUse 也只在 `commit` / `push` 上跑闸；所以 clean merge 本身仍须走控制轨合流清单。随后推默认分支时，这几道闸也不会回头审它：同文件闸只看本树此刻的未提交改动（设计约束 1），pre-push 的本地 merge 检查不管推默认分支本身。`--no-verify` 跳过的判定事后不会补跑，它是逃生口，不是工作流。lane 的 `base` 不参与撞车判定；它喂的是 `claim` / `edit` 的三档、`set-status ready` 的越界检查和 `--json` 盘点（`changed_files` / `out_of_bounds` / `base_ahead` / `unique_commits` / `reclaim`）：错填成会随 merge 移动的本地 `main`，这些对照就不稳；填成解析不了的 ref，那棵树的审计跑不起来，按 `error` 拦。`base_sha_at_claim` 只是留证，这些 diff 跟随 `base` ref；合同照旧用 fresh、稳定的 `origin/<default>`。
+**Git hook 的边界**：clean merge 走 pre-merge-commit，本版不安装它，仍由值守合流清单验收。push 同文件检查只判推送路径内当前双方未提交重叠，不能独立审查已提交改动的语义；本地 merge 检查保留原 PR 形状判据。跳过的检查不事后补跑。lane/base 继续用于登记、ready 与 JSON 盘点，不决定本次操作的路径范围。
 
 无法安装 shared hook 时，`agent-on worktree check` 仍是手工 fallback；必须保留在提交/合流清单里。回滚：
 
@@ -201,7 +201,7 @@ agent-on worktree check
 
 这一条是**债，不是红灯**——理由是它**改登记清不掉**，只有真把那些改动 push / 提交 / 开 PR 救走才会消失。把清不掉的东西挂在红灯上，红灯就失去意义。它的回收分类仍然是 `rescue`，仍然不许删；人读输出里要看它，跑 `gc --dry-run`（脏树、没推走的独有提交都判 `RESCUE`）。
 
-`check` 是 Git hook 与 PreToolUse 共用的底层审计，也可独立运行做诊断。安装器不擅自覆盖用户 hook；冲突未组合前，AGENTS 与派工词必须把手工 `check` 列为提交前命令。
+check 是本树整体诊断；原生 hook 在同一审计结果上过滤本次操作路径。诊断红灯不等于无关文件的提交也该被挡。安装器不覆盖用户 hook，冲突先人工组合；只装插件不等于原生 Git hooks 已安装。
 
 ## 衍生需求：分流，不膨胀
 
@@ -293,7 +293,7 @@ agent-on worktree forget --id auth-api
 
 ## 自动化与权限边界
 
-- 自动化只许：在 commit/push/PreToolUse 跑边界检查，读取 git / registry / PR 状态，写本机 JSON/日志报告；lane 状态变更仍由显式命令触发，不能由 hook 或 GC 猜。
+- 原有自动化只报告：Git hooks 在实际 commit/push 范围做同文件检查，PreToolUse 只做路由与跨仓授权；读取 git / registry / PR 状态，写本机报告。lane 状态不由 hook 或旧 GC 猜。显式启用的巡逻/清道夫额外能力与有限受管回收，以 [巡逻执行书](patrol-control-plane.md) 为准。
 - 必须人工或获得目标明确的用户授权：删除 worktree 目录、删除本地/远端分支、`--force`、进入别的 worktree add/commit、代另一轨处理 dirty 内容。
 - 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
 - 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。
@@ -354,7 +354,7 @@ lane 管**本地写边界**（谁的 worktree 能改哪些文件），值守管*
 
 **2026-09-24 起，commit 被拦只说明另一棵树里有同一份新鲜的未提交文件。** 出口是到那棵树里把这个文件提交、还原，或它已经超过 7 天没人碰（闸自己放开）。`set-status parked` 和改 `owns` 不再是提交的出口。登记还在，给 `claim` / `edit` 用，不挡 commit。
 
-仍然成立的一条:**claim 拒绝重划已存在 lane** → `worktree edit` 改真值,再 check 验证(无 CLI 时直改该 lane JSON)。PreToolUse guard 在命令执行**前**评估——任何登记修复与 `git commit` 必须拆成两条命令,合在一条里修复永远跑不到。
+仍然成立的一条：claim 不覆盖已有 lane，改登记用 worktree edit。登记不是提交前置；提交范围由原生 hook 判，链式 add/commit 可正常使用。
 
 **陈年树与带独有提交的树(2026-09-05 inbox-radar 实测三条)**:
 

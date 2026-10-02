@@ -62,7 +62,7 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 ```
 
 - **颗粒度标尺**:一卡 ≤ 半天;验收条目能直接翻译成测试名;做不到就拆卡。
-- **纪律四件套**(贯穿):TDD(没有失败测试不写生产代码)/ Error Signal 四要素(What/Where/How/Severity,不许静默绕过)/ 验证后才说完成(贴命令实际输出)/ 单会话单写者。
+- **纪律四件套**(贯穿):按风险验证(行为改动优先失败测试，样式/文档用相关预览检查)/ Error Signal 四要素(What/Where/How/Severity,不许静默绕过)/ 验证后才说完成(贴命令实际输出)/ 单会话单写者。
 - 参考模式指针是压幻觉利器:「照 customers-repo.ts 的 cursor 写法」比三段文字描述更不会跑偏。
 
 ## Phase 5 — 双轨并行(orchestrated-parallel v1)
@@ -148,4 +148,4 @@ disturbance: "禁区:不许碰什么/不许发明什么"   # 与 setpoint 同权
 2. Phase 0-1:原始想法落盘 → D 表 → 三分法 → PRD(F 编号+可验证验收)→ external-setup 催办清单
 3. Phase 2-3:多声音评审 → 切片表(灵魂切片最先)→ 硬约束进 AGENTS.md
 4. 每片循环:phase 卡 → 冻结 fixtures → 双轨并行 → 合流 checklist → 独立审查 → 三桶记账 → 沉淀
-5. 全程四纪律:TDD / Error Signal / 验证后才说完成 / 单一状态写者
+5. 全程四纪律:按风险验证 / Error Signal / 验证后才说完成 / 单一状态写者

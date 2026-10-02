@@ -44,7 +44,7 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
    **先跑 `python3 tools/merge-audit/merge_audit.py precheck --pr <N>`**——退出码 `0` 自动合 / `10` 合但当轮播报一行 / `20` 硬停不许合 / `2` **判不了，当硬停处理**。工具的判定是独立的，不看值守自称。
    - `gh pr view <N> --json mergeable,mergeStateStatus`：须 MERGEABLE / CLEAN（DIRTY → 服务端追平或按 §4 分诊）
    - GitGuardian（外部 app check）：须 pass
-   - 内容分类：按 §3 两张清单判，**按实际 diff 判不按标题判**。本仓几乎所有 PR 都动 canonical（kit/playbook/bench/boot/cli/skill/hooks/AGENTS/BOOTSTRAP）→ 落在「必须先问」；默认合入档在本仓刻意窄（见 §3）
+   - 内容分类：对实际 diff 跑机器 precheck，只有硬停或健康度异常才停；canonical 文档并不自动落在「必须先问」。判据以 `tools/merge-audit/policy.json` 为准，批准与记账按下节执行
    - 真缺陷 = 打回四件套（证据指针 + 定位 + 修复选项 + SendMessage 作者会话），值守零代修
 3. **合并流程（严格串行，一次只合一条）**：
    1. 落后 base → 服务端追平 `gh api -X PUT repos/Palebluedot-ai/agent-on/pulls/<N>/update-branch`；绝不本地 checkout / push 功能分支
@@ -134,12 +134,7 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 - **`edit --status landed` 没有干净树守卫**（2026-08-20 实测报告，未修）：`--status ready` 有干净树守卫，`landed` 一道都没有——脏树、有独有 commit 的树都能被直接记成 landed。闸没被骗过（边界照占、check 照 FAIL），但 CLI 允许写下假账，而假账正是「为让闸变绿而改账」这条反模式的入口。看见某条轨突然 landed 而树还脏，先怀疑这个。
 - squash / merge 后祖先误判 → 以 `gh pr list --state merged` / 托管平台为准
 - 状态闸拉 GitHub API 抖动 → 重试即绿，非业务违规
-- **审计报告会因「在哪棵树跑」给出相反结论**（2026-08-20 实测，本班撞到）：账本 `ledger/merge-audit.jsonl` 是 **git 里的文件**，未合入 main 的 record 只存在于写它的那棵树里；而 `merge_audit.py` **按脚本自身所在的仓根**定位账本，不按 cwd。同一时刻实测：
-  ```
-  python3 tools/merge-audit/merge_audit.py report        （值守树的脚本）→ APPROVED_HARDSTOP×2
-  python3 /绝对路径/主仓/tools/merge-audit/merge_audit.py report        → UNVERIFIED_HARDSTOP×2
-  ```
-  **两条都不是错的**——它们读的是两份不同的账本。判据：**跑 report 一律用「记账时用的那棵树里的脚本」**，且**记账 PR 合入 main 之前，别拿 report 的结论对外下判断**（别人跑出来跟你不一样）。同理，`record` 也会写进脚本所在树的账本——**记账前先确认自己在哪棵树**，本班在这上面栽过两次（另一次是把账写进主仓）。
+- **审计账本统一到主树**：2026-08-20 曾因两棵树各自读取 ledger/merge-audit.jsonl 得到相反报告。当前 default_ledger 从 Git worktree 清单定位主树，record/report 使用同一绝对路径。分支内旧账本只保留历史，不自动拼接；自定义账本明确传同一 --ledger 绝对路径。主树不可解析时拒绝猜路径，账本由在班值守追加并按本仓提交纪律收口。链断或 report 失败立即退回逐单先问。
 - **CI 落地当天的两类红，别混为一谈**（2026-08-20 实测）：①**装 CI 那一刻照出的存量问题**——本仓首道 CI 第一次跑就红三条，全在 `cli/src/worktree_schedule.rs`，错误原文 `persisted scheduler platform Launchd does not match current platform SystemdUser`：测试写死了 macOS 调度器而 runner 是 Linux，**测试套件一直是 macOS-only 只是此前没人知道**。判据：那几条测试在 `origin/main` 上早已存在，且当前 PR 一行没碰它们。②**开在 CI 之前的 PR 从没跑过它**——`mergeStateStatus` 会是 `CLEAN` 但检查列表是空的，看着像全绿其实一次没跑。**服务端 `update-branch` 追平一次**即可让新闸管到它（#38 就是这么照出 `cargo fmt --check` 没过的）。注意区别于「`CLEAN` + 零检查」的另一种情形：追平后新 head 上 GitGuardian 有时不重新触发，那是真的没有待决检查
 - **装机 CLI 与仓内源码同版本号、功能不同**（2026-08-19 实测）：`agent-on landing` / `worktree edit` 报 `unrecognized subcommand`，但 `cli/Cargo.toml` 与 `agent-on --version` 都是 0.12.1——功能落地没 bump 版本号，光看版本号分辨不出。命令报「没这个子命令」时先 `cargo install --path cli` 重装再怀疑文档写错
 - **`worktree check` 的输出别用 `tail` 截**（2026-08-19 实测）：lane 按字母序列出、`RESULT` 行在末尾，`tail -40` 会砍掉开头几条轨（本轮漏看 `affectionate-hofstadter-placeholder` 与 `agent-on-data-hygiene` 两条）。要判 RESULT 用 `tail -3`，要看 lane 清单就全量看，别两件事一条管道办

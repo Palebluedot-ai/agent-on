@@ -45,7 +45,7 @@
 **负担预算(硬验收,超了就砍门禁)**:结账 = 一句口令 + 零确认;消化 = 一场会话 + 一组选择题;升级 = 一次 diff 批准。
 
 - **结账**(项目会话):对表播报(落后几版、是否含 major,**不强制升级**)→ 收集 `sync_status=pending` 的出仓卡 → 装配 Promotion Card(六项缺一拒收)→ 写 intake 一个新文件、单独 commit → 卡标 synced + lock 记回执 → 播报 intake 积压(≥3 份未消化或跨项目同 pattern → 建议当场开消化,这是全流程唯一的问句)
-- **消化**(**必须换 agent-on 仓会话**——会话上下文=装载的规则集,没读本仓 AGENTS.md 的会话不许动本仓 canonical):开场四检(第四检 = 会话在 WRITE_ROOT 主树里,linked worktree 看不见承接队列)→ 开场 pattern 频次扫描(同 slug ≥2 项目 → 置顶 + 强制升 L3)→ correction-loop 三态分诊(低风险 + bench 案例追加 = AI 直落;中高风险 = 打包成**一组选择题**一次拍完)→ 每张卡原地标 `landed@commit` / `rejected(原因)` / `deferred`(只引用已存在的 commit / tag,禁止预写版本号) → **至少一处具体文件改动**(meta-principles 第三条,只读不改 = 消化失败)→ CHANGELOG 条目(L3 改动强制成对列 playbook+kit 双落点,堵上游侧双写漂移)→ 用户确认定级 → **封 `[未发布]` + annotated tag + push tag**(缺 tag = 消化失败;下游 pin 只能钉 tag)。**2026-08-03 扩**:本仓**一切**直接对话交付 commit 同此硬门,不限消化口令(见 AGENTS 自举纪律第 6 条;实证:v0.5.1 后 59 commit 未 tag + 2026-08 轻主路径两 commit 曾只 push 不 tag)
+- **消化**(**必须换 agent-on 仓会话**——会话上下文=装载的规则集,没读本仓 AGENTS.md 的会话不许动本仓 canonical):开场四检(第四检 = 会话在 WRITE_ROOT 主树里,linked worktree 看不见承接队列)→ 开场 pattern 频次扫描(同 slug ≥2 项目 → 置顶，按归因选择修正、合并、退场或保留案例)→ correction-loop 三态分诊(低风险 + bench 案例追加 = AI 直落;中高风险 = 打包成**一组选择题**一次拍完)→ 每张卡原地标 `landed@commit` / `rejected(原因)` / `deferred`(只引用已存在的 commit / tag,禁止预写版本号) → **处理结论留痕**(可删除/收缩规则、保留案例或有理由拒绝；不为指标改正文)→ CHANGELOG 条目(L3 改动强制成对列 playbook+kit 双落点,堵上游侧双写漂移)→ 用户确认定级 → **封 `[未发布]` + annotated tag + push tag**(缺 tag = 消化失败;下游 pin 只能钉 tag)。**2026-08-03 扩**:本仓**一切**直接对话交付 commit 同此硬门,不限消化口令(见 AGENTS 自举纪律第 6 条;实证:v0.5.1 后 59 commit 未 tag + 2026-08 轻主路径两 commit 曾只 push 不 tag)
 
 **明确不设**:fail-closed 背压禁令(会锁死口令入口——最弱环节不能当全局断路器)、archive 目录(intake 原地标注即收口,目录即仪表盘,`ls` 一眼见积压)。
 
@@ -63,7 +63,7 @@
 
 - intake 文件名 = 命名空间(`<日期>-<项目>.md`),append-only——四个项目同天结账写四个不同文件,git 层物理不撞,不造锁
 - canonical 只有消化会话一个写者,消化天然串行
-- 跨项目信号:Promotion Card 必带 pattern slug,消化开场 grep intake/ 同 slug ≥2 项目 = 高优先级,强制升 L3(playbook 规则 + kit checklist 行)——「高频失败优先沉淀为 anti-pattern」的执行点
+- 跨项目信号:Promotion Card 必带 pattern slug,消化开场 grep intake/ 同 slug ≥2 项目 = 高优先级；是否升 L3 由可复用性与最小有效解法决定，不自动加规则——「高频失败优先沉淀为 anti-pattern」的执行点
 
 ## 六½、多人 / 上游贡献(与装机路径正交)
 

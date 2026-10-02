@@ -27,12 +27,12 @@
 | | 🏎 Explore 车道 | 🚂 Ship 车道 |
 |---|---|---|
 | 适用 | 视觉稿、交互原型、新功能概念(如 Calendar/Time Page)、技术 spike | 一切碰数据/钱/用户/安全的代码 |
-| 流程 | **一把梭**:一个 prompt、Pencil/HTML 原型、可以丢弃、不写测试、不进 progress.yaml | Loop Engineering 全套(phase 卡/TDD/双轨/审查) |
+| 流程 | **一把梭**:一个 prompt、Pencil/HTML 原型、可以丢弃、不写测试、不进 progress.yaml | 按本次改动风险选择测试、审查与集成验证 |
 | 产出物 | 「感觉对了」的参照物 | 可上线的代码 |
 | 桥 | Explore 的赢家**固化为 Ship 的输入**:视觉稿→design token 更新→UI 卡的验收标准;原型→交互规格 | — |
 | 幻觉风险 | 无所谓——原型的幻觉叫创意 | 12 机制封堵(anti-hallucination.md) |
 
-**关键纪律只有一条:两条车道不许串。** Explore 的代码永远不直接 merge 进 Ship(重写,不是搬运);Ship 的流程永远不去管 Explore(不给原型写测试)。
+**关键纪律只有一条:两条车道不许串。** Explore 转入实际使用前审查质量与依赖，补齐实际风险对应的验证；合格代码直接复用，不强制重写。纯视觉仍用预览验证，不套业务 TDD。
 
 ## 三、「怎么让做出来直接就是我想要的」——品味的前置化
 
