@@ -2,8 +2,8 @@
 //!
 //! Design contract lives in `kit/landing-control-plane.md`. Invariants:
 //! - the management unit is the feature track / PR, never the worktree path;
-//! - every check result is bound to `(PR head SHA, base SHA)`; if neither
-//!   moved the cached evidence is reused verbatim (SKIP);
+//! - changed-file evidence is bound to `(PR head SHA, base SHA)` and reused
+//!   only after successful collection; live CI/review status always refreshes;
 //! - when base moves, only tracks with a dependency edge or file overlap are
 //!   re-checked;
 //! - v1 is strictly read-only + on-demand: no merges, no deletions, no daemon.
@@ -49,6 +49,7 @@ pub enum MergeState {
 #[serde(rename_all = "kebab-case")]
 pub enum EvidenceState {
     Fresh,
+    Unavailable,
     ReusedSame,
     ReusedValid,
     Invalidated,
@@ -215,6 +216,11 @@ fn base_verdict(t: &TrackFacts) -> BaseVerdict {
     if t.mergeable == MergeState::Conflicting {
         return BaseVerdict::Stale("与 main 冲突，需要 rebase".to_string());
     }
+    if t.evidence == EvidenceState::Unavailable {
+        return BaseVerdict::ParallelCandidate(
+            "文件取证失败，不能判断重叠或可合；下次刷新重试".to_string(),
+        );
+    }
     if !t.deps_unmet.is_empty() {
         return BaseVerdict::Next(format!("等 {}", t.deps_unmet.join("、")));
     }
@@ -278,10 +284,15 @@ pub fn categorize(tracks: &[TrackFacts]) -> Vec<CategoryOutcome> {
                 }
             }
             BaseVerdict::ParallelCandidate(r) => match now_index {
-                Some(now) if files_overlap(&tracks[i], &tracks[now]) => (
-                    Category::Next,
-                    format!("与 #{} 文件重叠，等其落地", tracks[now].pr_number),
-                ),
+                Some(now)
+                    if tracks[i].evidence != EvidenceState::Unavailable
+                        && files_overlap(&tracks[i], &tracks[now]) =>
+                {
+                    (
+                        Category::Next,
+                        format!("与 #{} 文件重叠，等其落地", tracks[now].pr_number),
+                    )
+                }
                 _ => (Category::Parallel, r.clone()),
             },
         };
@@ -626,13 +637,7 @@ pub fn save_snapshot(common_git_dir: &std::path::Path, snapshot: &Snapshot) -> R
         .parent()
         .ok_or_else(|| "invalid snapshot path".to_string())?;
     std::fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
-    let raw = serde_json::to_string_pretty(snapshot)
-        .map_err(|e| format!("serialize landing snapshot: {e}"))?;
-    // Atomic replace so a concurrent reader never sees a torn file.
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, format!("{raw}\n"))
-        .map_err(|e| format!("write {}: {e}", tmp.display()))?;
-    std::fs::rename(&tmp, &path).map_err(|e| format!("rename {}: {e}", path.display()))
+    crate::coordination::write_json(&path, snapshot)
 }
 
 // ---------------------------------------------------------------------------
@@ -651,6 +656,9 @@ pub struct PrProbe {
     pub base_ref: String,
     pub draft: bool,
     pub url: String,
+    /// CI and reviews can change without either code SHA moving. Batched live
+    /// observations refresh these facts while changed-file evidence is reused.
+    pub live_status: Option<(CiState, ReviewState, MergeState)>,
 }
 
 #[derive(Debug, Clone)]
@@ -760,11 +768,17 @@ impl GhClient for RealGh {
                 "--limit",
                 "200",
                 "--json",
-                "number,headRefName,baseRefName,headRefOid,isDraft,url",
+                "number,headRefName,baseRefName,headRefOid,isDraft,url,statusCheckRollup,reviewDecision,mergeable",
             ],
         )?;
         let rows: Vec<serde_json::Value> =
             serde_json::from_slice(&raw).map_err(|e| format!("cannot parse gh pr list: {e}"))?;
+        if rows.len() >= 200 {
+            return Err(
+                "open PR inventory reached 200; refusing to treat a partial list as complete"
+                    .into(),
+            );
+        }
         let mut out = Vec::new();
         for row in rows {
             out.push(PrProbe {
@@ -796,6 +810,13 @@ impl GhClient for RealGh {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default()
                     .to_string(),
+                live_status: Some((
+                    row.get("statusCheckRollup")
+                        .map(ci_from_rollup)
+                        .unwrap_or(CiState::Unknown),
+                    review_from_str(row.get("reviewDecision").and_then(|v| v.as_str())),
+                    merge_from_str(row.get("mergeable").and_then(|v| v.as_str())),
+                )),
             });
         }
         Ok(out)
@@ -1329,15 +1350,19 @@ fn build_refresh(
             .map(|l| l.id.clone())
             .unwrap_or_else(|| format!("pr-{}", probe.number));
         let prev_track = prev_by_pr.get(&probe.number).copied();
-        let cached = prev_track.and_then(|t| match (&t.checked_head_sha, &t.checked_base_sha) {
-            (Some(h), Some(b)) => Some(CachedEvidence {
-                head_sha: h.clone(),
-                base_sha: b.clone(),
-                files: t.files.iter().cloned().collect(),
-                files_truncated: t.files_truncated,
-            }),
-            _ => None,
-        });
+        // Failed evidence is never a cache hit. Empty legacy caches may be
+        // failure placeholders written by older versions, so re-collect them.
+        let cached = prev_track
+            .filter(|t| t.evidence != Some(EvidenceState::Unavailable) && !t.files.is_empty())
+            .and_then(|t| match (&t.checked_head_sha, &t.checked_base_sha) {
+                (Some(h), Some(b)) => Some(CachedEvidence {
+                    head_sha: h.clone(),
+                    base_sha: b.clone(),
+                    files: t.files.iter().cloned().collect(),
+                    files_truncated: t.files_truncated,
+                }),
+                _ => None,
+            });
         let dep_landed = lane
             .map(|l| {
                 l.depends_on.iter().any(|d| {
@@ -1372,7 +1397,7 @@ fn build_refresh(
         let prev_checked_at = prev_track
             .and_then(|t| t.checked_at.clone())
             .unwrap_or_else(|| now_iso.clone());
-        let (detail, evidence, checked_base_sha, checked_at) = match decision {
+        let (mut detail, evidence, checked_base_sha, mut checked_at) = match decision {
             EvidenceDecision::ReuseSame => {
                 stats.reused_same += 1;
                 (
@@ -1407,27 +1432,31 @@ fn build_refresh(
             | EvidenceDecision::CheckDepLanded
             | EvidenceDecision::CheckConservative => {
                 stats.checked += 1;
-                let detail = match gh.pr_detail(&root, probe.number) {
-                    Ok(d) => d,
+                let (detail, evidence) = match gh.pr_detail(&root, probe.number) {
+                    Ok(d) => (d, EvidenceState::Fresh),
                     Err(e) => {
                         notes.push(format!("PR #{} 取证失败：{e}", probe.number));
-                        PrDetail {
-                            ci: CiState::Unknown,
-                            review: ReviewState::Unknown,
-                            mergeable: MergeState::Unknown,
-                            files: Vec::new(),
-                            files_truncated: false,
-                        }
+                        (
+                            PrDetail {
+                                ci: CiState::Unknown,
+                                review: ReviewState::Unknown,
+                                mergeable: MergeState::Unknown,
+                                files: Vec::new(),
+                                files_truncated: true,
+                            },
+                            EvidenceState::Unavailable,
+                        )
                     }
                 };
-                (
-                    detail,
-                    EvidenceState::Fresh,
-                    base_sha.clone(),
-                    now_iso.clone(),
-                )
+                (detail, evidence, base_sha.clone(), now_iso.clone())
             }
         };
+        if let Some((ci, review, mergeable)) = probe.live_status {
+            detail.ci = ci;
+            detail.review = review;
+            detail.mergeable = mergeable;
+            checked_at = now_iso.clone();
+        }
         let (deps_unmet, deps_open_prs, depends_on, owns) = if let Some(l) = lane {
             let mut unmet = Vec::new();
             let mut open_prs = Vec::new();
@@ -1778,6 +1807,19 @@ fn build_refresh(
 }
 
 pub fn run_refresh(repo: &Path, gh: &dyn GhClient, opts: &LandingOpts) -> (i32, String) {
+    // Multiple windows share one repository. Only one network evidence pass
+    // may write its snapshot at a time; readers never acquire this lock.
+    let _lease = match wt::common_git_dir(repo).and_then(|common| {
+        crate::coordination::lock_path(&common.join("agent-on/landing/refresh.lock"))
+    }) {
+        Ok(lease) => lease,
+        Err(error) => {
+            return (
+                1,
+                format!("ERROR: PR refresh busy or unavailable: {error}\n"),
+            )
+        }
+    };
     let build = match build_refresh(repo, gh, opts) {
         Ok(v) => v,
         Err(e) => return (1, format!("ERROR: {e}\n")),
@@ -2799,6 +2841,7 @@ mod io_tests {
             base_ref: "main".to_string(),
             draft: false,
             url: "https://example.test/pr/182".to_string(),
+            live_status: None,
         }
     }
 
@@ -2864,6 +2907,162 @@ mod io_tests {
             track.category,
             Some(Category::Now),
             "actionable rows stay visible"
+        );
+    }
+
+    #[test]
+    fn failed_file_evidence_is_not_mergeable_and_is_retried() {
+        let (_tmp, root, _wt) = fixture();
+        let fake = FakeGh::new();
+        let mut probe = probe_a(&root);
+        probe.live_status = Some((CiState::Green, ReviewState::Approved, MergeState::Clean));
+        fake.probes.borrow_mut().push(probe);
+        let common = common_git_dir(&root).unwrap();
+        for attempt in 1..=2 {
+            let (code, out) = run_refresh(&root, &fake, &opts());
+            assert_eq!(code, 0, "{out}");
+            let snapshot = load_snapshot(&common).unwrap().unwrap();
+            let track = snapshot
+                .tracks
+                .iter()
+                .find(|t| t.pr_number == Some(182))
+                .unwrap();
+            assert_ne!(
+                track.category,
+                Some(Category::Now),
+                "failed file evidence must not become mergeable: {out}"
+            );
+            assert!(track.reason.as_deref().unwrap().contains("取证"), "{out}");
+            assert!(
+                track.files_truncated,
+                "unknown files must not prove disjointness"
+            );
+            assert_eq!(
+                fake.detail_calls.borrow().len(),
+                attempt,
+                "failed evidence must be retried even with unchanged SHAs"
+            );
+        }
+        fake.details
+            .borrow_mut()
+            .insert(182, green_detail(&["api/auth.rs"]));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        let snapshot = load_snapshot(&common).unwrap().unwrap();
+        let track = snapshot
+            .tracks
+            .iter()
+            .find(|t| t.pr_number == Some(182))
+            .unwrap();
+        assert_eq!(track.category, Some(Category::Now));
+        assert_eq!(fake.detail_calls.borrow().len(), 3);
+
+        fake.probes.borrow_mut()[0].head_sha = "moved-head".into();
+        fake.details.borrow_mut().clear();
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        let snapshot = load_snapshot(&common).unwrap().unwrap();
+        assert_ne!(
+            snapshot
+                .tracks
+                .iter()
+                .find(|t| t.pr_number == Some(182))
+                .unwrap()
+                .category,
+            Some(Category::Now)
+        );
+        fake.details
+            .borrow_mut()
+            .insert(182, green_detail(&["api/auth.rs"]));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        assert_eq!(fake.detail_calls.borrow().len(), 5);
+    }
+
+    #[test]
+    fn refresh_lock_does_not_block_task_receipts_but_serializes_refreshes() {
+        let (_tmp, root, _wt) = fixture();
+        let fake = FakeGh::new();
+        let store = crate::coordination::Store::open(&root).unwrap();
+        let control_lease = store.lock().unwrap();
+        let (code, out) = run_refresh(&root, &fake, &opts());
+        assert_eq!(
+            code, 0,
+            "network refresh must not compete with task receipts: {out}"
+        );
+        drop(control_lease);
+
+        let path = common_git_dir(&root)
+            .unwrap()
+            .join("agent-on/landing/refresh.lock");
+        let lock_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)
+            .unwrap();
+        lock_file.try_lock().unwrap();
+        let (code, out) = run_refresh(&root, &fake, &opts());
+        assert_eq!(code, 1, "concurrent refresh must be refused: {out}");
+        assert!(out.contains("busy"), "{out}");
+        assert!(
+            store.lock().is_ok(),
+            "task receipts remain available while refresh is locked"
+        );
+    }
+
+    #[test]
+    fn unchanged_code_updates_ci_review_and_merge_status_without_refetching_files() {
+        let (_tmp, root, _wt) = fixture();
+        let fake = FakeGh::new();
+        let mut probe = probe_a(&root);
+        probe.live_status = Some((CiState::Pending, ReviewState::Required, MergeState::Unknown));
+        fake.probes.borrow_mut().push(probe);
+        fake.details
+            .borrow_mut()
+            .insert(182, green_detail(&["api/auth.rs"]));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        let common = common_git_dir(&root).unwrap();
+        let row = |snapshot: Snapshot| {
+            snapshot
+                .tracks
+                .into_iter()
+                .find(|t| t.pr_number == Some(182))
+                .unwrap()
+        };
+        assert_eq!(
+            row(load_snapshot(&common).unwrap().unwrap()).ci,
+            Some(CiState::Pending)
+        );
+        fake.probes.borrow_mut()[0].live_status =
+            Some((CiState::Green, ReviewState::Approved, MergeState::Clean));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        assert_eq!(
+            row(load_snapshot(&common).unwrap().unwrap()).category,
+            Some(Category::Now)
+        );
+        fake.probes.borrow_mut()[0].live_status = Some((
+            CiState::Green,
+            ReviewState::ChangesRequested,
+            MergeState::Clean,
+        ));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        assert_eq!(
+            row(load_snapshot(&common).unwrap().unwrap()).category,
+            Some(Category::Fix)
+        );
+        fake.probes.borrow_mut()[0].live_status = Some((
+            CiState::Green,
+            ReviewState::Approved,
+            MergeState::Conflicting,
+        ));
+        assert_eq!(run_refresh(&root, &fake, &opts()).0, 0);
+        assert_eq!(
+            row(load_snapshot(&common).unwrap().unwrap()).category,
+            Some(Category::Stale)
+        );
+        assert_eq!(
+            fake.detail_calls.borrow().len(),
+            1,
+            "CI/review refresh reuses changed-file evidence"
         );
     }
 
@@ -3009,6 +3208,7 @@ mod io_tests {
             base_ref: "main".to_string(),
             draft: false,
             url: "https://example.test/pr/184".to_string(),
+            live_status: None,
         });
         fake.details
             .borrow_mut()

@@ -3,6 +3,7 @@
 mod audit_lint;
 mod build_info;
 mod coordination;
+mod dashboard;
 mod doctor;
 mod drift;
 mod guard;
@@ -47,6 +48,9 @@ enum Commands {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
+    /// One project view of tasks, sessions, worktrees and PR evidence
+    #[command(alias = "status")]
+    Dashboard(dashboard::DashboardArgs),
     /// PreToolUse git guard (stdin JSON → exit 0 allow / 2 block)
     Guard,
     /// Optional project patrol: a separate window, task ledger, and early overlap reports
@@ -402,6 +406,7 @@ fn main() {
             0
         }
         Commands::Guard => guard::run_from_stdin(),
+        Commands::Dashboard(args) => dashboard::run(args),
         Commands::Patrol(args) => coordination::print_result(coordination::run_patrol(args)),
         Commands::Task(args) => coordination::print_result(coordination::run_task(args)),
         Commands::Dispatch(args) => coordination::print_result(coordination::dispatch(args)),

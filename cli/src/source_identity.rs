@@ -10,7 +10,10 @@ fn source_files(dir: &Path, files: &mut Vec<PathBuf>) -> io::Result<()> {
         let path = entry?.path();
         if path.is_dir() {
             source_files(&path, files)?;
-        } else if path.extension().is_some_and(|ext| ext == "rs") {
+        } else if path
+            .extension()
+            .is_some_and(|ext| matches!(ext.to_str(), Some("rs" | "html")))
+        {
             files.push(path);
         }
     }
@@ -70,6 +73,9 @@ mod tests {
         assert_eq!(fingerprint(&a).unwrap(), fingerprint(&b).unwrap());
         fs::write(b.join("src/main.rs"), "fn main() { panic!() }\n").unwrap();
         assert_ne!(fingerprint(&a).unwrap(), fingerprint(&b).unwrap());
+        let before = fingerprint(&a).unwrap();
+        fs::write(a.join("src/dashboard.html"), "<main>panel</main>").unwrap();
+        assert_ne!(before, fingerprint(&a).unwrap());
         let before = fingerprint(&a).unwrap();
         fs::create_dir(a.join("target")).unwrap();
         fs::write(a.join("target/binary"), "built elsewhere").unwrap();
