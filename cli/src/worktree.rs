@@ -1227,8 +1227,8 @@ fn copy_is_recent(epoch: Option<u64>, now: u64, window_days: u64) -> bool {
 fn uncommitted_files(path: &Path) -> Result<Vec<String>, String> {
     let mut files = BTreeSet::new();
     for args in [
-        vec!["diff", "--name-only", "-z"],
-        vec!["diff", "--cached", "--name-only", "-z"],
+        vec!["diff", "--name-only", "--no-renames", "-z"],
+        vec!["diff", "--cached", "--name-only", "--no-renames", "-z"],
         vec!["ls-files", "--others", "--exclude-standard", "-z"],
     ] {
         for file in nul_paths(path, &args)? {
@@ -1720,7 +1720,22 @@ fn focus_lines(report: &AuditReport, here: &str) -> Vec<String> {
 /// control operation in progress (merge, rebase, cherry-pick …) is never
 /// judged: its index is the other side's work arriving, not this tree writing.
 /// Success is silent.
+#[cfg(test)]
 pub fn gate_for(repo: &Path) -> (i32, String) {
+    gate_for_scope(repo, None)
+}
+
+/// The same conflict rule, restricted to paths the Git operation carries.
+/// A dirty path outside this set is still visible in status, but cannot stop
+/// an unrelated commit or push. Empty operations need no worktree audit.
+pub fn gate_for_paths(repo: &Path, paths: &BTreeSet<String>) -> (i32, String) {
+    if paths.is_empty() {
+        return (0, String::new());
+    }
+    gate_for_scope(repo, Some(paths))
+}
+
+fn gate_for_scope(repo: &Path, paths: Option<&BTreeSet<String>>) -> (i32, String) {
     let here = match repo_root(repo) {
         Ok(root) => fs::canonicalize(&root).unwrap_or(root),
         Err(e) => return (1, format!("error: {e}\n")),
@@ -1730,10 +1745,13 @@ pub fn gate_for(repo: &Path) -> (i32, String) {
         Ok(None) => {}
         Err(e) => return (1, format!("error: {e}\n")),
     }
-    let report = match build_report(&here) {
+    let mut report = match build_report(&here) {
         Ok(report) => report,
         Err(e) => return (1, format!("error: {e}\n")),
     };
+    if let Some(paths) = paths {
+        report.conflicts.retain(|row| paths.contains(&row.path));
+    }
     let lines = focus_lines(&report, &here.display().to_string());
     if lines.is_empty() {
         return (0, String::new());

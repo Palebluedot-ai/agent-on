@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::fs::{self, OpenOptions};
 use std::io::{IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
@@ -711,6 +712,21 @@ fn install_inner(repo: &Path) -> Result<String, String> {
     ))
 }
 
+/// A healthy managed installation can still point at an old CLI.
+pub fn installed_binary(repo: &Path) -> Result<Option<PathBuf>, String> {
+    let root = repo_root(repo)?;
+    let file = state_path(&root)?;
+    if !file.exists() {
+        return Ok(None);
+    }
+    let state = read_state(&file)?;
+    let report = installation_report(&root, &state)?;
+    if !report.problems.is_empty() {
+        return Err(report.problems.join("; "));
+    }
+    Ok(Some(PathBuf::from(state.executable)))
+}
+
 pub fn status(repo: &Path) -> (i32, String) {
     match status_inner(repo) {
         Ok((healthy, message)) => (if healthy { 0 } else { 1 }, message),
@@ -933,13 +949,86 @@ fn clear_inherited_git_local_env() {
     }
 }
 
-/// Git-hook entry: the same one-tree verdict the PreToolUse guard uses. The
-/// hook runs inside the worktree being committed/pushed, so `repo` is that
-/// tree, and only that tree's own conflict or audit failure stops it.
+/// Git hooks evaluate the effective index / pushed history in this worktree.
+/// PreToolUse retains routing and cross-repository authorization checks.
 /// pre-push adds one more check on what is being pushed: a local merge of the
 /// default branch into a branch with an open PR (`crate::prepush`). Git's own
 /// hook arguments arrive as `AGENT_ON_HOOK_ARG1/2`, not as CLI arguments, so a
 /// hook script can outlive a swap to an older agent-on build.
+fn index_paths(repo: &Path) -> Result<BTreeSet<String>, String> {
+    // Read before clearing Git's environment: --only and -a may hand the hook
+    // a temporary GIT_INDEX_FILE that differs from the worktree's index.
+    let out = git_output(
+        repo,
+        &["diff", "--cached", "--name-only", "--no-renames", "-z"],
+    )?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    nul_paths(&out.stdout)
+}
+
+fn nul_paths(bytes: &[u8]) -> Result<BTreeSet<String>, String> {
+    bytes
+        .split(|b| *b == 0)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            String::from_utf8(part.to_vec())
+                .map_err(|_| "cannot verify a non-UTF-8 path".to_string())
+        })
+        .collect()
+}
+
+fn push_paths(
+    repo: &Path,
+    updates: &[crate::prepush::RefUpdate],
+) -> Result<BTreeSet<String>, String> {
+    let mut paths = BTreeSet::new();
+    for update in updates {
+        // A tag or deletion carries no worktree writes. Their authorization
+        // remains the routing guard's job, not a dirty-file heuristic.
+        if !update.remote_ref.starts_with("refs/heads/")
+            || update.local_sha.bytes().all(|b| b == b'0')
+        {
+            continue;
+        }
+        let mut args = vec!["rev-list", update.local_sha.as_str()];
+        let exclude;
+        if update.remote_sha.bytes().all(|b| b == b'0') {
+            args.extend(["--not", "--remotes"]);
+        } else {
+            exclude = format!("^{}", update.remote_sha);
+            args.push(&exclude);
+        }
+        let commits = git(repo, &args).map_err(|e| {
+            format!("cannot inspect pushed range; fetch the target ref and retry: {e}")
+        })?;
+        for commit in commits.lines() {
+            // Inspect every commit, including merge sides and changes later
+            // reverted; a net tree diff would miss files in the pushed history.
+            let out = git_output(
+                repo,
+                &[
+                    "diff-tree",
+                    "--root",
+                    "--no-commit-id",
+                    "--name-only",
+                    "--no-renames",
+                    "-r",
+                    "-m",
+                    "-z",
+                    commit,
+                ],
+            )?;
+            if !out.status.success() {
+                return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+            }
+            paths.extend(nul_paths(&out.stdout)?);
+        }
+    }
+    Ok(paths)
+}
+
 pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
     if !HOOK_NAMES.contains(&hook) {
         return (
@@ -951,20 +1040,57 @@ pub fn run_hook(repo: &Path, hook: &str) -> (i32, String) {
         );
     }
 
-    clear_inherited_git_local_env();
-
-    let (code, detail) = crate::worktree::gate_for(repo);
+    let mut updates = Vec::new();
+    let scope = if hook == "pre-commit" {
+        let scope = index_paths(repo);
+        clear_inherited_git_local_env();
+        scope
+    } else {
+        let mut input = String::new();
+        let stdin = std::io::stdin();
+        if !stdin.is_terminal() {
+            if let Err(e) = stdin.lock().read_to_string(&mut input) {
+                return (
+                    1,
+                    format!("BLOCKED by Agent-On pre-push: cannot read ref updates: {e}\n"),
+                );
+            }
+        }
+        let lines: Vec<_> = input
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .collect();
+        let valid = lines.iter().all(|line| {
+            let fields: Vec<_> = line.split_whitespace().collect();
+            fields.len() == 4
+                && [fields[1], fields[3]].iter().all(|oid| {
+                    matches!(oid.len(), 40 | 64) && oid.bytes().all(|b| b.is_ascii_hexdigit())
+                })
+        });
+        updates = crate::prepush::parse_updates(&input);
+        if !valid || updates.len() != lines.len() {
+            return (
+                1,
+                "BLOCKED by Agent-On pre-push: malformed ref update input\n".into(),
+            );
+        }
+        clear_inherited_git_local_env();
+        push_paths(repo, &updates)
+    };
+    let scope = match scope {
+        Ok(scope) => scope,
+        Err(e) => {
+            return (
+                1,
+                format!("BLOCKED by Agent-On {hook}: cannot verify operation paths: {e}\n"),
+            )
+        }
+    };
+    let (code, detail) = crate::worktree::gate_for_paths(repo, &scope);
     if code != 0 {
         return (1, format!("BLOCKED by Agent-On {hook}:\n{detail}"));
     }
     if hook == "pre-push" {
-        // Git writes one line per ref being pushed to the hook's stdin.
-        let mut input = String::new();
-        let stdin = std::io::stdin();
-        if !stdin.is_terminal() {
-            let _ = stdin.lock().read_to_string(&mut input);
-        }
-        let updates = crate::prepush::parse_updates(&input);
         let hook_args: Vec<String> = ["AGENT_ON_HOOK_ARG1", "AGENT_ON_HOOK_ARG2"]
             .iter()
             .map(|key| std::env::var(key).unwrap_or_default())
@@ -1355,6 +1481,7 @@ mod tests {
         assert_eq!(code, 0, "{out}");
         fs::create_dir_all(lane.join("app")).unwrap();
         fs::write(lane.join("app/x.txt"), "lane also\n").unwrap();
+        run(&root, &["git", "add", "app/x.txt"]);
         let (code, out) = run_hook(&root, "pre-commit");
         assert_eq!(code, 1, "{out}");
         assert!(

@@ -358,9 +358,8 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
     );
     must_run(&fixture.root, "git", &["push", "origin", "main"]);
 
-    // The orphan is stopped only when the lane also has that same file dirty:
-    // at commit, and — if it bypassed that — at push while both copies are
-    // still uncommitted.
+    // The commit carries the shared dirty file and is stopped. A later push
+    // carrying only notes must pass even if both trees are dirty elsewhere.
     fs::write(lane.join("app/base.txt"), "lane also\n").unwrap();
     fs::write(orphan.join("app/base.txt"), "orphan intrudes\n").unwrap();
     must_run(&orphan, "git", &["add", "app/base.txt"]);
@@ -383,14 +382,14 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
     // The intrusion comes back unstaged while the push is attempted.
     fs::write(orphan.join("app/base.txt"), "orphan intrudes again\n").unwrap();
     let pushed = run(&orphan, "git", &["push", "-u", "origin", "orphan"]);
-    assert!(!pushed.status.success(), "push unexpectedly succeeded");
+    assert!(
+        pushed.status.success(),
+        "unrelated push was blocked: {}",
+        combined(&pushed)
+    );
     let pushed_text = combined(&pushed);
     assert!(
-        pushed_text.contains("BLOCKED by Agent-On pre-push"),
-        "{pushed_text}"
-    );
-    assert!(
-        pushed_text.contains("blocked: app/base.txt is also uncommitted in"),
+        !pushed_text.contains("BLOCKED by Agent-On pre-push"),
         "{pushed_text}"
     );
     let remote_orphan = run(
@@ -404,8 +403,8 @@ fn real_pre_push_uses_the_same_one_tree_rule_and_unregistered_trees_block_nobody
         ],
     );
     assert!(
-        !remote_orphan.status.success(),
-        "remote branch appeared despite hook block"
+        remote_orphan.status.success(),
+        "unrelated notes branch did not reach the remote"
     );
 
     // Taking the intrusion back out of the working tree reopens the push.

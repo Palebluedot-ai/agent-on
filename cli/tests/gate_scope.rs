@@ -74,14 +74,16 @@ fn commit_guard(cwd: &Path) -> Output {
 }
 
 fn assert_allowed(cwd: &Path) {
-    let out = commit_guard(cwd);
+    must_run(cwd, "git", &["add", "-A"]);
+    let out = agent_on(cwd, &["worktree", "hooks", "run", "--hook", "pre-commit"]);
     assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
 }
 
 fn assert_blocked(cwd: &Path) -> String {
-    let out = commit_guard(cwd);
+    must_run(cwd, "git", &["add", "-A"]);
+    let out = agent_on(cwd, &["worktree", "hooks", "run", "--hook", "pre-commit"]);
     let text = combined(&out);
-    assert_eq!(out.status.code(), Some(2), "{text}");
+    assert_eq!(out.status.code(), Some(1), "{text}");
     text
 }
 

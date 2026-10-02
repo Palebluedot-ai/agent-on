@@ -1,13 +1,11 @@
 //! Git boundary guard for Claude/Codex PreToolUse. Exit 0 allow, 2 block.
 
 use crate::paths::resolve_work_root;
-use crate::worktree;
 use serde_json::Value;
 use std::collections::{BTreeSet, HashSet};
 use std::env;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 #[derive(Debug, Default)]
 struct ParsedGitCommand {
@@ -274,27 +272,6 @@ fn parse_git_command(cmd: &str, cwd: &Path) -> ParsedGitCommand {
     parsed
 }
 
-fn existing_repo_root(cwd: &Path) -> Option<PathBuf> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(cwd)
-        .args(["rev-parse", "--show-toplevel"])
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        // The requested git commit/push will fail on its own. There is no
-        // worktree mutation for this guard to protect, so avoid replacing the
-        // native git diagnostic with a misleading lane error.
-        return None;
-    }
-    let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    (!raw.is_empty()).then(|| {
-        let root = PathBuf::from(raw);
-        std::fs::canonicalize(&root).unwrap_or(root)
-    })
-}
-
 /// True iff `p` is the agent-on root or a path *inside* it (component boundary).
 /// Rejects sibling prefixes like `/tmp/B` vs `/tmp/B-evil`.
 pub(crate) fn inside_agent_on(p: &Path, agent_on: &Path) -> bool {
@@ -359,31 +336,11 @@ pub fn guard_decision(data: &Value) -> i32 {
         }
     }
 
-    // Commit/push are the only PreToolUse points that pay for a worktree
-    // audit, and the audit judges *this* worktree only: an uncommitted path
-    // that another worktree also has uncommitted, touched within 7 days.
-    // Other git writes keep the cross-repo check only.
-    let mut audit_repos = BTreeSet::new();
-    for dir in &parsed.commit_push_dirs {
-        if let Some(root) = existing_repo_root(dir) {
-            audit_repos.insert(root);
-        }
-    }
-
-    for repo in &audit_repos {
-        let (code, detail) = worktree::gate_for(repo);
-        if code != 0 {
-            eprintln!(
-                "⛔ 边界闸：本树有未提交文件，另一棵工作树 7 天内也改过同一文件。\n\
-本树: {}\n\
-{}\n\
-被拦命令: {cmd}\n",
-                repo.display(),
-                detail.trim_end()
-            );
-            return 2;
-        }
-    }
+    // The native Git hooks own same-file checking at the real operation:
+    // effective index for commit, ref updates for push. PreToolUse runs too
+    // early to know a chained add, --only, -a or push.default resolution.
+    // It retains cross-repo and oncall authorization, without a second,
+    // whole-dirty-tree veto. Install shared hooks for operation checks.
 
     0
 }
@@ -610,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn blocks_codex_commit_only_when_another_tree_has_the_same_fresh_file() {
+    fn codex_pretool_defers_same_file_scope_to_native_git_hooks() {
         let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let (tmp, root, wt) = lane_fixture();
         let intruder = tmp.path().join("intruder");
@@ -640,7 +597,7 @@ mod tests {
         // The lane owns `app` but has not touched this file. That is not a block.
         assert_eq!(guard_decision(&data), 0);
         fs::write(wt.join("app/base.txt"), "lane also\n").unwrap();
-        assert_eq!(guard_decision(&data), 2);
+        assert_eq!(guard_decision(&data), 0);
         env::remove_var("AGENT_ON_ROOT");
         env::remove_var("CODEX_PROJECT_DIR");
     }
