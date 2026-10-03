@@ -9,6 +9,7 @@
 //! as `docs/babysit.md` cannot serve as the address book — each worktree
 //! carries its own stale copy of it).
 
+use crate::session::Identity;
 use crate::worktree;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -37,8 +38,12 @@ pub(crate) struct OncallRecord {
     /// Lane id of the on-call window, when it registered one.
     #[serde(default)]
     pub(crate) lane: String,
-    /// Absolute worktree root of the on-call window — the identity key.
+    /// Absolute worktree root; necessary scope, never sufficient identity.
     pub(crate) worktree: String,
+    /// Actual host session, independent of its user-facing routing address.
+    /// Old v1 records remain readable but cannot grant directory-based rights.
+    #[serde(default)]
+    pub(crate) identity: Option<Identity>,
     pub(crate) started_at: String,
     /// Last moment the on-call window proved it was there: a guarded tool
     /// call from its worktree, or `agent-on oncall heartbeat`. Empty on
@@ -118,9 +123,25 @@ fn save(cwd: &Path, record: &OncallRecord) -> Result<(), String> {
         .parent()
         .ok_or_else(|| "invalid on-call registry path".to_string())?;
     fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
-    let raw =
-        serde_json::to_string_pretty(record).map_err(|e| format!("serialize on-call: {e}"))?;
-    fs::write(&path, format!("{raw}\n")).map_err(|e| format!("write {}: {e}", path.display()))
+    crate::coordination::write_json(&path, record)
+}
+
+fn registry_lock(cwd: &Path) -> Result<crate::coordination::Lock, String> {
+    crate::coordination::lock_path(&oncall_path(cwd)?.with_extension("lock"))
+}
+
+pub(crate) fn matches_owner(
+    cwd: &Path,
+    record: &OncallRecord,
+    identity: Option<&Identity>,
+) -> bool {
+    record
+        .identity
+        .as_ref()
+        .zip(identity)
+        .is_some_and(|(owner, actor)| owner == actor)
+        && worktree::repo_root(cwd)
+            .is_ok_and(|here| canon(&here) == canon(Path::new(&record.worktree)))
 }
 
 pub(crate) fn stale_after_minutes(cwd: &Path) -> u64 {
@@ -194,36 +215,44 @@ fn touch_heartbeat(cwd: &Path, record: &mut OncallRecord, force: bool) -> Result
     Ok(true)
 }
 
-/// Any guarded tool call from the on-call worktree proves the window is there.
+/// A guarded call from the exact host session and worktree proves liveness.
 /// Matched on the raw record, not on [`role_at`], so a live window whose
 /// registration lapsed during a long silence re-arms itself with its next
 /// command instead of staying expired while someone is plainly at the keyboard.
 /// A record another window has since overwritten does not match and is left
 /// alone. Errors are swallowed: a heartbeat must never block a tool call.
-fn refresh_if_oncall(cwd: &Path) {
+fn refresh_if_oncall(cwd: &Path, identity: Option<&Identity>) {
+    // No registry means no writer or lock file on routine guarded calls.
+    let Ok(Some(record)) = load(cwd) else {
+        return;
+    };
+    if !matches_owner(cwd, &record, identity) {
+        return;
+    }
+    let Ok(_lock) = registry_lock(cwd) else {
+        return;
+    };
     let Ok(Some(mut record)) = load(cwd) else {
         return;
     };
-    let Ok(here) = worktree::repo_root(cwd).map(|p| canon(&p)) else {
-        return;
-    };
-    if canon(Path::new(&record.worktree)) != here {
+    if !matches_owner(cwd, &record, identity) {
         return;
     }
     let _ = touch_heartbeat(cwd, &mut record, false);
 }
 
 pub(crate) fn role_at(cwd: &Path) -> Role {
+    role_for(cwd, Identity::current().as_ref())
+}
+
+pub(crate) fn role_for(cwd: &Path, identity: Option<&Identity>) -> Role {
     let Ok(Some(record)) = load(cwd) else {
         return Role::Nobody;
     };
     if is_stale(cwd, &record) {
         return Role::Nobody;
     }
-    let here = worktree::repo_root(cwd)
-        .map(|p| canon(&p))
-        .unwrap_or_else(|_| canon(cwd));
-    if canon(Path::new(&record.worktree)) == here {
+    if matches_owner(cwd, &record, identity) {
         Role::Oncall(record)
     } else {
         Role::Feature(record)
@@ -611,10 +640,30 @@ const SESSION_INTERNAL: &[&str] = &["main", "parent", "lead"];
 /// — is session-internal traffic the on-call gate has no business touching.
 ///
 /// Returns the lane id that the address resolves to.
-fn other_window(cwd: &Path, to: &str) -> Option<String> {
+fn other_window(cwd: &Path, to: &str, identity: Option<&Identity>) -> Option<String> {
     let to = to.trim();
     if to.is_empty() || SESSION_INTERNAL.contains(&to.to_ascii_lowercase().as_str()) {
         return None;
+    }
+    // Native chats can share the same checkout and have no separate lane.
+    // Only bound host ids prove another window; preparation receipts do not.
+    if let Ok(store) = crate::coordination::Store::open(cwd) {
+        if let Ok(sessions) = store.sessions() {
+            for session in sessions {
+                let Some(id) = session.host_session_id.as_deref() else {
+                    continue;
+                };
+                if identity.is_some_and(|i| {
+                    i.session_id == id
+                        && crate::coordination::host_identity_name(session.host) == i.host
+                }) {
+                    continue;
+                }
+                if to == id {
+                    return Some(session.id);
+                }
+            }
+        }
     }
     let here = worktree::repo_root(cwd).map(|p| canon(&p)).ok();
     for record in worktree::load_records(cwd).ok()? {
@@ -642,14 +691,34 @@ pub fn claim(
     note: &str,
     force: bool,
 ) -> (i32, String) {
+    claim_with_identity(
+        cwd,
+        session,
+        lane,
+        note,
+        force,
+        Identity::current().as_ref(),
+    )
+}
+
+fn claim_with_identity(
+    cwd: &Path,
+    session: &str,
+    lane: Option<&str>,
+    note: &str,
+    force: bool,
+    identity: Option<&Identity>,
+) -> (i32, String) {
     let result = (|| -> Result<String, String> {
+        let identity = identity.ok_or("无法识别实际宿主会话；请检查 SessionStart 接线。适配器需提供 AGENT_ON_HOST + AGENT_ON_SESSION_ID；Codex 使用原生 CODEX_THREAD_ID。--session 是交单地址，不是身份。")?;
         if session.trim().is_empty() {
             return Err("--session cannot be empty (值守窗口的 SendMessage 地址)".to_string());
         }
         let here = worktree::repo_root(cwd)?;
         let here_canon = canon(&here);
+        let _lock = registry_lock(cwd)?;
         if let Some(existing) = load(cwd)? {
-            let same = canon(Path::new(&existing.worktree)) == here_canon;
+            let same = matches_owner(cwd, &existing, Some(identity));
             if !same && !is_stale(cwd, &existing) && !force {
                 return Err(format!(
                     "已有值守在班：{} (worktree {}，自 {}，最近心跳 {} 分钟前)；同一时间至多一个值守。\n\
@@ -672,6 +741,7 @@ pub fn claim(
             session: session.trim().to_string(),
             lane: lane_id,
             worktree: here_canon.display().to_string(),
+            identity: Some(identity.clone()),
             started_at: now.clone(),
             heartbeat_at: now,
             note: note.to_string(),
@@ -703,11 +773,11 @@ pub fn claim(
 /// only the window itself can vouch for being there.
 pub fn heartbeat(cwd: &Path) -> (i32, String) {
     let result = (|| -> Result<String, String> {
+        let _lock = registry_lock(cwd)?;
         let Some(mut record) = load(cwd)? else {
             return Err("无人在班，没有可续的心跳；上岗用 `agent-on oncall claim`".to_string());
         };
-        let here = canon(&worktree::repo_root(cwd)?);
-        if canon(Path::new(&record.worktree)) != here {
+        if !matches_owner(cwd, &record, Identity::current().as_ref()) {
             return Err(format!(
                 "本窗口不是值守（在班登记是 {}，worktree {}）；心跳只能由值守窗口自己续",
                 record.session, record.worktree
@@ -728,12 +798,16 @@ pub fn heartbeat(cwd: &Path) -> (i32, String) {
 }
 
 pub fn release(cwd: &Path, force: bool) -> (i32, String) {
+    release_with_identity(cwd, force, Identity::current().as_ref())
+}
+
+fn release_with_identity(cwd: &Path, force: bool, identity: Option<&Identity>) -> (i32, String) {
     let result = (|| -> Result<String, String> {
+        let _lock = registry_lock(cwd)?;
         let Some(existing) = load(cwd)? else {
             return Ok("ONCALL: 本来就无人在班，无需下班\n".to_string());
         };
-        let here = canon(&worktree::repo_root(cwd)?);
-        let same = canon(Path::new(&existing.worktree)) == here;
+        let same = matches_owner(cwd, &existing, identity);
         if !same && !is_stale(cwd, &existing) && !force {
             return Err(format!(
                 "在班值守是 {}（worktree {}），本窗口不是它。\n\
@@ -776,6 +850,8 @@ pub fn status(cwd: &Path, json: bool) -> (i32, String) {
                 "stale_after_minutes": stale_after_minutes(cwd),
                 "note": r.note,
                 "self_is_oncall": matches!(role, Role::Oncall(_)),
+                "identity": r.identity,
+                "identity_status": if r.identity.is_some() { "session-bound" } else { "legacy-unverified" },
             }),
             (None, _) => serde_json::json!({
                 "present": false,
@@ -951,7 +1027,24 @@ fn relative_to_repo(cwd: &Path, path: &str) -> Result<String, String> {
 }
 
 pub fn whoami(cwd: &Path, json: bool) -> (i32, String) {
-    let role = role_at(cwd);
+    whoami_with_identity(cwd, json, Identity::current().as_ref())
+}
+
+fn whoami_with_identity(cwd: &Path, json: bool, identity: Option<&Identity>) -> (i32, String) {
+    if let Err(error) = load(cwd) {
+        return if json {
+            (
+                1,
+                format!(
+                    "{}\n",
+                    serde_json::json!({"role":"unavailable", "is_oncall":false, "error":error})
+                ),
+            )
+        } else {
+            (1, format!("UNAVAILABLE: 值守登记不可用，不能确认负责人；请修复登记并核对 oncall status：{error}\n"))
+        };
+    }
+    let role = role_for(cwd, identity);
     if json {
         let value = match &role {
             Role::Nobody => serde_json::json!({"role": "none", "is_oncall": false}),
@@ -1006,6 +1099,8 @@ fn message_recipient(data: &Value) -> String {
     let input = data.get("tool_input").unwrap_or(&Value::Null);
     input
         .get("to")
+        .or_else(|| input.get("threadId"))
+        .or_else(|| input.get("thread_id"))
         .or_else(|| input.get("recipient"))
         .or_else(|| input.get("agent"))
         .or_else(|| input.get("name"))
@@ -1050,9 +1145,10 @@ fn block_text(cwd: &Path, action: Action, record: &OncallRecord, what: &str) -> 
 pub(crate) fn route_decision(data: &Value) -> i32 {
     let name = tool_name(data);
     let cwd = tool_cwd(data);
+    let identity = Identity::from_hook(data);
 
     // Every guarded call from the on-call window is proof of life.
-    refresh_if_oncall(&cwd);
+    refresh_if_oncall(&cwd, identity.as_ref());
 
     // SendMessage-style tools: only the recipient matters.
     if name.contains("SendMessage") || name.contains("send_message") {
@@ -1060,16 +1156,35 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
         if to.is_empty() {
             return 0;
         }
-        let Role::Feature(record) = role_at(&cwd) else {
+        if let Err(error) = load(&cwd) {
+            // Only confirmed peer windows need registry authority. Keep the
+            // existing parent/main/subagent path independent of damaged state.
+            if other_window(&cwd, &to, identity.as_ref()).is_some() {
+                eprintln!("值守登记不可用，无法判定跨窗口通信权限；请修复登记并核对 oncall status：{error}");
+                return 2;
+            }
+            return 0;
+        }
+        let Role::Feature(record) = role_for(&cwd, identity.as_ref()) else {
             return 0;
         };
-        if addresses_match(&to, &record.session) {
+        let native_owner = record.identity.as_ref().is_some_and(|owner| {
+            owner.session_id == to
+                && if name.contains("send_message_to_thread") {
+                    owner.host == "codex"
+                } else {
+                    identity
+                        .as_ref()
+                        .is_some_and(|actor| actor.host == owner.host)
+                }
+        });
+        if addresses_match(&to, &record.session) || native_owner {
             return 0; // the one allowed outbound channel: 交单 / 回执给值守
         }
         // Only *another window* is cross-window traffic. A subagent name or
         // `main` is session-internal — the three rights are about windows
         // talking to windows, not about a lead talking to its own subagent.
-        let Some(peer) = other_window(&cwd, &to) else {
+        let Some(peer) = other_window(&cwd, &to, identity.as_ref()) else {
             return 0;
         };
         eprintln!(
@@ -1099,7 +1214,11 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
     let Some(action) = classify_bash(cmd) else {
         return 0;
     };
-    let Role::Feature(record) = role_at(&cwd) else {
+    if let Err(error) = load(&cwd) {
+        eprintln!("值守登记不可用，无法判定本窗口的合入/对外权限；请修复登记并核对 oncall status：{error}");
+        return 2;
+    }
+    let Role::Feature(record) = role_for(&cwd, identity.as_ref()) else {
         return 0;
     };
     eprintln!("{}", block_text(&cwd, action, &record, cmd));
@@ -1112,6 +1231,34 @@ mod tests {
     use serde_json::json;
     use std::process::Command;
     use tempfile::TempDir;
+
+    fn identity() -> Identity {
+        Identity {
+            host: "codex".into(),
+            session_id: "unit-oncall".into(),
+        }
+    }
+    fn claim(
+        cwd: &Path,
+        address: &str,
+        lane: Option<&str>,
+        note: &str,
+        force: bool,
+    ) -> (i32, String) {
+        claim_with_identity(cwd, address, lane, note, force, Some(&identity()))
+    }
+    fn release(cwd: &Path, force: bool) -> (i32, String) {
+        release_with_identity(cwd, force, Some(&identity()))
+    }
+    fn whoami(cwd: &Path, json: bool) -> (i32, String) {
+        whoami_with_identity(cwd, json, Some(&identity()))
+    }
+    fn route_decision(data: &Value) -> i32 {
+        let mut wire = data.clone();
+        wire["session_id"] = "unit-oncall".into();
+        wire["turn_id"] = "unit-turn".into();
+        super::route_decision(&wire)
+    }
 
     fn run(cwd: &Path, args: &[&str]) {
         let out = Command::new(args[0])

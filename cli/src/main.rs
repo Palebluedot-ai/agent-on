@@ -14,6 +14,7 @@ mod oncall;
 mod paths;
 mod prepush;
 mod routing;
+mod session;
 mod setup;
 mod source_identity;
 mod tag_release;

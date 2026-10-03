@@ -27,6 +27,9 @@ impl Fixture {
     fn command(&self) -> Command {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_agent-on"));
         cmd.current_dir(&self.repo)
+            .env_remove("CODEX_THREAD_ID")
+            .env("AGENT_ON_HOST", "codex")
+            .env("AGENT_ON_SESSION_ID", "fixture-main")
             .env_remove("AGENT_ON_CONTROL_ID")
             .env_remove("AGENT_ON_CONTROL_REPO");
         cmd.env_remove("CLAUDE_PROJECT_DIR")
@@ -106,7 +109,7 @@ impl Fixture {
             let context: Value = serde_json::from_slice(&out.stdout).unwrap();
             assert_eq!(
                 context["hookSpecificOutput"]["hookEventName"],
-                "UserPromptSubmit"
+                payload["hook_event_name"]
             );
         }
         assert!(
@@ -475,11 +478,12 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
     let exe = bin.join("hermes");
     fs::write(
         &exe,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_ARGV\"\nexit 7\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_ARGV\"\nprintf '%s\\n' \"${CODEX_THREAD_ID-}\" \"${AGENT_ON_HOST-}\" \"${AGENT_ON_SESSION_ID-}\" \"${PLUGIN_ROOT-}\" \"${CLAUDE_PLUGIN_ROOT-}\" \"${CLAUDE_ENV_FILE-}\" > \"$TEST_IDENTITY\"\nexit 7\n",
     )
     .unwrap();
     fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
     let argv = f._tmp.path().join("argv.txt");
+    let inherited = f._tmp.path().join("inherited-identity.txt");
     let path = format!(
         "{}:{}",
         bin.display(),
@@ -489,6 +493,11 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
         .command()
         .env("PATH", path)
         .env("TEST_ARGV", &argv)
+        .env("TEST_IDENTITY", &inherited)
+        .env("CODEX_THREAD_ID", "dispatcher-thread")
+        .env("PLUGIN_ROOT", "dispatcher-plugin")
+        .env("CLAUDE_PLUGIN_ROOT", "dispatcher-plugin")
+        .env("CLAUDE_ENV_FILE", "dispatcher-env")
         .args(["patrol", "serve", id])
         .output()
         .unwrap();
@@ -500,6 +509,7 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
     let result: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(result["session"]["exit_code"], 7);
     assert_eq!(result["host_success"], false);
+    assert_eq!(fs::read_to_string(inherited).unwrap(), "\n".repeat(6));
     let args = fs::read_to_string(argv).unwrap();
     assert!(args.starts_with("chat\n--in\n"));
     assert!(args.contains("--resume\nexact-hermes-session\n--query\n"));

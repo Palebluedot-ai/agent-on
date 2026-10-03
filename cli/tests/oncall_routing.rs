@@ -23,6 +23,9 @@ fn must_run(cwd: &Path, program: &str, args: &[&str]) {
 fn agent_on(cwd: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_agent-on"))
         .current_dir(cwd)
+        .env_remove("CODEX_THREAD_ID")
+        .env("AGENT_ON_HOST", "codex")
+        .env("AGENT_ON_SESSION_ID", cwd)
         .args(args)
         .output()
         .unwrap()
@@ -32,6 +35,9 @@ fn agent_on(cwd: &Path, args: &[&str]) -> Output {
 fn guard(cwd: &Path, payload: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_agent-on"))
         .current_dir(cwd)
+        .env_remove("CODEX_THREAD_ID")
+        .env("AGENT_ON_HOST", "codex")
+        .env("AGENT_ON_SESSION_ID", cwd)
         .arg("guard")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

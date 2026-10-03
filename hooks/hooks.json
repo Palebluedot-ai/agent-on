@@ -7,7 +7,7 @@
     "SessionEnd": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\" capture", "timeout": 3 }] }],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|.*exec_command",
         "hooks": [
           {
             "type": "command",
@@ -17,7 +17,7 @@
         ]
       },
       {
-        "matcher": "SendMessage",
+        "matcher": "SendMessage|.*send_message_to_thread",
         "hooks": [
           {
             "type": "command",

@@ -485,17 +485,21 @@ pub(crate) fn print_result(result: Result<Value>) -> i32 {
     }
 }
 fn require_dispatch_authority(repo: &Path) -> Result<()> {
-    match crate::oncall::role_at(repo) {
+    let actor = std::env::var_os("CLAUDE_PROJECT_DIR")
+        .or_else(|| std::env::var_os("CODEX_PROJECT_DIR"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    require_dispatch_authority_for(repo, &actor, crate::session::Identity::current().as_ref())
+}
+fn require_dispatch_authority_for(
+    repo: &Path,
+    actor: &Path,
+    identity: Option<&crate::session::Identity>,
+) -> Result<()> {
+    crate::oncall::load(repo)?;
+    match crate::oncall::role_for(repo, identity) {
         crate::oncall::Role::Feature(record) | crate::oncall::Role::Oncall(record) => {
-            let actor = std::env::var_os("CLAUDE_PROJECT_DIR")
-                .or_else(|| std::env::var_os("CODEX_PROJECT_DIR"))
-                .map(PathBuf::from)
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-            let actor = crate::worktree::repo_root(&actor).unwrap_or(actor);
-            let actor = fs::canonicalize(&actor).unwrap_or(actor);
-            let owner = fs::canonicalize(&record.worktree)
-                .unwrap_or_else(|_| PathBuf::from(&record.worktree));
-            if actor == owner {
+            if crate::oncall::matches_owner(actor, &record, identity) {
                 return Ok(());
             }
             Err(format!(
@@ -1305,6 +1309,15 @@ fn serve(store: &Store, id: &str) -> Result<Value> {
     let mut child = match Command::new(executable)
         .args(args)
         .current_dir(&session.cwd)
+        // A worker must obtain its own native identity and plugin scope,
+        // never inherit the dispatcher's on-call session from a hook process.
+        .env_remove("CODEX_THREAD_ID")
+        .env_remove("AGENT_ON_HOST")
+        .env_remove("AGENT_ON_SESSION_ID")
+        .env_remove("AGENT_ON_PARENT_CODEX_THREAD_ID")
+        .env_remove("PLUGIN_ROOT")
+        .env_remove("CLAUDE_PLUGIN_ROOT")
+        .env_remove("CLAUDE_ENV_FILE")
         .env("CLAUDE_PROJECT_DIR", &session.cwd)
         .env("CODEX_PROJECT_DIR", &session.cwd)
         .env("AGENT_ON_CONTROL_ID", &session.id)
@@ -1421,7 +1434,7 @@ pub(crate) fn capture_stdin() -> i32 {
         match capture(&data) {
             Ok(Some(context)) => println!(
                 "{}",
-                json!({"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":context}})
+                json!({"hookSpecificOutput":{"hookEventName":data.get("hook_event_name").and_then(Value::as_str).unwrap_or("UserPromptSubmit"),"additionalContext":context}})
             ),
             Ok(None) => (),
             Err(error) => eprintln!("agent-on capture skipped: {error}"),
@@ -1430,6 +1443,18 @@ pub(crate) fn capture_stdin() -> i32 {
     0 // The optional recorder must never become a new work gate.
 }
 fn capture(data: &Value) -> Result<Option<String>> {
+    let startup = crate::session::startup_context(data)?;
+    match capture_event(data) {
+        Ok(context) => Ok(context.or(startup)),
+        Err(error) => match startup {
+            Some(context) => Ok(Some(format!(
+                "{context} 本次宿主回执未记录，捕获不可确认：{error}"
+            ))),
+            None => Err(error),
+        },
+    }
+}
+fn capture_event(data: &Value) -> Result<Option<String>> {
     let cwd = data
         .get("cwd")
         .and_then(Value::as_str)
@@ -1453,6 +1478,7 @@ fn capture(data: &Value) -> Result<Option<String>> {
         .and_then(Value::as_str)
         .filter(|s| !s.is_empty())
         .ok_or("missing host session id")?;
+    let identity = crate::session::Identity::from_hook(data);
     {
         let _lock = store.lock()?;
         let explicit = std::env::var("AGENT_ON_CONTROL_ID").ok();
@@ -1463,7 +1489,12 @@ fn capture(data: &Value) -> Result<Option<String>> {
             .or_else(|| {
                 sessions
                     .iter()
-                    .filter(|s| s.host_session_id.as_deref() == Some(host_id))
+                    .filter(|s| {
+                        s.host_session_id.as_deref() == Some(host_id)
+                            && identity
+                                .as_ref()
+                                .is_none_or(|i| host_identity_name(s.host) == i.host)
+                    })
                     .min_by_key(|s| s.role == "frontdoor")
             });
         let mut session = match identified.cloned() {
@@ -1474,7 +1505,9 @@ fn capture(data: &Value) -> Result<Option<String>> {
                     format!("observed-{}", nonce()),
                     "frontdoor",
                     None,
-                    if data.get("turn_id").is_some() {
+                    if identity.as_ref().is_some_and(|i| i.host == "codex")
+                        || data.get("turn_id").is_some()
+                    {
                         Host::Codex
                     } else {
                         Host::Claude
@@ -1544,7 +1577,7 @@ fn capture(data: &Value) -> Result<Option<String>> {
         let config = store.config()?;
         // Registration is singleton and launch errors leave a failed receipt. Automatic launches
         // obey the existing on-call owner; a feature window records but does not dispatch.
-        if require_dispatch_authority(&store.caller).is_ok() {
+        if require_dispatch_authority_for(&store.caller, &store.caller, identity.as_ref()).is_ok() {
             let _ = start_patrol(&store, config.host, config.window, config.model)?;
         }
     }
@@ -1558,4 +1591,13 @@ fn capture(data: &Value) -> Result<Option<String>> {
         return Ok(Some(format!("Agent-On 巡逻已启用。用户需求已记入项目本机 inbox，尚未自动确认为派工。台账：{}。当前文件重叠 {} 项；先将共享文件归到一个任务，按需拆执行窗口。{}", store.dir.join("report.json").display(), report["conflicts"].as_array().map_or(0, Vec::len), if native_pending { "有一个待创建的独立 Codex 巡逻聊天回执：按 agent-on skill 的原生桥接步骤创建、等待启动并绑定实际 thread id；不得把准备状态报为已运行。" } else { "原窗口仍是用户入口；值守的合并与路由权限照旧。" })));
     }
     Ok(None)
+}
+
+pub(crate) fn host_identity_name(host: Host) -> &'static str {
+    match host {
+        Host::Codex | Host::CodexApp => "codex",
+        Host::Claude => "claude",
+        Host::Grok => "grok",
+        Host::Hermes => "hermes",
+    }
 }
