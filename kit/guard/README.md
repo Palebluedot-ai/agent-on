@@ -21,7 +21,9 @@ Claude（`hooks/hooks.json`）：
 { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/guard/agent-on-git-guard\"" }
 ```
 
-Codex plugin manifest 指向同一份 hooks/hooks.json。PreToolUse 不重复扫描脏树，只核跨仓和路由授权；同文件判据在 shared Git hooks 执行。未安装原生 hooks 时不能宣称提交保护已启用。值守调用继续续心跳。
+Codex plugin manifest 指向同一份 hooks/hooks.json。PreToolUse 不重复扫描脏树，只核跨仓和路由授权；同文件判据在 shared Git hooks 执行。未安装原生 hooks 时不能宣称提交保护已启用。值守心跳核实际宿主/会话 ID 与工作区，同目录另一个窗口不续；接线与旧登记处理见 [项目接续控制面](../session-control-plane.md)。
+
+命令 matcher 同时覆盖 Claude 的 Bash 和 Codex 原生 exec_command；消息 matcher 覆盖 SendMessage / send_message_to_thread。插件可用后删除重复的个人 Agent-On 注册，保留其他 hooks；新增或改过的 Codex hooks 须按 `/hooks` 正常复核信任，安装/启用插件不等于信任已完成。
 
 先保证：
 
