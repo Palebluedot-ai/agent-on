@@ -2,6 +2,17 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
+## v0.28.0（2026-10-03）——实际窗口身份与项目状态接续
+
+> **minor**：新增可选状态接续、修同目录身份与宿主接线，不改值守三权与回收政策。用户在主开发窗口明确批准本批发布及本机 CLI/插件升级；按本仓规则原子推送 main＋annotated tag。旧 v1 登记可读但不授目录所有者权；已有值守需原负责人明确重新接班，不能静默接管。
+
+- 修同目录多个窗口冒认值守：核工作区、宿主与实际 session ID；认领/释放/续心跳在共享锁内原子落盘，旧会话迟到不覆盖新值守。派工不因命令 workdir 同目录而得到值守权。共用目录的已绑定聊天按实际 ID 识别横向消息，补 send_message_to_thread 接线；子模型不继承父值守身份。旧登记缺 identity 时标未确认，需原值守明确重新接班；过期 fail-open 规则保留。损坏登记不授予合入/派工权。
+- 现有 SessionStart capture 入口补 startup/resume/compact 状态注入，巡逻关闭时只读，不启用角色或自动创建窗口。Claude 使用宿主会话环境文件，Codex 使用实际 thread ID/payload；从一个平台启动另一个时不继承错身份。源码测试不等于安装和信任已完成；真实宿主接线另验，真正云端回执未实现。
+- 发布复核补漏：登记损坏时已确认跨窗口消息也拒绝，内部 parent/main/子代理原路径保留；whoami 明报 unavailable/非零，不再冒称无人值守。插件 PreToolUse 补 Codex 原生 exec_command 匹配，不依赖个人旧 hook 兜底。加非法身份、五项摘要上限/已释放过滤、损坏任务和 Claude 环境文件写失败回归。
+- 文正文/接入件对表：`boot/session-handshake.md` / `kit/session-control-plane.md`、`kit/patrol-control-plane.md`、`kit/guard/README.md`。不添加压缩前完整任务保存引擎。
+
+实现与发布前证据见 [开发记录](snapshot/2026-10-03-session-identity-and-continuity.md)；发布及本机升级边界见 [收口记录](snapshot/2026-10-03-v028-release-and-host-upgrade.md)。本批不宣称独立云端 clone、Hermes 自动 hook 或真实项目协作收益已经验收。
+
 ## v0.27.0（2026-10-03）——本机执行面板与可变化的 PR 证据
 
 > **minor**：新增可选本机只读面板与薄适配，修执行漏检和失败回执；现行合并/回收授权不变。用户于 2026-10-03 明确批准本批发布到 main，并原子推送 main＋annotated tag。源码及 CLI/插件 manifest、推荐 pin 同步；发布不等于升级本机执行器或插件。

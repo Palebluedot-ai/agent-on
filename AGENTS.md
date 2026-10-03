@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.27.0`**（按需本机只读面板、任务进度与动态 PR 证据；Hermes 薄 CLI 适配，自动 hook/认证模型任务未验收；setup 先构建 executor、失败非零；Codex session cwd/workdir 分离与损坏 payload 拦截、每日只读 GC 的 last-run 状态。原可选巡逻/派工/有限清道夫、真实 index/待推历史闸、共用审计账继续保留。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
+**最新推荐 pin：`v0.28.0`**（值守核实际宿主/会话 ID 与工作区，认领/释放/心跳原子落盘；启动/恢复/compact 注入已有项目状态，默认不启角色或造窗口。旧登记缺实际身份需原负责人明确重新接班；损坏登记不冒称无人值守。原本机只读面板、动态 PR 证据、可选巡逻/派工/有限清道夫、真实 index/待推历史闸和共用审计账保留；Hermes 自动 hook/认证任务、跨机云端回执未验收。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启并信任当前 hooks；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
