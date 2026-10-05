@@ -1109,15 +1109,69 @@ fn message_recipient(data: &Value) -> String {
         .to_string()
 }
 
-/// The block message is the routing protocol in executable form: it names the
-/// on-call address, hands over a fill-in reroute template, and lists the two
-/// legitimate escape hatches (both of which change the registry, so they leave
-/// a trace).
-fn block_text(cwd: &Path, action: Action, record: &OncallRecord, what: &str) -> String {
+/// Explain the exact input used for this decision without collecting a payload log.
+fn identity_diagnostic(
+    cwd: &Path,
+    record: &OncallRecord,
+    identity: Option<&Identity>,
+    data: &Value,
+) -> String {
+    let here = worktree::repo_root(cwd).map(|p| canon(&p)).ok();
+    let mut mismatches = Vec::new();
+    match (record.identity.as_ref(), identity) {
+        (None, _) => mismatches.push("registered.identity 缺失（旧登记）"),
+        (Some(_), None) => mismatches.push("actor.identity 无法解析（缺宿主或有效会话 ID）"),
+        (Some(owner), Some(actor)) => {
+            if owner.host != actor.host {
+                mismatches.push("host");
+            }
+            if owner.session_id != actor.session_id {
+                mismatches.push("session_id");
+            }
+        }
+    }
+    if here.as_deref() != Some(canon(Path::new(&record.worktree)).as_path()) {
+        mismatches.push("worktree");
+    }
+    // Only identity fields: never dump arbitrary environment, prompts, message
+    // bodies, or full hook payloads. JSON escapes control characters in IDs.
+    serde_json::json!({
+        "mismatches": mismatches,
+        "actor": identity,
+        "registered": record.identity,
+        "actor_worktree": here,
+        "registered_worktree": record.worktree,
+        "session_id_source": if data.get("session_id").is_some() { "hook stdin.session_id" } else { "native/adapter environment" },
+        "hook_session_id": data.get("session_id"),
+        "identity_environment": {
+            "CLAUDE_CODE_SESSION_ID": std::env::var("CLAUDE_CODE_SESSION_ID").ok(),
+            "CODEX_THREAD_ID": std::env::var("CODEX_THREAD_ID").ok(),
+            "AGENT_ON_HOST": std::env::var("AGENT_ON_HOST").ok(),
+            "AGENT_ON_SESSION_ID": std::env::var("AGENT_ON_SESSION_ID").ok(),
+        },
+        "host_markers": {
+            "CLAUDE_ENV_FILE": std::env::var_os("CLAUDE_ENV_FILE").is_some(),
+            "CLAUDE_PLUGIN_ROOT": std::env::var_os("CLAUDE_PLUGIN_ROOT").is_some(),
+            "PLUGIN_ROOT": std::env::var_os("PLUGIN_ROOT").is_some(),
+            "turn_id": data.get("turn_id").is_some(),
+        },
+    }).to_string()
+}
+
+/// Routing address, identity evidence, reroute template, and traceable handover paths.
+fn block_text(
+    cwd: &Path,
+    action: Action,
+    record: &OncallRecord,
+    what: &str,
+    diagnostic: &str,
+) -> String {
     format!(
         "⛔ 跨窗口指令路由拦截（值守专属动作：{}）\n\
 本窗口不是值守窗口。合并 / 对外通信 / 跨窗口消息在值守在班期间唯一归值守（kit/babysit/ROUTING.md）。\n\
 在班值守：{}（worktree {}，自 {}）\n\
+身份核对（guard 本次输入）：{}\n\
+同 worktree 仍须 host 与 session_id 都匹配；身份不一致先核对宿主接线和实际 executor，更换 --session 交单名不会修复身份。\n\
 值守最近心跳：{} 分钟前；{} 分钟没心跳登记自动失效、本闸随即 fail-open（值守窗口已关时等它过期即可，或走下面的 2）。\n\
 被拦内容：{}\n\
 \n\
@@ -1133,6 +1187,7 @@ fn block_text(cwd: &Path, action: Action, record: &OncallRecord, what: &str) -> 
         record.session,
         record.worktree,
         record.started_at,
+        diagnostic,
         silence_minutes(record).unwrap_or(0),
         stale_after_minutes(cwd),
         what,
@@ -1193,7 +1248,8 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
                 &cwd,
                 Action::CrossWindow,
                 &record,
-                &format!("SendMessage → {to}（该地址对应另一条轨：{peer}）")
+                &format!("SendMessage → {to}（该地址对应另一条轨：{peer}）"),
+                &identity_diagnostic(&cwd, &record, identity.as_ref(), data)
             )
         );
         return 2;
@@ -1221,7 +1277,16 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
     let Role::Feature(record) = role_for(&cwd, identity.as_ref()) else {
         return 0;
     };
-    eprintln!("{}", block_text(&cwd, action, &record, cmd));
+    eprintln!(
+        "{}",
+        block_text(
+            &cwd,
+            action,
+            &record,
+            cmd,
+            &identity_diagnostic(&cwd, &record, identity.as_ref(), data)
+        )
+    );
     2
 }
 

@@ -40,6 +40,9 @@ impl Fixture {
             "AGENT_ON_SESSION_ID",
             "AGENT_ON_PARENT_CODEX_THREAD_ID",
             "CLAUDE_ENV_FILE",
+            "CLAUDE_CODE_SESSION_ID",
+            "CLAUDE_CODE_HOST_SESSION_ID",
+            "CLAUDE_CODE_CHILD_SESSION",
             "PLUGIN_ROOT",
             "CLAUDE_PLUGIN_ROOT",
             "AGENT_ON_CONTROL_ID",
@@ -97,6 +100,252 @@ fn ok(output: &Output) {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn wire(cmd: &mut Command, action: &str, payload: Value) -> Output {
+    let mut child = cmd
+        .arg(action)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(payload.to_string().as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
+#[test]
+fn claude_resume_claim_and_personal_guard_agree_without_plugin_environment() {
+    let f = Fixture::new();
+    let id = "3f2b762b-2ca2-4386-93bc-df153176a88b";
+    let address = "30分钟值守循环";
+    ok(&f.cli(
+        Some("claude"),
+        id,
+        &["oncall", "claim", "--session", address],
+    ));
+    let mut record = f.record();
+    record["heartbeat_at"] = (chrono::Utc::now() - chrono::Duration::hours(36))
+        .to_rfc3339()
+        .into();
+    fs::write(f.repo.join(".git/agent-on/oncall.json"), record.to_string()).unwrap();
+
+    // SessionStart persists adapter exports for Bash. Personal PreToolUse
+    // hooks do not inherit that file or the plugin's environment markers.
+    let env_file = f.repo.join("host-env");
+    let resumed = wire(
+        f.cmd(None, "")
+            .env("CLAUDE_ENV_FILE", &env_file)
+            .env("CLAUDE_CODE_SESSION_ID", id),
+        "capture",
+        json!({"cwd":f.repo,"session_id":id,"hook_event_name":"SessionStart","source":"resume"}),
+    );
+    ok(&resumed);
+    assert_eq!(
+        f.record(),
+        record,
+        "resume must not silently claim or refresh"
+    );
+    for args in [
+        vec!["oncall", "claim", "--session", address],
+        vec!["oncall", "status", "--json"],
+        vec!["oncall", "whoami", "--json"],
+    ] {
+        let out = Command::new("bash")
+            .current_dir(&f.repo)
+            .env_remove("CODEX_THREAD_ID")
+            .env("CLAUDE_CODE_SESSION_ID", id)
+            .args(["-c", "source \"$1\"; shift; exec \"$@\"", "test"])
+            .arg(&env_file)
+            .arg(env!("CARGO_BIN_EXE_agent-on"))
+            .args(&args)
+            .output()
+            .unwrap();
+        ok(&out);
+        if args.contains(&"--json") {
+            let result: Value = serde_json::from_slice(&out.stdout).unwrap();
+            assert_eq!(
+                result[if args[1] == "status" {
+                    "self_is_oncall"
+                } else {
+                    "is_oncall"
+                }],
+                true
+            );
+        }
+    }
+    for command in [
+        "gh pr merge 17 --merge",
+        "gh pr review 17 --comment --body-file reply.md",
+    ] {
+        f.age();
+        let before = f.record();
+        let out = wire(
+            f.cmd(None, "")
+                .env("CLAUDE_CODE_SESSION_ID", id)
+                .env("CLAUDE_CODE_HOST_SESSION_ID", "local_13a95139")
+                .env("CLAUDE_CODE_CHILD_SESSION", "1"),
+            "guard",
+            json!({"cwd":f.repo,"session_id":id,"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":command}}),
+        );
+        ok(&out);
+        assert_ne!(f.record()["heartbeat_at"], before["heartbeat_at"]);
+    }
+}
+
+#[test]
+fn claude_native_session_overrides_stale_bash_adapter_exports() {
+    let f = Fixture::new();
+    let out = f
+        .cmd(Some("claude"), "old-id")
+        .env("CLAUDE_CODE_SESSION_ID", "resumed-id")
+        .args(["oncall", "claim", "--session", "main"])
+        .output()
+        .unwrap();
+    ok(&out);
+    assert_eq!(
+        f.record()["identity"],
+        json!({"host":"claude","session_id":"resumed-id"})
+    );
+}
+
+fn diagnostic(out: &Output) -> Value {
+    let text = String::from_utf8_lossy(&out.stderr);
+    let raw = text
+        .lines()
+        .find_map(|line| line.strip_prefix("身份核对（guard 本次输入）："))
+        .expect(&text);
+    serde_json::from_str(raw).unwrap()
+}
+
+#[test]
+fn claude_hook_payload_remains_authoritative_and_explains_each_identity_mismatch() {
+    let f = Fixture::new();
+    let owner = "owner-session";
+    ok(&f.cli(
+        Some("claude"),
+        owner,
+        &["oncall", "claim", "--session", "main"],
+    ));
+    f.age();
+    let before = f.record();
+    // Neither the UUID in Bash's environment nor the Desktop host's local_
+    // identifier can override a different actual session_id in hook stdin.
+    for id in ["other-session", "local_13a95139", "", "bad\nidentity"] {
+        let out = wire(
+            f.cmd(Some("claude"), owner)
+                .env("CLAUDE_CODE_SESSION_ID", owner),
+            "guard",
+            json!({"cwd":f.repo,"session_id":id,"tool_name":"Bash","tool_input":{"command":"gh pr review 17 --comment --body-file reply.md"}}),
+        );
+        assert_eq!(out.status.code(), Some(2));
+        assert_eq!(
+            f.record(),
+            before,
+            "a rejected window must not renew the owner"
+        );
+        let trace = diagnostic(&out);
+        assert_eq!(trace["hook_session_id"], id);
+        assert_eq!(trace["registered"]["session_id"], owner);
+        assert_eq!(trace["session_id_source"], "hook stdin.session_id");
+        if !id.is_empty() && !id.contains('\n') {
+            assert_eq!(trace["mismatches"], json!(["session_id"]));
+            assert_eq!(trace["actor"]["host"], "claude");
+        } else {
+            assert_eq!(trace["actor"], Value::Null);
+        }
+    }
+    let out = wire(
+        &mut f.cmd(Some("codex"), owner),
+        "guard",
+        json!({"cwd":f.repo,"session_id":owner,"turn_id":"codex-turn","tool_name":"exec_command","tool_input":{"cmd":"gh pr merge 17 --merge"}}),
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(diagnostic(&out)["mismatches"], json!(["host"]));
+    assert_eq!(f.record(), before);
+    let other_tree = f._tmp.path().join("other-tree");
+    for args in [
+        vec!["add", "."],
+        vec!["commit", "-qm", "base"],
+        vec![
+            "worktree",
+            "add",
+            "-b",
+            "other",
+            other_tree.to_str().unwrap(),
+        ],
+    ] {
+        assert!(Command::new("git")
+            .current_dir(&f.repo)
+            .args(args)
+            .output()
+            .unwrap()
+            .status
+            .success());
+    }
+    let out = wire(
+        f.cmd(None, "").env("CLAUDE_CODE_SESSION_ID", owner),
+        "guard",
+        json!({"cwd":other_tree,"session_id":owner,"tool_name":"Bash","tool_input":{"command":"gh pr merge 17 --merge"}}),
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(diagnostic(&out)["mismatches"], json!(["worktree"]));
+    assert_eq!(f.record(), before);
+    // Unknown wiring does not acquire authority from cwd or a matching ID.
+    let out = wire(
+        &mut f.cmd(None, ""),
+        "guard",
+        json!({"cwd":f.repo,"session_id":owner,"tool_name":"Bash","tool_input":{"command":"gh pr merge 17 --merge"}}),
+    );
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(diagnostic(&out)["actor"], Value::Null);
+    assert_eq!(diagnostic(&out)["hook_session_id"], owner);
+    assert_eq!(f.record(), before);
+}
+
+#[test]
+fn claude_native_identity_keeps_nested_codex_precedence_and_rejects_invalid_ids() {
+    let f = Fixture::new();
+    let mut cmd = f.cmd(Some("claude"), "adapter-parent");
+    cmd.env("CLAUDE_CODE_SESSION_ID", "claude-parent")
+        .env("CODEX_THREAD_ID", "native-codex-child");
+    ok(&cmd
+        .args(["oncall", "claim", "--session", "child"])
+        .output()
+        .unwrap());
+    assert_eq!(
+        f.record()["identity"],
+        json!({"host":"codex","session_id":"native-codex-child"})
+    );
+    // A Claude launched from Codex has the parent thread explicitly marked.
+    let out = f
+        .cmd(Some("claude"), "stale-adapter")
+        .env("CLAUDE_CODE_SESSION_ID", "claude-child")
+        .env("CODEX_THREAD_ID", "parent-codex")
+        .env("AGENT_ON_PARENT_CODEX_THREAD_ID", "parent-codex")
+        .args(["oncall", "claim", "--session", "child", "--force"])
+        .output()
+        .unwrap();
+    ok(&out);
+    assert_eq!(
+        f.record()["identity"],
+        json!({"host":"claude","session_id":"claude-child"})
+    );
+    for id in ["", "bad\nidentity", &"x".repeat(257)] {
+        let out = f
+            .cmd(Some("claude"), "claude-child")
+            .env("CLAUDE_CODE_SESSION_ID", id)
+            .args(["oncall", "claim", "--session", "invalid", "--force"])
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(f.record()["identity"]["session_id"], "claude-child");
+    }
 }
 
 #[test]

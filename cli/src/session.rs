@@ -42,6 +42,11 @@ impl Identity {
                 return Self::new("codex", &id);
             }
         }
+        // Claude sets this for Bash AND hook subprocesses. SessionStart's
+        // AGENT_ON exports are only sourced by Bash and may be stale on resume.
+        if let Ok(id) = std::env::var("CLAUDE_CODE_SESSION_ID") {
+            return Self::new("claude", &id);
+        }
         Self::new(
             &std::env::var("AGENT_ON_HOST").ok()?,
             &std::env::var("AGENT_ON_SESSION_ID").ok()?,
@@ -62,6 +67,11 @@ impl Identity {
             "claude".into()
         } else if data.get("turn_id").is_some() {
             "codex".into()
+        } else if std::env::var_os("CLAUDE_CODE_SESSION_ID").is_some() {
+            // Personal PreToolUse hooks have neither CLAUDE_ENV_FILE nor
+            // plugin markers. The native variable identifies their host;
+            // stdin remains authoritative for the actual session ID.
+            "claude".into()
         } else {
             Self::current()?.host
         };

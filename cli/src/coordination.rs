@@ -1318,6 +1318,7 @@ fn serve(store: &Store, id: &str) -> Result<Value> {
         .env_remove("PLUGIN_ROOT")
         .env_remove("CLAUDE_PLUGIN_ROOT")
         .env_remove("CLAUDE_ENV_FILE")
+        .env_remove("CLAUDE_CODE_SESSION_ID")
         .env("CLAUDE_PROJECT_DIR", &session.cwd)
         .env("CODEX_PROJECT_DIR", &session.cwd)
         .env("AGENT_ON_CONTROL_ID", &session.id)

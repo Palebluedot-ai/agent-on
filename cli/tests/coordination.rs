@@ -478,7 +478,7 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
     let exe = bin.join("hermes");
     fs::write(
         &exe,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_ARGV\"\nprintf '%s\\n' \"${CODEX_THREAD_ID-}\" \"${AGENT_ON_HOST-}\" \"${AGENT_ON_SESSION_ID-}\" \"${PLUGIN_ROOT-}\" \"${CLAUDE_PLUGIN_ROOT-}\" \"${CLAUDE_ENV_FILE-}\" > \"$TEST_IDENTITY\"\nexit 7\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_ARGV\"\nprintf '%s\\n' \"${CODEX_THREAD_ID-}\" \"${AGENT_ON_HOST-}\" \"${AGENT_ON_SESSION_ID-}\" \"${PLUGIN_ROOT-}\" \"${CLAUDE_PLUGIN_ROOT-}\" \"${CLAUDE_ENV_FILE-}\" \"${CLAUDE_CODE_SESSION_ID-}\" > \"$TEST_IDENTITY\"\nexit 7\n",
     )
     .unwrap();
     fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
@@ -498,6 +498,7 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
         .env("PLUGIN_ROOT", "dispatcher-plugin")
         .env("CLAUDE_PLUGIN_ROOT", "dispatcher-plugin")
         .env("CLAUDE_ENV_FILE", "dispatcher-env")
+        .env("CLAUDE_CODE_SESSION_ID", "dispatcher-claude")
         .args(["patrol", "serve", id])
         .output()
         .unwrap();
@@ -509,7 +510,7 @@ fn hermes_adapter_preserves_query_resume_and_exit_without_claiming_hook_readines
     let result: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(result["session"]["exit_code"], 7);
     assert_eq!(result["host_success"], false);
-    assert_eq!(fs::read_to_string(inherited).unwrap(), "\n".repeat(6));
+    assert_eq!(fs::read_to_string(inherited).unwrap(), "\n".repeat(7));
     let args = fs::read_to_string(argv).unwrap();
     assert!(args.starts_with("chat\n--in\n"));
     assert!(args.contains("--resume\nexact-hermes-session\n--query\n"));
