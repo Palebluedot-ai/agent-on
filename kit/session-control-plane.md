@@ -13,10 +13,12 @@
 已捕获并绑定实际 ID 的原生聊天即使共用目录也算不同窗口。guard 识别 SendMessage 与 send_message_to_thread 的实际目标，交单给值守可用该宿主的真实 ID；其他已确认窗口的横向消息仍转投值守。未捕获窗口和未知别名不能凭猜测识别，不能宣称覆盖所有平台消息。CLI 新派出的模型进程先清掉父宿主身份和 hook 环境，保留派工回执，再由目标宿主建立自己的身份。
 
 - Codex 工具进程使用原生 `CODEX_THREAD_ID`。hooks 使用实际 payload 的 session_id；该字段优先于继承的环境 ID，workdir 不授予身份。Codex app 与 CLI 同属 Codex 身份域。
-- Claude 的 SessionStart 仅追加自己的身份变量到宿主给出的 `CLAUDE_ENV_FILE`，后续 Bash 命令继承。保留其他 hooks 的 export，字面值经 shell 引号处理，不改用户 shell 配置。从 Codex 启动的 Claude 标记父 thread ID；随后新 Codex 子会话使用自己的原生 ID。
+- Claude 的 Bash 与 hook 进程优先使用宿主原生 `CLAUDE_CODE_SESSION_ID`；SessionStart 仍仅追加适配器变量到宿主给出的 `CLAUDE_ENV_FILE`，供后续 Bash 使用并兼容旧宿主。PreToolUse 不读取该文件，个人 hook 也未必有插件环境标记，因此不能依赖 Bash 的 export 来识别 hook 宿主。hook stdin 的 `session_id` 仍优先于任何环境 ID，`CLAUDE_CODE_HOST_SESSION_ID=local_…` 和 `CLAUDE_CODE_CHILD_SESSION=1` 不授予或否定值守身份。保留其他 hooks 的 export，字面值经 shell 引号处理，不改用户 shell 配置。从 Codex 启动的 Claude 标记父 thread ID；随后新 Codex 子会话使用自己的原生 ID。
 - 其他执行器的适配需要实际设置 `AGENT_ON_HOST` 与 `AGENT_ON_SESSION_ID`，不能把路由名、目录名或准备回执冒充已确认身份。未确认身份不能上岗或获得在班值守权；普通无值守工作仍按原规则。
 
 旧 v1 登记仍可读取，但没有 identity 时标 `legacy-unverified`，不会按目录给任何窗口值守权，也不由任意窗口代续心跳。正常 90 分钟失效规则保留；若仍有值守需继续工作，由用户明确确认原值守重新接班后再执行 `oncall claim --session <地址> --force`。不为迁移静默接班或清空登记。
+
+若 `status/whoami` 说本窗口在班而 guard 拦截，读 stderr 的「身份核对」：`mismatches` 明列 host、session_id、worktree 或不可解析身份，附本次 actor、登记、hook 原始 session_id、身份环境及宿主标记的有无。只输出身份字段，不落全量 payload 或任意环境日志。相同目录不等于相同窗口；改交单地址、释放登记都不能修复宿主接线。先核实际被调用的 executor 是否含修复，再核真实 PreToolUse 的字段。构造输入回归不能代替原窗口验证。
 
 ## 安装与验证边界
 

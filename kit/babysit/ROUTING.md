@@ -97,6 +97,10 @@ agent-on oncall release [--force]                                  # 下班
 
 ### 闸怎么判
 
+本窗口身份 = **实际 host + session_id + worktree** 三项同时匹配。工作区取 hook 顶层 cwd 对应的 Git 根；命令 workdir 不替换会话身份。实际 ID 优先取 hook stdin 的 session_id，缺字段才取原生/适配器环境；Claude 个人 PreToolUse 可由原生 `CLAUDE_CODE_SESSION_ID` 识别宿主，不依赖仅供 Bash 使用的 SessionStart 环境文件。`--session` 是交单地址；`local_…` Desktop 宿主编号与 child 标记不是授权字段。旧登记缺 identity 时不按目录赋权。
+
+若 claim/status/whoami 与 guard 不一致，拦截 stderr 的「身份核对」会给出 actor、登记、hook 原始 ID、身份环境与 `mismatches`。先核实际 executor 与宿主接线，不能靠改交单名或释放登记消除身份错误。来源细节见 [项目接续与实际会话身份](../session-control-plane.md)。
+
 PreToolUse 两个 matcher 共用一个 guard（注册见 [../../hooks/README.md](../../hooks/README.md)）：
 
 | matcher | 命中什么 | 结果 |
@@ -116,14 +120,33 @@ PreToolUse 两个 matcher 共用一个 guard（注册见 [../../hooks/README.md]
 
 ### 最小实测
 
+在两条实际宿主会话各自的工作区做，只替换 `--cwd` 不能模拟窗口身份：
+
+1. 值守窗口运行 `agent-on oncall claim --session babysit-window-a`。
+2. 两个窗口分别运行下面的只判定探针：功能窗口预期 exit 2，值守预期 exit 0。不执行 JSON 中的 gh 命令。
+3. 值守窗口按正常下班流程运行 `agent-on oncall release`。
+
 ```bash
-agent-on oncall claim --session babysit-window-a --cwd "$ONCALL_WT"
-echo '{"tool_name":"Bash","cwd":"'"$FEATURE_WT"'","tool_input":{"command":"gh pr merge 17 --merge"}}' \
-  | agent-on guard; echo "expect 2"
-echo '{"tool_name":"Bash","cwd":"'"$ONCALL_WT"'","tool_input":{"command":"gh pr merge 17 --merge"}}' \
-  | agent-on guard; echo "expect 0"
-agent-on oncall release --cwd "$ONCALL_WT"
+set -o pipefail
+python3 - <<'PY' | agent-on guard
+import json, os
+codex_id = os.environ.get("CODEX_THREAD_ID")
+if codex_id and codex_id != os.environ.get("AGENT_ON_PARENT_CODEX_THREAD_ID"):
+    host, session_id = "codex", codex_id
+elif "CLAUDE_CODE_SESSION_ID" in os.environ:
+    host, session_id = "claude", os.environ["CLAUDE_CODE_SESSION_ID"]
+else:
+    host, session_id = os.environ.get("AGENT_ON_HOST"), os.environ.get("AGENT_ON_SESSION_ID")
+assert session_id, "缺少实际宿主会话 ID；先检查 SessionStart 接线"
+payload = {"tool_name": "Bash" if host == "claude" else "exec_command", "cwd": os.getcwd(), "session_id": session_id, "tool_input": {"command": "gh pr merge 17 --merge"}}
+if host == "codex":
+    payload["turn_id"] = "guard-probe"
+print(json.dumps(payload))
+PY
+echo "guard exit: $?"
 ```
+
+这是构造 stdin 的回归探针，沿用 Bash 身份环境，不能证明真实 PreToolUse 有同样的宿主环境。恢复会话问题还需原窗口真实 hook 的身份核对回执。不得把另一窗口的 ID 写进本窗口环境作为修复。
 
 ## §5 值守侧：收到转投之后
 
