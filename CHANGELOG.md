@@ -2,6 +2,14 @@
 
 > 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
 
+## [未发布]
+
+## v0.28.1（2026-10-05）——Claude 恢复后的值守身份对齐
+
+> **patch**：修身份来源与拦截诊断；值守三权、失效窗口和合并政策不变。用户于本仓会话授权验证后 commit＋push，本轮只发布身份修复，不包含工作区其余未发布功能。发布不自动安装宿主执行器或插件。
+
+- **修 Claude 恢复后的值守身份分歧**：个人 PreToolUse 不继承 SessionStart 供 Bash 使用的身份 export，旧解析也漏认原生 `CLAUDE_CODE_SESSION_ID`，可出现 claim/status/whoami 在班而 guard 拦截。Bash 优先读 Claude 原生 ID，hook 用它识别宿主但仍以 stdin.session_id 为实际 ID；派工清掉父 Claude ID。拦截附三字段差异、身份来源与宿主标记，未放宽同目录/跨宿主/旧登记/迟到心跳限制。新增恢复重认领先红后绿回归，身份接入件与路由探针对齐；真实 Dartify 原窗口 PreToolUse payload、宿主升级仍待验。见 `snapshot/2026-10-05-oncall-resume-identity.md`。
+
 ## v0.28.0（2026-10-03）——实际窗口身份与项目状态接续
 
 > **minor**：新增可选状态接续、修同目录身份与宿主接线，不改值守三权与回收政策。用户在主开发窗口明确批准本批发布及本机 CLI/插件升级；按本仓规则原子推送 main＋annotated tag。旧 v1 登记可读但不授目录所有者权；已有值守需原负责人明确重新接班，不能静默接管。
