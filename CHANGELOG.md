@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+- **测试夹具不再继承宿主会话身份**：v0.28.1 起身份解析优先认 Claude 原生 `CLAUDE_CODE_SESSION_ID`，测试夹具却只设了 `AGENT_ON_HOST` / `AGENT_ON_SESSION_ID`，没清宿主变量。在 Claude 会话里跑 `cargo test`，被测的 agent-on 认的是外层会话而不是夹具：coordination 挂 2 项、session_continuity 挂 1 项；值守路由/心跳两套没挂，但登记下来的也是外层会话，只靠工作区不同分出窗口。CI 没有这些变量，所以一直是绿的。现在 coordination、session_continuity、oncall_routing、oncall_liveness 各用一份 `HOST_SESSION_ENV`，在起进程的地方统一清掉宿主身份与标记（Claude/Codex 原生 ID、`AGENT_ON_PARENT_CODEX_THREAD_ID`、`CLAUDE_ENV_FILE`、插件根、控制面和项目目录变量），用例需要的变量清完再显式设。只动测试，`cli/src` 的身份解析和运行行为不变。
+
 ## v0.28.1（2026-10-05）——Claude 恢复后的值守身份对齐
 
 > **patch**：修身份来源与拦截诊断；值守三权、失效窗口和合并政策不变。用户于本仓会话授权验证后 commit＋push，本轮只发布身份修复，不包含工作区其余未发布功能。发布不自动安装宿主执行器或插件。

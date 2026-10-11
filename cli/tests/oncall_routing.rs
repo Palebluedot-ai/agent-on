@@ -20,24 +20,44 @@ fn must_run(cwd: &Path, program: &str, args: &[&str]) {
     );
 }
 
+/// Identity and host markers a live Claude/Codex session exports. Inherited by
+/// `cargo test` run inside one, they would outrank the per-window identity.
+const HOST_SESSION_ENV: &[&str] = &[
+    "CODEX_THREAD_ID",
+    "AGENT_ON_HOST",
+    "AGENT_ON_SESSION_ID",
+    "AGENT_ON_PARENT_CODEX_THREAD_ID",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_HOST_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "PLUGIN_ROOT",
+    "CLAUDE_PLUGIN_ROOT",
+    "AGENT_ON_CONTROL_ID",
+    "AGENT_ON_CONTROL_REPO",
+    "CLAUDE_PROJECT_DIR",
+    "CODEX_PROJECT_DIR",
+];
+
+/// The real binary as the window at `cwd`, never as the session running tests.
+fn window(cwd: &Path) -> Command {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_agent-on"));
+    cmd.current_dir(cwd);
+    for key in HOST_SESSION_ENV {
+        cmd.env_remove(key);
+    }
+    cmd.env("AGENT_ON_HOST", "codex")
+        .env("AGENT_ON_SESSION_ID", cwd);
+    cmd
+}
+
 fn agent_on(cwd: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_agent-on"))
-        .current_dir(cwd)
-        .env_remove("CODEX_THREAD_ID")
-        .env("AGENT_ON_HOST", "codex")
-        .env("AGENT_ON_SESSION_ID", cwd)
-        .args(args)
-        .output()
-        .unwrap()
+    window(cwd).args(args).output().unwrap()
 }
 
 /// Feed a PreToolUse payload to `agent-on guard` exactly like the hook does.
 fn guard(cwd: &Path, payload: &str) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_agent-on"))
-        .current_dir(cwd)
-        .env_remove("CODEX_THREAD_ID")
-        .env("AGENT_ON_HOST", "codex")
-        .env("AGENT_ON_SESSION_ID", cwd)
+    let mut child = window(cwd)
         .arg("guard")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

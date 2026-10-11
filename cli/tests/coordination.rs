@@ -6,6 +6,25 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use tempfile::TempDir;
 
+/// Identity and host markers a live Claude/Codex session exports. Inherited by
+/// `cargo test` run inside one, they would outrank the fixture identity.
+const HOST_SESSION_ENV: &[&str] = &[
+    "CODEX_THREAD_ID",
+    "AGENT_ON_HOST",
+    "AGENT_ON_SESSION_ID",
+    "AGENT_ON_PARENT_CODEX_THREAD_ID",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_HOST_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "PLUGIN_ROOT",
+    "CLAUDE_PLUGIN_ROOT",
+    "AGENT_ON_CONTROL_ID",
+    "AGENT_ON_CONTROL_REPO",
+    "CLAUDE_PROJECT_DIR",
+    "CODEX_PROJECT_DIR",
+];
+
 struct Fixture {
     _tmp: TempDir,
     repo: PathBuf,
@@ -26,14 +45,12 @@ impl Fixture {
     }
     fn command(&self) -> Command {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_agent-on"));
-        cmd.current_dir(&self.repo)
-            .env_remove("CODEX_THREAD_ID")
-            .env("AGENT_ON_HOST", "codex")
-            .env("AGENT_ON_SESSION_ID", "fixture-main")
-            .env_remove("AGENT_ON_CONTROL_ID")
-            .env_remove("AGENT_ON_CONTROL_REPO");
-        cmd.env_remove("CLAUDE_PROJECT_DIR")
-            .env_remove("CODEX_PROJECT_DIR");
+        cmd.current_dir(&self.repo);
+        for key in HOST_SESSION_ENV {
+            cmd.env_remove(key);
+        }
+        cmd.env("AGENT_ON_HOST", "codex")
+            .env("AGENT_ON_SESSION_ID", "fixture-main");
         cmd
     }
     fn cli(&self, args: &[&str]) -> Output {

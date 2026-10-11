@@ -6,6 +6,34 @@ use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 use tempfile::TempDir;
 
+/// Identity and host markers a live Claude/Codex session exports. Inherited by
+/// `cargo test` run inside one, they would outrank the identity a case sets.
+const HOST_SESSION_ENV: &[&str] = &[
+    "CODEX_THREAD_ID",
+    "AGENT_ON_HOST",
+    "AGENT_ON_SESSION_ID",
+    "AGENT_ON_PARENT_CODEX_THREAD_ID",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_HOST_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "PLUGIN_ROOT",
+    "CLAUDE_PLUGIN_ROOT",
+    "AGENT_ON_CONTROL_ID",
+    "AGENT_ON_CONTROL_REPO",
+    "CLAUDE_PROJECT_DIR",
+    "CODEX_PROJECT_DIR",
+];
+
+/// `program` without the identity of whichever session runs the tests.
+fn isolated(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    for key in HOST_SESSION_ENV {
+        cmd.env_remove(key);
+    }
+    cmd
+}
+
 struct Fixture {
     _tmp: TempDir,
     repo: PathBuf,
@@ -32,25 +60,8 @@ impl Fixture {
         Self { _tmp: tmp, repo }
     }
     fn cmd(&self, host: Option<&str>, id: &str) -> Command {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_agent-on"));
+        let mut cmd = isolated(env!("CARGO_BIN_EXE_agent-on"));
         cmd.current_dir(&self.repo);
-        for key in [
-            "CODEX_THREAD_ID",
-            "AGENT_ON_HOST",
-            "AGENT_ON_SESSION_ID",
-            "AGENT_ON_PARENT_CODEX_THREAD_ID",
-            "CLAUDE_ENV_FILE",
-            "CLAUDE_CODE_SESSION_ID",
-            "CLAUDE_CODE_HOST_SESSION_ID",
-            "CLAUDE_CODE_CHILD_SESSION",
-            "PLUGIN_ROOT",
-            "CLAUDE_PLUGIN_ROOT",
-            "AGENT_ON_CONTROL_ID",
-            "CLAUDE_PROJECT_DIR",
-            "CODEX_PROJECT_DIR",
-        ] {
-            cmd.env_remove(key);
-        }
         if let Some(host) = host {
             cmd.env("AGENT_ON_HOST", host)
                 .env("AGENT_ON_SESSION_ID", id);
@@ -156,9 +167,8 @@ fn claude_resume_claim_and_personal_guard_agree_without_plugin_environment() {
         vec!["oncall", "status", "--json"],
         vec!["oncall", "whoami", "--json"],
     ] {
-        let out = Command::new("bash")
+        let out = isolated("bash")
             .current_dir(&f.repo)
-            .env_remove("CODEX_THREAD_ID")
             .env("CLAUDE_CODE_SESSION_ID", id)
             .args(["-c", "source \"$1\"; shift; exec \"$@\"", "test"])
             .arg(&env_file)
@@ -602,7 +612,7 @@ fn claude_session_env_is_quoted_and_nested_codex_uses_its_own_native_id() {
     assert!(fs::read_to_string(&env_file)
         .unwrap()
         .starts_with("export OTHER_HOOK='preserved'\n"));
-    let out = Command::new("bash").current_dir(&f.repo).env_remove("AGENT_ON_HOST").env_remove("AGENT_ON_SESSION_ID").env("CODEX_THREAD_ID", "parent-codex").args(["-c", "source \"$1\"; test \"$OTHER_HOOK\" = preserved || exit 8; exec \"$2\" oncall claim --session claude-owner", "test"]).arg(&env_file).arg(env!("CARGO_BIN_EXE_agent-on")).output().unwrap();
+    let out = isolated("bash").current_dir(&f.repo).env("CODEX_THREAD_ID", "parent-codex").args(["-c", "source \"$1\"; test \"$OTHER_HOOK\" = preserved || exit 8; exec \"$2\" oncall claim --session claude-owner", "test"]).arg(&env_file).arg(env!("CARGO_BIN_EXE_agent-on")).output().unwrap();
     ok(&out);
     assert_eq!(
         f.record()["identity"],
