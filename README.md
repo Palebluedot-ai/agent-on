@@ -18,7 +18,7 @@ Claude Code · Codex · Grok 通用，项目侧零适配。
 
 *Agent-on is a ready-to-use project scaffold for AI coding agents (Claude Code / Codex / Grok): bootstrap a new project with one sentence, adopt an in-flight one without rebuilding, and flow every lesson back into the methodology — the more projects use it, the stronger it gets.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.28.1`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.28.2`。**
 
 ---
 
@@ -103,7 +103,7 @@ AI：先用 S 轻装，长期迭代按实际需要补件。已播种：
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.28.1`** |
+| **推荐 pin** | **`v0.28.2`** |
 | **不是** | npm、Claude 官方总商店、App Store |
 
 | OS | 默认工作仓（setup 会放到这里） |
@@ -261,7 +261,7 @@ Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配�
 
 ## 状态与路线
 
-- **当前发布**：v0.28.1。启动 / 接管 / 握手 / 结账 / 升级闭环已跑通；Rust CLI 覆盖多会话控制面、合流协调、值守合并与审计。
+- **当前发布**：v0.28.2。启动 / 接管 / 握手 / 结账 / 升级闭环已跑通；Rust CLI 覆盖多会话控制面、合流协调、值守合并与审计。
 - **下一站 v1.0**：≥2 个项目有外人装机开工 + ≥1 次外部结账经消化落地。定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)。
 - 按版本的演进摘要见 [docs/manual.md](docs/manual.md)，逐版细节见 [CHANGELOG.md](CHANGELOG.md)。
 
