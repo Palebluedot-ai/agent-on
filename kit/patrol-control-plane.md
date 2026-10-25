@@ -34,7 +34,7 @@ agent-on patrol scan
 
 巡逻的本地观察器每 30 秒更新路径证据，不重复调用模型。重叠或待确认集合变化时才发本机提示（macOS 系统通知；其他系统在巡逻终端提示），同一问题不反复刷屏。独立模型会话先给初始报告，此后按用户查询读取最新台账；不会假装每次文件变化都已得到模型判断。主窗口每次用户提交会收到当前台账位置与重叠数量，可据此调整派工。模型语义判断、视觉一致性仍按具体风险触发。
 
-`patrol disable` 停止新捕获和自动开窗，不杀现有会话。退出 host 后可用 `patrol resume <receipt-id>` 按已记录的精确会话 ID 续接；缺少 ID 时拒绝用 `--last` 猜。启动卡住或原生聊天已关但没有 SessionEnd 时，明确指定 `patrol close <receipt-id> --evidence '实际关闭依据'`；运行中的进程不能被这条命令冒充关闭。
+`patrol disable` 停止巡逻需求捕获和自动开窗，不杀现有会话。未发布源码另有独立 `activity enable/disable`，只观察窗口事件、不派工；关闭巡逻不等于关闭已明确启用的观察，关闭观察也不撤回任务或清道夫配置，见 [面板执行书](live-control-plane.md)。退出 host 后可用 `patrol resume <receipt-id>` 按已记录的精确会话 ID 续接；缺少 ID 时拒绝用 `--last` 猜。启动卡住或原生聊天已关但没有 SessionEnd 时，明确指定 `patrol close <receipt-id> --evidence '实际关闭依据'`；运行中的进程不能被这条命令冒充关闭。
 
 未接到真实 host ID 的失败启动用 `patrol retry <receipt-id>`，复用原任务和 checkout；已接到 ID 就精确 resume。状态不明先确认关闭，不重复创建或新开树。
 
@@ -57,13 +57,42 @@ agent-on dispatch --id investigate --host grok \
 
 第二条只有 `shared-ui` 已释放且成果已进主树才会启动。`--worktree` 明确申请隔离；默认不逐页新建树。只读任务复用项目；同时写同一主树的受管执行会话会被拒绝。派发前声明路径重叠会直接返回任务归属提示；普通 `task add` 和 `patrol scan` 只提示，不给旧会话增加提交闸。
 
-`--model` 可显式选择该 host 实际支持的模型，默认沿用 host 设置。Claude/Codex/Grok/Hermes 适配器调用本机已安装的 CLI，继承它们的登录与审批；不代装工具，不共用登录，不带绕过权限参数。角色不固定绑定某个模型。缺 CLI/终端能力时明说原因，不用拟造会话替代。
+**阶段、执行工具、模型与推理档位由用户决定，Agent-On 只按明确指令调度。** 规划/执行/验收不固定绑定型号；不按价格、能力印象、目录推荐、空闲或失败自行替用户选型或改派。默认不指定型号，型号也不是登记或接线的前置条件。用户主动给出 `--model` 才按原值传递；没有给就沿用当次宿主设置，不额外添加模型/档位参数、不查询目录后选替代者。Codex 的 `session.model_resolution` 仅记录 explicit 或 host-settings / not-probed 的指令依据，不证明实际推理型号或账户资格。retry/resume 仍保持用户明确选择和精确会话 ID；旧自动兜底/档位记录也不再成为启动参数。更换需用户新的明确指令，不把失败、结果回执或阶段完成当作更换授权。
+
+`agent-on model-check --cwd <实际项目目录>` 是用户可选、严格的只读诊断，已从启动路径移开：不可确认或配置与目录不匹配就非零说明，不选择替代型号或档位，不改配置、不启动执行、不要求先通过。`verification: catalog-only` 只是目录观察，不表示真实推理成功；未配置时观察到的 native-default 也不是派工指令。启动由原生客户端执行登录、账户、托管政策与权限检查。真正缺 CLI、无法启动或宿主非成功退出仍保留任务/checkout 并明确报失败/blocked，不能把「已交给宿主」说成「已执行成功」。作者已有的其他阻塞说明不被覆盖；重试只清本机 runner 自己记的失败。拒绝后等待用户处理或明确改派，不自动换号、降档、重试或重放已执行工具的任务。显式 `--model` 为 `not-probed`，由宿主执行时验证；自定义 provider/API-key 沿用自身设置，不切登录方式、provider 或计费通道。`--window external` 仅准备回执，不冒充已检测或启动了 host。
+
+Claude/Codex/Grok/Hermes 适配器调用用户指定、本机已安装的 CLI，继承它们的登录与审批；不代装工具，不共用登录，不带绕过权限参数。缺 CLI/终端能力时明说原因，不改用另一个工具或拟造会话。原生只读诊断与用户显式单次参数依据 [Codex app-server](https://learn.chatgpt.com/docs/app-server) 与 [开发者设置](https://learn.chatgpt.com/docs/developer-settings)；这是薄 CLI 适配，不是通用模型编排运行时。下节单次交接是未发布源码功能；没有「规划者自述完成就无人值守启动下一阶段」流水线，也不据此宣称所有工具的实机交接已验收。
 
 Hermes 执行任务用 `dispatch --host hermes`，调用 `hermes chat --in <实际树> --query <字面 prompt>`，精确续接用 --resume 与 --no-restore-cwd，防止恢复到另一目录。当前 adapter 不接管 Hermes 私有配置或 host hooks，没有可验证的只读沙箱，因此拒绝 Hermes 巡逻与 --read-only。进程状态由 runner 回传，缺 hook 时保持未确认，结果沿现有 task result；真实认证模型任务另需实测。官方接口见 [Hermes CLI reference](https://hermes-agent.nousresearch.com/docs/reference/cli-commands/)。
 
 日常状态可直接打开 [本机面板](live-control-plane.md)。它统一显示已有回执与旧树，空台账会如实说明覆盖缺口；不为显示状态另开模型窗口。
 
 任务也可只登记：`task add <id> --goal '…' --path '…'`。执行者用 `task progress <id> --state working|blocked|waiting --note '当前事实和下一步'` 显式回传；`task result` 后为 reported，表示已有结果自述、未验收。它们不改变验证标记、不释放任务；已释放任务不能被 progress 复活。执行窗口退出后，由入口/作者以实际证据 `task release <id> --evidence '…'`。发布、merge、update-branch 和权限仍归值守，dispatch 不获得这些权力。
+
+## 确认规划后的单次阶段交接（未发布）
+
+这一步的「自动」是**按用户明确交接指令自动带好上下文并派工**，不是系统自己决定规划完成、选执行者或连续启动下一阶段。自然语言可说「这版规划通过，按刚才的指派交给执行者，范围是……」；入口先核真实结果和原用户指令，再使用已有 dispatch。用户没有指定执行工具时补问工具；没有指定型号则省略模型参数，不为登记强迫选型。当前没有预先授权多阶段无人值守执行或 dashboard 写操作 API。
+
+```bash
+# 规划任务必须只读；结果文件是含源文件/验证指针的简短报告，不是整个聊天
+agent-on task result plan --file ./plan-summary.md
+# 从上条真实回执取得 result_id 和 at；例中的时间须替换为用户审阅的那条 at
+agent-on dispatch --id implementation --host grok \
+  --goal '按已确认的方案实现登录界面，附测试和预览证据' --path 'src/login/**' \
+  --handoff-from plan --handoff-result task-plan \
+  --handoff-at '<已审阅结果回执的 at>' \
+  --handoff-evidence '用户在原入口确认这版方案并明确指派；只实现 src/login/**'
+```
+
+默认 Terminal/tmux 路径复用已有 launcher 与 runner；`--window external` 只准备上下文/回执，桌面仍按原生桥接显式创建并绑定，不冒称已启动。`--model` 仅在用户明确给出时附带。只读任务、实际 worktree、路径重叠、依赖集成、值守派工路由与权限检查全部沿原 dispatch；写代码的上游不能用 handoff 绕过合入，必须 release/integrate 后走 `--depends-on`。
+
+`handoff-from/result/at/evidence` 四项必须一起给出。来源必须是同项目的只读任务，且非 queued/blocked；精确结果键只接受该任务的 `task result` 或已关联会话的 Stop 回执，结果目录/文件必须是普通文件系统对象，不跟随软链或读取特殊文件。Stop 仍只表示一轮返回，**本身不触发派工、不验收、不释放**。源回执最大 64 KiB，交接快照最大 32 KiB；摘要与确认依据限长并遮蔽明显凭据，不承诺发现任意秘密。坏回执、无来源、无摘要、跨仓、错误时间或错误结果键拒绝后不创建任务、会话或 worktree。用户审阅的 at 与当前回执不一致时，先报告方案已更新，不能静默取最新版替代。
+
+下一任务的可选 `handoff` 保存来源任务/回执、结果时间、来源目标摘要/路径/实际树与 HEAD、结果摘要、确认依据和实际调用者；只传白名单字段，报告的 verified 自述始终不当验证通过。创建后的快照不会随着规划报告更新而改写。摘要不是完整上下文，接手者须核真实源文件；上游报告不能扩张下一任务明确的目标、文件范围或权限。
+
+确认依据是调用者对真实用户指令的记录，**不是签名、授权 token 或机器鉴定的人类批准**；CLI 不从文本里解析「批准」来授予权力，宿主审批和值守权限照旧。只许入口在确有对应指令时传入，不准由规划者的结果冒充用户。多个进程同一目标编号并发交接只创建一次；后续重发拒绝重复派工。启动或实际 host 失败保留该任务、交接快照和 checkout，明确 blocked，不自动再开窗或换模型；恢复沿原 retry/resume。
+
+项目 JSON 和系统总览的项目详情 JSON 可读取同一任务里的交接关系，不另存 stage 数据库；系统总览的跨项目任务摘要尚不投影 handoff，浏览器尚无专用阶段流程图或批准按钮。旧 executor 可读任务，但回写可能丢掉新增 handoff 字段，跨工具使用前须升级实际执行器。这批只有本地源码和替身宿主子进程证据；不声称真实 Grok/Claude/Hermes 账户调用或完整自动流水线已跑通。
 
 ## Codex 桌面原生桥接
 

@@ -17,10 +17,8 @@ kit/milestone-template.md
 kit/phase-card-template.md
 kit/prd-template.md
 kit/requirement-pack-template.md
-kit/review-prompt-template.md
 kit/thoughts-and-ideas-template.md
 playbook/anti-hallucination.md
 playbook/architect-lens.md
 playbook/freedom-vs-discipline.md
 playbook/multi-contributor-protocol.md
-playbook/sop.md

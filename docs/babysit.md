@@ -12,10 +12,8 @@
 
 ## §1 首轮启动（只做一次，后续轮跳过）
 
-1. **单值守核对 + 上岗登记**：向用户确认没有第二个值守窗口在班。确认后两件都做：
-   - **机器可寻址（真相源）**：`agent-on oncall claim --session <本窗口会话名>`。登记落 common git dir，每棵 worktree 读到同一份；功能窗口跑 `agent-on oncall status` 就能拿到交单地址，不必读本文档。已有人在班时命令会拒绝——那就是「已有第二个值守」的机器证据，别 `--force` 抢，先问用户。读不到自己的精确会话名时用 **worktree 目录名前缀**注册（闸是双向前缀匹配，能匹配到带后缀的完整会话名）。
-   - **人可读（副本）**：把地址写进下方交接快照「在班值守地址」行。**这行是每棵树一份的文件副本，功能窗口在自己分支上读到的可能是任意旧版本**——它给人看，机器寻址一律以 `oncall status` 为准。下班清掉，接班覆盖。
-2. **开 worktree**（一会话一 worktree 铁律）。值守平时只读不 claim；要写文件（本文档）时按最小 owns（`docs/babysit.md`）claim 值守轨。
+1. **读取实际值守登记**：`agent-on oncall status --json`。用户已要求本窗口值守且无人占班时，直接 `agent-on oncall claim --session <本班会话名>`，不重复询问；已有他人在班就复用其路由。身份认实际宿主、会话 ID 与工作区，会话名只供寻址，不能代替真实身份。强制接班须有对应用户指令。
+2. **复用合适工作区**：日常查看和合入不要求新建 worktree 或登记 lane。真正并行写文件时再隔离；共享修改先归并。账本由执行合入的值守唯一追加。
 3. **权限自检**：跑一次 `gh pr merge --help` 级别的无害探测确认 allow 规则已配；没配则把 `kit/babysit/SETUP.md` §1 的 settings 命令贴给用户手跑（本仓实测：未建 settings 时 `gh pr merge` 与 `gh api -X PUT` 被分类器间歇拦，两步不过即停——机制红线，agent 改不了自己的权限）。
 4. **核背景坐标（别信交接文档，自己跑）**：`git fetch origin -q && git rev-parse origin/main`、`gh pr list --state open`、最新 tag（`git tag --sort=-v:refname | head -1`）、上一班快照声称的关键事实逐条验证。
 5. **读规矩原文**：AGENTS.md（自举纪律 6/7/8 + 迭代闭环职责）、kit/merge-checklist 0c、boot/settlement.md 收尾四件。合并方式：merge commit（`--merge`）；版本批题头 `merge(vX.Y.Z): …`。**本仓 2026-08-20 起有 CI**（PR #37 装的 `.github/workflows/gate.yml`，四个 job：CLI 测试+承接层校验 / 文档三闸 / 外部贡献只许碰 intake / GitGuardian）。仍**无 required checks、无 up-to-date 硬门**——CI 红不会在 GitHub 层阻止合并，**由值守把关**：红了按 §4 分诊或打回，不合。核对面见 §2.2。
@@ -40,18 +38,9 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
    **队列真相源 = open PR 列表**；SendMessage 交单只是门铃 + 特殊说明通道。交单消息三型：交单 / 撤单 HOLD / READY；收到 HOLD 的单挂起，等 READY 再进入分流。
    **门铃即起跑**：交单消息送达即唤醒本会话，**当轮就跑**收单 + 追平，不等下一次定时唤醒；门铃丢了最多晚一个心跳、不漏单（队列从 `gh pr list` 完整重建）。机制见 `kit/babysit/MERGE-POLICY.md` §1。
    `agent-on landing refresh && agent-on landing plan` 拿 NOW / 波次当排序输入。
-2. **逐 PR 核对面（本仓 2026-08-20 起有 CI，四查 + 一次机器分档）**：
-   **先跑 `python3 tools/merge-audit/merge_audit.py precheck --pr <N>`**——退出码 `0` 自动合 / `10` 合但当轮播报一行 / `20` 硬停不许合 / `2` **判不了，当硬停处理**。工具的判定是独立的，不看值守自称。
-   - `gh pr view <N> --json mergeable,mergeStateStatus`：须 MERGEABLE / CLEAN（DIRTY → 服务端追平或按 §4 分诊）
-   - GitGuardian（外部 app check）：须 pass
-   - 内容分类：对实际 diff 跑机器 precheck，只有硬停或健康度异常才停；canonical 文档并不自动落在「必须先问」。判据以 `tools/merge-audit/policy.json` 为准，批准与记账按下节执行
-   - 真缺陷 = 打回四件套（证据指针 + 定位 + 修复选项 + SendMessage 作者会话），值守零代修
-3. **合并流程（严格串行，一次只合一条）**：
-   1. 落后 base → 服务端追平 `gh api -X PUT repos/Palebluedot-ai/agent-on/pulls/<N>/update-branch`；绝不本地 checkout / push 功能分支
-   2. **CI 中位约 45 秒**，等得起——四查全过 + 授权到位后 `gh pr merge <N> --merge`（版本批用 `--subject "merge(vX.Y.Z): …"`）。**开在 2026-08-20 之前的 PR 没跑过新 CI**，服务端 `update-branch` 追平一次即可让新闸管到它（实测：#38 就是这么照出 `cargo fmt` 没跑的）
-   3. **合完四连**：`merge_audit.py record --pr <N> --action merged --claimed <HARD_STOP|AUTO|NOTABLE> --pointer <仓内文件或 commit>` → 记账（第 4 步）→ SendMessage 回执作者会话 → 队列下一条如变 BEHIND 立即追平。
-      **`--pointer` 必须 git 可核**（仓内文件路径或 `rev-parse` 得出的 commit）；裸 PR-URL 与空指针会被降成 `UNVERIFIED_HARDSTOP`。**自称写错档会被工具对账报 `MISMATCH`**——别拿它洗自己的越界。
-   4. **版本批合并后**：值守可代打已拍板批的 tag（`git tag -a vX.Y.Z -m "vX.Y.Z — <semver 档>" <merge SHA> && git push origin vX.Y.Z`）——机械步骤，语义（版本号/档位/条目）须已经用户拍板
+2. **按状态推进**：运行 `agent-on master` 共读队列。READY 按已有授权继续；WAIT 自动等下一轮，不请用户重复确认；FIX 给实际作者证据和修复方向；HARD_STOP 先核已有用户批准，缺授权才提问。检查名、作者与例外认项目的 `tools/merge-audit/policy.json`。
+3. **合入与恢复**：`agent-on master --apply` 串行合入、自动记账；当前目标明确时可加 `--pr N`。本轮批准过的例外按 [交付统筹](../kit/master-delivery.md) 绑定 PR、head 和真实批准记录。若中断，下一轮重跑同一命令，先核远端是否已合并再补账。
+   追平必须核预期 head，之后等新提交的相关必需检查。固定 `gh run watch <id>` 不会自动跟随新 head；不能把旧 run 成功串接到一个未经检查的新提交。合入不自动删除分支，版本发布继续按项目既有授权和 tag 纪律收尾。
 4. **账本巡检（agent-on 四面）**：
    - **审计闭环**：`python3 tools/merge-audit/merge_audit.py report --limit 20`。出现 `VIOLATION`（没问就合了硬停单）或 `UNVERIFIED_HARDSTOP`（合了但指针核不到）**立即在面板播报并停手**；`report` 本身跑不通 / 报 `LEDGER_BROKEN` / 账本不可写 → **按 §3 的 dead-man's switch 退回逐单先问**
    - **发版硬门**：`git log --oneline $(git tag --sort=-v:refname | head -1)..origin/main` 非空 = tag 债务（AGENTS 自举纪律 6：push 结束 tag 必须钉 HEAD）——播报提醒，值守不代定版本语义
@@ -59,7 +48,7 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
    - **lane 卫生**：`agent-on worktree check`；只盯 `CONFLICT` 与 `ERROR`（那才是红），`UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 是提示——2026-09-14 起不再替未登记树占位 park；`MISSING` 一行照文案 `worktree forget` 即可
    - 两条铁则照旧：台账只记自己的号（字面匹配盲区）；元动作自涵盖
 5. **低频（每天一次）**：`agent-on worktree gc --dry-run` + 磁盘余量。
-6. **节奏**：CI 中位约 45 秒，不构成等待瓶颈——有单快循环（5–10 分钟），无单 noop 20–30 分钟；事故推一条通知 + 每轮最小探针。
+6. **节奏**：以本次相关检查的实际运行状态为准，有单快循环（5–10 分钟），无单 noop 20–30 分钟；事故推一条通知 + 每轮最小探针。
    **一个口令切档**：用户说「值守加速」→ 心跳降到 3–5 分钟并回执确认一句；**连续 3 轮 noop 自动回落**到 20–30 分钟（回落不出声）；用户说「值守回落」立即回常态。用户不改任何配置文件。
 7. **时延目标**：默认合入档的 PR，从交单到合入**中位 ≤ 6 分钟**（`X = CI 中位 + 5 分钟`；2026-08-20 实测 CI 中位约 45 秒，取 1 分钟。**此前写 5 分钟是基于「本仓无 CI」，那句自 #37 起已失效**；算法与依据见 `kit/babysit/MERGE-POLICY.md` §5）。单条超时在 §5 记一行（PR 号 + 实际耗时 + 卡在哪段）；**一个班次的中位数超 5 分钟 = 事故**，写进 §7 下班交接并附最慢三条。必须先问档的 PR 不计入——它们的时延取决于用户什么时候看消息，不是流水线的事。
 

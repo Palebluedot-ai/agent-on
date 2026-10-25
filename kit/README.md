@@ -1,6 +1,8 @@
 # agent-on Kit — 新项目模板层
 
 > 职责边界：本页是可选模板目录与选用指南，不要求项目全装；初始化规则以 BOOTSTRAP 的最小骨架为准。
+
+日常从 [交付入口](delivery-workflow.md) 与 [交付统筹](master-delivery.md) 进入。Dashboard、巡逻与清理按需使用；不要求把整套模板装进每个项目。
 > 从 Euan-Flutter 七次编排 run(零目录冲突、后四次零返工)原样抽取。**每个模板都被真实使用过,没有一个是想象出来的。**
 > 用法:新项目开工时照 §启动步骤 拷贝改名;规则背景见 ../playbook/sop.md 与 ../playbook/model-playbook.md。
 
@@ -11,7 +13,8 @@
 | [AGENTS-skeleton.md](AGENTS-skeleton.md) | 项目宪法骨架(硬约束/动态需求协议/编排并行协议) | Euan AGENTS.md |
 | [phase-card-template.md](phase-card-template.md) | 自包含 phase 卡模板(setpoint/disturbance/机械验收) | 14 张实战卡 |
 | [track-prompt-template.md](track-prompt-template.md) | 轨道 agent 派工 prompt，按实际任务表现选辅助 | Run #2-#7 派工词 |
-| [review-prompt-template.md](review-prompt-template.md) | 独立对抗审查 prompt(failed→respond→passed) | S2 审查(抓到 Critical 的那次) |
+| [delivery-workflow.md](delivery-workflow.md) | 跨项目通用交付入口：目标、分工、相关验证、批次审查与值守交单 | 2026-10-25 用户要求减少传话、重复检查与合入等待 |
+| [review-prompt-template.md](review-prompt-template.md) | 批次审查：缺陷与建议分开，修复后局部复查；高风险才独立审计 | S2 审查 + 2026-10-25 交付减负反馈 |
 | [deep-research-prompt-template.md](deep-research-prompt-template.md) | 深度调研派工 prompt(v1 骨架 + v2 四纪律:仓内审计先行/授权推翻前提/数字纪律/对抗自核验) | Dartify PR #180(158 断言对抗核验) |
 | [merge-checklist.md](merge-checklist.md) | 合流七步 checklist | sop.md Phase 5 + Run #3 教训 |
 | [ledger-ratchet-pattern.md](ledger-ratchet-pattern.md) | merge 记账 CI 棘轮模式 | 依从率断档时(Dartify) |

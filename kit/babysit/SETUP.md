@@ -28,7 +28,8 @@ EOF
 
 ```bash
 cp -R <agent-on 路径>/tools/merge-audit <项目路径>/tools/merge-audit
-# 落值：repo / trusted_authors / ledger_starts_at / 硬停路径 glob
+# 落值：repo / trusted_authors / ledger_starts_at / merge_method / 硬停路径 glob
+# merge_health.required_checks 填本项目必须出现的检查；advisory_check_names 只列已决定不阻塞的检查
 $EDITOR <项目路径>/tools/merge-audit/policy.json
 python3 tools/merge-audit/merge_audit.py policy          # 人读一遍生效规则
 python3 -m unittest discover -s tools/merge-audit -t tools/merge-audit
@@ -40,6 +41,8 @@ python3 tools/merge-audit/merge_audit.py scan --limit 20 # 对着本仓真实历
 （agent-on 2026-08-20 首跑实测）。误报会训练人忽略告警，比没有告警更糟。
 
 `trusted_authors` **留空 = 所有 PR 都硬停**，这是安全的失败方向；宁可先窄后放。
+
+接入完成后先 `agent-on master` 核对队列，授权已齐就 `agent-on master --apply`。完整续接与故障恢复见 [交付统筹](../master-delivery.md)。不要求每个任务单独建值守、登记 lane 或重跑全面审查。
 
 ## 第 4 步：启动
 

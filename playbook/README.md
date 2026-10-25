@@ -7,11 +7,12 @@
 
 | 文件 | 核心论点 |
 |---|---|
-| [sop.md](sop.md) | 完整开发 SOP：需求整理 → MRD/PRD → 评审 → 切片 → 细颗粒执行 → 并行 → 审查 QA → 沉淀 |
+| [delivery.md](delivery.md) | 日常功能交付：工作包、局部验证、批次审查、合入与综合周检；少打断与需求变化 |
+| [sop.md](sop.md) | 历史场景参考：按实际缺口选择规划、并行、审计与发布阶段，日常以 delivery 为准 |
 | [anti-hallucination.md](anti-hallucination.md) | 防幻觉 12 机制：幻觉 = f(信息缺口 × 自由度)；接口/状态/完成/决策四类幻觉的机械封堵 |
 | [freedom-vs-discipline.md](freedom-vs-discipline.md) | 二车道：Explore（错误不算错误）× Ship（全纪律），两道不许串；品味前置四层 |
 | [orchestration-future.md](orchestration-future.md) | 历史展望入口；现行模型选择与辅助强度只认 model-playbook |
-| [model-playbook.md](model-playbook.md) | 混编经济学：贵模型买判断（~15%），便宜模型配七脚手架买执行（~70%）；减少返工四杠杆 |
+| [model-playbook.md](model-playbook.md) | 用户决定阶段、工具、模型和档位；Agent-On 按明确指令调度，默认沿用宿主；辅助强度按实际表现调整 |
 | [multi-contributor-protocol.md](multi-contributor-protocol.md) | 多人协作：agent 轨道 ↔ 人类 contributor 同构；单写者换写者不换位置 |
 | [architect-lens.md](architect-lens.md) | 架构师六维透镜：域边界 → 真相源 → 信任钱流 → 生命周期 → 故障半径 → 演进自由 |
 | [elicitation-protocol.md](elicitation-protocol.md) | 前置追问协议：偏好缺口 = 幻觉第五类；2×2 判据（偏好方差 × 返工成本） |

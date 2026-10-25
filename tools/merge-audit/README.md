@@ -18,6 +18,8 @@
 
 默认账本固定为同一 Git 仓的主 worktree `ledger/merge-audit.jsonl`，脚本放在 linked worktree 也读写这份。`record` / `scan --write` / `report` 必须用同一绝对路径；显式 `--ledger` 拒绝相对路径。账本链断或 report 跑不通时退回逐单先问，不合并多树各自追加的账本。
 
+日常值守可直接运行 `agent-on master --apply`，串起 precheck、匹配 head 合入和 record；中断时先核实际结果再补账。项目接入见 [交付统筹](../../kit/master-delivery.md)。本工具仍只负责独立审计，不执行合入。
+
 ## 三个动作
 
 ```bash
@@ -28,7 +30,7 @@ python3 tools/merge-audit/merge_audit.py report              # 事后，独立�
 
 | 动作 | 谁跑 | 什么时候 | 回答什么 |
 |---|---|---|---|
-| `precheck --pr N` | 值守 | 合之前 | 这单能不能自动合？（退出码 0 / 10 / 20） |
+| `precheck --pr N` | 值守 | 合之前 | 这单能不能自动合？（政策与执行状态分开，退出码 0 / 10 / 20 / 30 / 40） |
 | `record --pr N …` | 值守 | 合之后立刻 | 我按什么判的、我干了什么 |
 | `scan` | 谁都行 | 任何时候 | 从 GitHub 真相独立重判已合并的单 |
 | `report` | 值守每轮 / 用户随时 | 任何时候 | 自述和事实对得上吗？对不上点名 |
@@ -37,10 +39,12 @@ python3 tools/merge-audit/merge_audit.py report              # 事后，独立�
 `precheck` 的退出码就是分流表：
 
 ```text
-0   自动合，合完 record 一行即可，别出声
-10  自动合，但本轮面板必须写一行让用户看见
-20  不许自动合 —— 命中硬停清单，或者健康度红（评审 changes-requested / 检查红）
-2   工具自己出错（gh 没装 / 没登录 / 网络断）—— 按 fail-closed 处理，当它是 20
+0   政策允许且就绪；合完 record（已合并的历史样本仅表示历史分类）
+10  政策允许且就绪；本轮简报写明治理类变化
+20  政策硬停；先核已有批准是否覆盖，缺授权才问用户
+30  等待 CI / 必需评审 / 平台状态，不请求人工接管
+40  已确认失败，交作者修复，再查影响范围
+2   工具取证失败，保留诊断、重试；不当成用户授权问题
 ```
 
 ## 四种被点名的形状

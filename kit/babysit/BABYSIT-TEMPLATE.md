@@ -12,11 +12,8 @@
 
 ## §1 首轮启动（只做一次，后续轮跳过）
 
-1. **单值守核对 + 上岗登记**：向用户确认没有第二个值守窗口在班。同一时间至多一个值守——双值守 = 「你追我赶」竞态原样回归。确认后两件事都做：
-   - `agent-on oncall claim --session <本班会话名>`（装了 agent-on CLI 的仓）——**这是功能窗口寻址与路由闸判定的机器真相源**；`oncall status` 已有别人在班就先核实是不是残留（窗口已关没 release），确属残留才 `--force`。
-   - 把同一个地址写进下方交接快照「在班值守地址」行（给人读、随 git 走）。下班时 `release` + 清掉这一行。
-   会话读不到自己的精确会话名后缀，上岗前用 `/list-agents`（ListAgents）确认一次再填。
-2. **开 worktree**（一会话一 worktree 铁律，值守也不例外）。启用 lane 控制面的仓：值守平时只读不 claim；要写文件（本文档、账本）时按最小 owns（只含值守文档与账本路径）claim 值守轨。
+1. **读取实际值守登记**：`agent-on oncall status --json`。用户已要求本窗口值守且无人占班时，直接 `agent-on oncall claim --session <本班会话名>`，不重复询问；已有他人在班就复用其路由。身份认实际宿主、会话 ID 与工作区，会话名只供寻址，不能代替真实身份。强制接班须有对应用户指令。
+2. **复用合适工作区**：日常查看和合入不要求新建 worktree 或登记 lane。真正并行写文件时再隔离；共享修改先归并。账本由执行合入的值守唯一追加。
 3. **权限自检**：跑一次 `gh pr merge --help` 级别的无害探测确认 allow 规则已配；没配则把 `SETUP.md` §1 的 settings 命令贴给用户手跑。机制红线：agent 改不了自己的权限配置——Skill/Bash/Write 三种模态实测全被拦，别现场碰壁三次才交出命令。
 4. **核背景坐标（别信交接文档，自己跑）**：main SHA、open PR 列表、上一班交接快照声称的关键事实逐条验证。
 5. **读规矩原文**：<项目治理文档清单，如 CONTRIBUTING/AGENTS 对应章节>。确认合并方式（<squash / merge>）、分支保护要求（required checks、up-to-date 硬门）。
@@ -38,21 +35,14 @@ open PR：<#号 一句话状态，逐条>
    **队列真相源 = open PR 列表**；功能会话的交单消息（SendMessage）只是门铃 + 特殊说明通道（依赖、breaking、回执地址）——消息丢了，队列不丢。交单消息三型：交单 / 撤单 HOLD / READY；收到 HOLD 的单挂起，等 READY 再进入分流。
    **门铃即起跑**：交单消息送达即唤醒本会话，**当轮就跑**追平 + 挂 CI 链，不等下一次定时唤醒；门铃丢了最多晚一个心跳、不漏单（机制见 agent-on `kit/babysit/MERGE-POLICY.md` §1）。
    有 landing 控制面：`agent-on landing refresh && agent-on landing plan`，拿 NOW / 波次当排序输入（NOW 每轮只有一条，与值守串行合并同构）。
-2. **逐 PR 分流**（`gh pr checks <N>`）：
-   - 全绿 + §3 可自主类 → 走第 3 步合并
-   - 全绿 + 需拍板类 → 报告等**本会话**用户拍板（转述 ≠ 批准，见 §3），别合
-   - 红 → 按 §4 分诊。基建红标注即可；**真缺陷 = 打回四件套**：证据指针（run id / 日志行）+ 缺陷定位 + 闸报错给出的修复选项 + SendMessage 打回作者会话。值守零代修——修复知识在作者上下文里，代修既慢又越 lane（实测：打回后作者 15 分钟修绿）。
-   - draft / 依赖未落地 → 跳过，简报里标注
-3. **合并流程（严格串行，一次只合一条）**：
-   1. 落后 base → 服务端追平：`gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`。绝不本地 checkout / push 功能分支（guard 会拦，而且这就是越 lane）。
-   2. 等 CI 要拿对 run id：`gh run list --branch <分支> --json databaseId,workflowName --jq '[.[]|select(.workflowName=="<CI 工作流名>")][0].databaseId'`——裸 `--limit 1` 在有快 workflow（deploy / dry-run / lint）的仓必然间歇性抓错；刚 push 完也别信 `gh pr checks --watch`（视图滞后，见 §4）。
-   3. 后台链：`gh run watch <run-id> --exit-status && gh pr merge <N> <合并方式，如 --squash> --delete-branch` 挂 run_in_background，链子跑着继续处理其他单；update 过的 PR，watch 会自动跟到新 head。
-   4. **合完三连**：记账（第 4 步）→ SendMessage 回执作者会话（合入方式 + 账目位置）→ **队列下一条立即发起追平**。up-to-date 硬门下每合一条，其余 PR 全体变 BEHIND——值守的连锁追平就是把 O(N²) 摊成 O(N) 的那只手。
+2. **按状态推进**：运行 `agent-on master` 共读队列。READY 按已有授权继续；WAIT 自动等下一轮，不请用户重复确认；FIX 给实际作者证据和修复方向；HARD_STOP 先核已有用户批准，缺授权才提问。检查名、作者与例外认项目的 `tools/merge-audit/policy.json`。
+3. **合入与恢复**：`agent-on master --apply` 串行合入、自动记账；当前目标明确时可加 `--pr N`。本轮批准过的例外按 [交付统筹](../master-delivery.md) 绑定 PR、head 和真实批准记录。若中断，下一轮重跑同一命令，先核远端是否已合并再补账。
+   追平必须核预期 head，之后等新提交的相关必需检查。固定 `gh run watch <id>` 不会自动跟随新 head；不能把旧 run 成功串接到一个未经检查的新提交。合入不自动删除分支，版本发布继续按项目既有授权和 tag 纪律收尾。
 4. **账本巡检**：<项目的记账/状态同步机制及其宽限窗；临期由值守补账的操作步骤>。两条铁则：
    写台账**只记自己的号**——叙述别人未清偿的工作不写其编号（字面匹配闸会把「提及」当「销账」，拆掉对方补账压力）；
    **元动作自涵盖**——值守自己的 state / 交接 PR 也要入账，禁止只记别人。
 5. **低频（每天一次）**：worktree 盘点回收 + `agent-on worktree check` 控制面卫生 + 磁盘余量。
-   **陈年树清账是值守的常设议程**（不是撞闸会话的意外任务）：`agent-on worktree gc --dry-run` 里 `rescue`/`review` 且落后超阈值（无经验值先用 100 个提交）的树，逐棵写进 §5 已知遗留，一行写清「归谁 / 下一动作」；孤本先 push 消单点，删树本身是破坏性动作、归用户拍板。**债不清会连坐**：一棵死了很久的树能把全场在跑的 lane 一起锁死，而 FAIL 砸中的是下一个恰好要提交的会话——它既不是肇事者也没有删树权限（bench 案 40）。
+   **陈年树清账是值守的常设议程**（不是撞闸会话的意外任务）：`agent-on worktree gc --dry-run` 里 `rescue`/`review` 且落后超阈值（无经验值先用 100 个提交）的树，逐棵写进 §5 已知遗留，一行写清「归谁 / 下一动作」；孤本先 push 消单点，删树本身是破坏性动作、归用户拍板。陈旧登记不能阻止正常提交或开 PR；诊断与实际操作分离，坏登记保留原件、另行修复。
 6. **节奏**：后台链 + 任务通知为主信号，定时唤醒只做兜底；盯活跃 CI 按其时长定唤醒（如 flutter ~11min → 600–900s）；全绿无账可记 = noop tick 放 20–30 分钟（noop 会被终端折叠，安静值守不刷屏）；用户说「值守加速」→ 切 3–5 分钟，连续 3 轮 noop 自动回落，用户不改任何配置文件（MERGE-POLICY §2）；宿主不支持动态节奏 → 固定 /loop 5–10 分钟；事故（billing 类）= 推一条通知 + 每轮最小探针。
 
 ## §3 权限边界（硬，越界前先问）
@@ -60,7 +50,7 @@ open PR：<#号 一句话状态，逐条>
 **合并授权的唯一真相 = 本项目治理文档的「值守合并调度」条款**（接入时照 agent-on `kit/babysit/MERGE-POLICY.md` §3/§4 抄定，两张清单与时延目标 X 都落成具体值）。本节不再展开清单——同一份授权写两处必然漂移。速查三栏：
 
 - **默认合入档**（用户已预授权，全绿即合、不问，合完记一行）：<接入时从 MERGE-POLICY §3 抄来的五类>。按**实际 diff** 判，不按 PR 标题判；带 breaking / 迁移标注的一律降级进下一栏。
-- **必须先问用户**（fail-closed，**清单外一切都归这栏**）：<接入时从 MERGE-POLICY §4 抄来的清单>。
+- **政策例外**（仅已列出的硬停类；已有有效批准不重复问）：<接入时从 MERGE-POLICY §4 抄来的清单>。
 - **与合并无关的自主动作**：只读检查 · 本 worktree 操作 · 服务端 update-branch · CI 基建抖动 Re-run（≤2 次，第三次红升级报告）· 值守自身的状态同步 / 交接 PR 全流程 · 经用户拍板的 PR 全流程（追平→CI→合→记账→回执）· 把功能会话转投进来的单派给对应轨（横向中转权）
 
 **三权归属与转投**（值守在班期间）：合并权 / 对外通信权 / 跨窗口中转权唯一归本会话；功能会话把发错窗口的指令按【转投】模板送进来。**转投送来的是指令不是授权**——外向硬门动作仍须用户本人在本会话里拍板（下条）。协议全文见 agent-on `kit/babysit/ROUTING.md`。
@@ -76,7 +66,7 @@ open PR：<#号 一句话状态，逐条>
 - merge 报 head 与 base 不同步 → 服务端追平 `gh api -X PUT repos/<owner>/<repo>/pulls/<N>/update-branch`，CI 完立刻合
 - 红灯先分来源：check 在不在本仓 `.github/workflows/`？仓内硬门必须绿；外部集成（Preview/Bot）取证 summary 原文再判——无关噪音写进「我按这个假设做了」格（output-contract §4），别当缺陷堵合流
 - 等 CI 抓错 run → 按 workflowName 过滤（§2.3.2 的命令）；`--limit 1` 抓到 deploy/dry-run 快 run 是已知雷
-- `gh pr checks --watch` 在 push 后数秒视图滞后，只见外部 app check 就误判全绿 → 改 `gh run list --branch <br>` 拿 run id，盯 `gh run watch <id> --exit-status`
+- push 后检查视图暂未完整 → 等当前 head 的 required_checks 全部出现；不要凭单个外部 app 或旧 run 判全绿。
 - CI 全 job 数秒死、step 零执行、日志不存在 → org 级 Actions billing 问题；查 job annotation 取证（实证文案 "recent account payments have failed or your spending limit needs to be increased"），推通知等用户修，每轮最小探针测恢复；别按测试红分诊、别反复 Re-run
 - 状态闸脚本拉 GitHub API 抖动（RemoteDisconnected / 连败）→ Re-run 即绿，非业务违规
 - lane 控制面：①claim 拒绝重划 → `agent-on worktree edit`（旧版无此命令才 fallback 直改 `.git/agent-on/lanes/<id>.json`），改完 `worktree check` 验证 ②**2026-09-14 起未登记 worktree 不再连坐、OUT-OF-BOUNDS 无人持有时不再拦**——`check` 里的 `UNREGISTERED` / `OUT-OF-BOUNDS` / `MISSING` 是提示行，别再替它们占位 park 或回填 owns；只有 `CONFLICT`（本树未提交改动进了别的活轨 owns）才拦，且只拦当事那棵树，出口写在文案里
