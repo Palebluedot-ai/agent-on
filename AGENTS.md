@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.28.1`**（值守核实际宿主/会话 ID 与工作区，认领/释放/心跳原子落盘；启动/恢复/compact 注入已有项目状态，默认不启角色或造窗口。旧登记缺实际身份需原负责人明确重新接班；损坏登记不冒称无人值守。原本机只读面板、动态 PR 证据、可选巡逻/派工/有限清道夫、真实 index/待推历史闸和共用审计账保留；Hermes 自动 hook/认证任务、跨机云端回执未验收。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启并信任当前 hooks；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
+**最新推荐 pin：`v0.28.2`**（值守核实际宿主/会话 ID 与工作区，认领/释放/心跳原子落盘；启动/恢复/compact 注入已有项目状态，默认不启角色或造窗口。旧登记缺实际身份需原负责人明确重新接班；损坏登记不冒称无人值守。原本机只读面板、动态 PR 证据、可选巡逻/派工/有限清道夫、真实 index/待推历史闸和共用审计账保留；Hermes 自动 hook/认证任务、跨机云端回执未验收。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启并信任当前 hooks；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
 版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
@@ -18,6 +18,8 @@
 活动回传续接：独立 `activity` 观察开关、窗口/任务绑定、原生事件与自述分源、原窗口共读和两种面板已实现。开发证据见 `snapshot/2026-10-03-activity-channel.md`；2026-10-04 用户 approved 后，本机四个实际执行器与两个插件核对同源，真实本 Codex 窗口已有 native-hook/PostToolUse 回传。安装及未完成边界见 `snapshot/2026-10-04-native-activity-host-upgrade.md`。Claude 待原窗口重载后验真实事件；新增/变更 hook 信任由用户按宿主流程处理。只在本仓启观察，Dartify、其他平台自动 adapter 与完整事件生命周期未验收；不把构造输入当现场证据。推荐 pin 不变。
 
 v0.28.1（2026-10-05）修 Claude 个人 PreToolUse 漏认原生会话 ID，补恢复重认领与三字段拦截诊断。未更新本机 executor/插件，Dartify 原窗口真实 payload 仍待验，不能宣称现场恢复。发布范围与证据见 `snapshot/2026-10-05-oncall-resume-identity.md`。
+
+v0.28.2（2026-10-11）只修测试隔离：在 Claude/Codex 会话里跑 `cargo test`，夹具不再继承宿主会话身份；运行行为与 v0.28.1 相同。
 
 历史：v0.2 融合 → v0.3 首次闭环 → v0.4 dogfood+guard → v0.5 分发 → **v0.6 消化攒批发版**。融合地图仍在 [snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)（考古，非当前阶段）。
 

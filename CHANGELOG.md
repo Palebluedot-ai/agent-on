@@ -17,6 +17,14 @@
 - **本机系统总览**：`dashboard --system` 有界汇总选定项目目录，五种 Agent 的任务/回执/进程信号与错误分源展示；项目/工具/搜索筛选、活动优先与全部展开，保留只读项目详情。Git common-dir 归一 linked worktree 与别名；损坏来源隔离、未知/陈旧/扫描上限明报。新增 `agent report` 通用自述入口，不授宿主/值守身份、不更新或释放原任务。一个观察器供多页面共读，不反复派工、逐仓重查或联网。未安装其他项目接线，不声称已捕获全部原生窗口/错误、跨机或云端；本项为薄 CLI 投影，不改合流与执行授权。执行书：`kit/live-control-plane.md`；证据见 [本轮记录](snapshot/2026-10-03-system-overview.md)。
 - **Codex CLI 可选诊断与失败回执**：`model-check` 只读观察有效配置、账户类型、托管要求与目录；配置/档位不兼容明报，不替换、不参与启动。`model_resolution` 启动回执仅记用户指令依据 explicit 或 host-settings / not-probed；实际登录/账户/权限仍由宿主验证。启动失败或宿主非成功退出写 blocked，重试只清自己的失败、不清作者其他阻塞。早期自动兼容的真实只读调用仅作历史证据，现已撤回自动选择逻辑；2026-10-04 本机执行器与插件已获准升级，没有启动其他真实模型。证据见 [排错记录](memory/2026-10-03-codex-model-compatibility.md)。
 
+## v0.28.2（2026-10-11）——测试夹具与宿主会话身份隔离
+
+> **patch**：只修测试隔离，运行行为与 v0.28.1 相同。用户在本仓会话要求验证后 commit＋push＋tag。修复与封版两笔经用户当场批准，以 `--no-verify` 跳过 pre-commit 单树闸：主 checkout 里另一会话自 10-05 未提交的 CHANGELOG/AGENTS/README 与 coordination 测试改动仍在，本轮没碰，那边同步 main 时要先提交，再合并这三份文档。发布不自动安装宿主执行器或插件。
+
+- **测试夹具不再继承宿主会话身份**：v0.28.1 起身份解析优先认 Claude 原生 `CLAUDE_CODE_SESSION_ID`，测试夹具却只设了 `AGENT_ON_HOST` / `AGENT_ON_SESSION_ID`，没清宿主变量。在 Claude 会话里跑 `cargo test`，被测的 agent-on 认的是外层会话而不是夹具：coordination 挂 2 项、session_continuity 挂 1 项；值守路由/心跳两套没挂，但登记下来的也是外层会话，只靠工作区不同分出窗口。CI 没有这些变量，所以一直是绿的。现在 coordination、session_continuity、oncall_routing、oncall_liveness 各用一份 `HOST_SESSION_ENV`，在起进程的地方统一清掉宿主身份与标记（Claude/Codex 原生 ID、`AGENT_ON_PARENT_CODEX_THREAD_ID`、`CLAUDE_ENV_FILE`、插件根、控制面和项目目录变量），用例需要的变量清完再显式设。只动测试，`cli/src` 的身份解析和运行行为不变。
+
+验证：同一个 Claude 会话里，直接跑和 `env -u CLAUDE_CODE_SESSION_ID` 跑 `cargo test --no-fail-fast`，都是 15 套 349 passed / 0 failed（修前直接跑 346 passed / 3 failed）；clippy（warnings 视为错误）、fmt、文档闸通过。把清单里的宿主变量全设成干扰值再跑，14 个集成套件全过，作诱饵的宿主环境文件没被写入。未覆盖：`cli/src` 里的单元测试 `oncall::tests::gate_blocks_merge_from_feature_window_only` 在进程带 `CLAUDE_ENV_FILE` 或 `CLAUDE_PLUGIN_ROOT` 时仍会失败。Claude 只给 hook 进程设这两个变量，Bash 工具里没有；本轮不改 `cli/src`。
+
 ## v0.28.1（2026-10-05）——Claude 恢复后的值守身份对齐
 
 > **patch**：修身份来源与拦截诊断；值守三权、失效窗口和合并政策不变。用户于本仓会话授权验证后 commit＋push，本轮只发布身份修复，不包含工作区其余未发布功能。发布不自动安装宿主执行器或插件。
