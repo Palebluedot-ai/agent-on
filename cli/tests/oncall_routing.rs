@@ -204,6 +204,25 @@ fn feature_window_delivery_path_stays_open() {
 }
 
 #[test]
+fn explicit_local_bare_fixture_is_not_a_hosted_main_write() {
+    let (_tmp, root, feature) = fixture();
+    agent_on(&root, &["oncall", "claim", "--session", "owner"]);
+    let bare = root.parent().unwrap().join("fixture.git");
+    must_run(&root, "git", &["init", "--bare", bare.to_str().unwrap()]);
+    let push = format!("git push '{}' HEAD:main", bare.display());
+    let out = guard(&feature, &bash_payload(&feature, &push));
+    assert_eq!(out.status.code(), Some(0), "{}", combined(&out));
+    for command in [
+        "git push origin HEAD:main".to_string(),
+        format!("git push '{}' HEAD:main", root.display()),
+        format!("{push} && gh pr merge 17 --squash"),
+    ] {
+        let out = guard(&feature, &bash_payload(&feature, &command));
+        assert_eq!(out.status.code(), Some(2), "{command}: {}", combined(&out));
+    }
+}
+
+#[test]
 fn sendmessage_is_funnelled_to_the_oncall_window() {
     let (_tmp, root, feature) = fixture();
     agent_on(&root, &["oncall", "claim", "--session", "babysit-window-a"]);

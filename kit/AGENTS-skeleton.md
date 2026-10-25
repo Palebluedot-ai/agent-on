@@ -47,7 +47,7 @@
 
 ## §9 动态需求协议(用户中途提新想法时)
 
-① 复述确认边界 → ② 定位置(本切片/新切片/暂停项)→ ③ 更新对应文档(requirements D 表 / TODOS / qa 三桶)→ ④ 继续当前工作,不被打断主线。
+明确变更先定位到当前批次/后续待办/暂停项，就地更新现有验收与来源并作废旧假设，沿已有授权继续。只有无法从上下文确定且会改变结果的边界才提问；不为复述明确要求反复等确认。
 **想法类捷径**:若只是产品想法/待办(非本切片需求、非 debug、非状态询问),AI 当场代笔一行进 `thoughts-and-ideas.md` 📥速记区(带日期+「对话捕获」标),口头确认一句即继续——只进速记区不进已整理,升级成需求永远由用户拍板;拿不准就不记,宁漏勿噪。
 **暂停项局部解禁**:D 表划界(已拍/仍禁)+ 同批多面同步(宪法摘要·仪表盘·TODOS·威胁模型);口头「可以做一点加密」≠ 整栈 E2E/KMS 解禁。
 **决策/切片取号即落盘**:占用 D-N / phase 号等共享顺序编号时,先把占位行以最小 diff 写入共享真相面(requirements/进度)再写正文——并行会话会撞号(见 multi-contributor 三种并行事故之三)。
@@ -74,13 +74,13 @@ A 未建功能(切片卡管)/ B 疑似缺陷(统一修)/ C 视觉体验(统一 d
 
 ## §skill 路由(制度在 agent-on;环节 skill 可选)
 
-> **默认立场(2026-08 起)**：agent-on 管制度(证据/边界/单写者/结账回流);**不**把 Superpowers 当默认执行栈(偏重、易抢跑)。有 GStack 则环节点名走 GStack;无强 skill → kit 模板 fallback。BOOTSTRAP §1 第 5 问只采集「机器上还装了啥」,不暗示必须双栈。
+> **默认立场**：明确目标读 Agent-On `kit/delivery-workflow.md`；检查节奏读 `playbook/delivery.md`。用户已选 Matt / GStack 就沿该选择，同阶段只用一套；没有插件也能用主会话和 kit 完成交付。局部验证、批次审查、相关必需检查后合入，综合体检按周；现有 CI 未实际调整前仍须满足。规划和低风险任务不默认启动额外审查窗口。
 
 | 环节 | 本项目默认 | 无则 fallback |
 |---|---|---|
-| 规划设计 | [GStack /autoplan · 若已装] | 主会话 + 用户拍板;禁 brainstorming 抢规划 |
+| 规划设计 | [用户选择的 Matt / GStack · 按需] | 主会话读取现有目标；方向不明才补决策 |
 | 实现执行 | **主会话 / 按需子代理** + 风险相称的验证与完成证据 | 实际接口并行时选 agent-on 协作协议；默认沿已授权目标推进 |
-| 代码/PR 审查 | [GStack /review · 若已装] | kit/review-prompt-template.md(只保留一套审查) |
+| 代码/PR 审查 | [用户选择的 Matt / GStack · 按批次] | kit/review-prompt-template.md；修复后只复查受影响范围 |
 | 合流验收 | [GStack /qa · 若已装] | kit/merge-checklist.md |
 | 发布部署 | [GStack /ship · 若已装] | 项目自有 checklist;agent-on pin/结账照常 |
 | 调试 | [GStack /investigate · 若已装] | playbook/anti-hallucination + 完成贴证据 |

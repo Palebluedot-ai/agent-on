@@ -108,13 +108,14 @@
         "AGENTS.md",
         "CHARTER.md",
         "BOOTSTRAP.md",
+        "docs/babysit.md",
         "kit/babysit/**",
         "playbook/multi-contributor-protocol.md"
       ]
     }
   ],
   "merge_health": {
-    "_comment": "合并当时的健康度。post-hoc 仍可核：review 结论与 check 结论都留在 PR 上。",
+    "_comment": "当前候选的健康度；required_checks 必须已上报，advisory_check_names 仅用于明确不阻塞的检查。必需名优先，其他检查保持原判定。全量回归安排在夜间。",
     "block_on_changes_requested": true,
     "block_on_failing_checks": true,
     "check_conclusions_treated_as_red": [
@@ -127,6 +128,12 @@
       "STALE"
     ],
     "block_on_draft": true,
-    "block_on_not_mergeable": true
-  }
+    "block_on_not_mergeable": true,
+    "required_checks": [
+      "CLI 测试 + 承接层校验",
+      "文档三闸（职责边界棘轮 / 死链 / 推荐 pin）"
+    ],
+    "advisory_check_names": []
+  },
+  "merge_method": "merge"
 }

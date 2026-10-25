@@ -7,3 +7,4 @@ cli/target/
 
 # 其他 AI 工具在仓根留的本地状态(不入库)
 .workbuddy/
+.gstack/

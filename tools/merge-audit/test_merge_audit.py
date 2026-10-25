@@ -746,5 +746,56 @@ class TestNoClassesAfterMainBlock(unittest.TestCase):
                          "有测试类排在 if __name__ 之后——直接跑文件会漏掉它们（红队 #29）")
 
 
+
+
+
+class TestReadinessCLI(unittest.TestCase):
+    def run_precheck(self, update, cfg=None):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = pr(files=["README.md"], merged_at=None)
+            source.update({"headRefOid": "a" * 40, "state": "OPEN"})
+            source.update(update)
+            data = root / "pr.json"
+            data.write_text(json.dumps(source))
+            policy = json.loads(json.dumps(POLICY))
+            policy["merge_health"]["required_checks"] = []
+            if cfg:
+                policy["merge_health"].update(cfg)
+            policy_path = root / "policy.json"
+            policy_path.write_text(json.dumps(policy))
+            result = subprocess.run([sys.executable, str(Path(ma.__file__)),
+                "--policy", str(policy_path), "precheck", "--pr", "1", "--from-file", str(data), "--json"],
+                capture_output=True, text=True)
+            return result.returncode, json.loads(result.stdout)
+
+    def test_pending_checks_and_required_review_wait_without_permission_prompt(self):
+        for fields in [
+            {"statusCheckRollup": [{"name": "ci", "status": "IN_PROGRESS"}]},
+            {"statusCheckRollup": [{"context": "ci", "state": "PENDING"}]},
+            {"reviewDecision": "REVIEW_REQUIRED"}, {"mergeable": "UNKNOWN"},
+            {"headRefOid": None},
+            {"labels": [{"name": "hold"}]},
+        ]:
+            with self.subTest(fields=fields):
+                code, data = self.run_precheck(fields)
+                self.assertEqual(code, ma.EXIT_WAIT)
+                self.assertEqual(data["decision"], "AUTO")
+                self.assertEqual(data["execution"]["state"], "WAIT")
+
+    def test_required_check_must_report_even_when_other_checks_are_green(self):
+        code, data = self.run_precheck({"statusCheckRollup": [{"name": "preview", "conclusion": "SUCCESS"}]},
+                                       {"required_checks": ["ci"]})
+        self.assertEqual(code, ma.EXIT_WAIT)
+        self.assertIn("ci", str(data["execution"]))
+
+    def test_failure_needs_repair_and_only_named_advice_is_ignored(self):
+        failed = {"statusCheckRollup": [{"name": "preview", "conclusion": "FAILURE"}]}
+        self.assertEqual(self.run_precheck(failed)[0], ma.EXIT_FIX)
+        self.assertEqual(self.run_precheck(failed, {"advisory_check_names": ["preview"]})[0], ma.EXIT_AUTO)
+        self.assertEqual(self.run_precheck(failed, {"advisory_check_names": ["preview"],
+                                                  "required_checks": ["preview"]})[0], ma.EXIT_FIX)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

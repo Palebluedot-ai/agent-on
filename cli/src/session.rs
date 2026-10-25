@@ -136,11 +136,11 @@ pub(crate) fn startup_context(data: &Value) -> Result<Option<String>, String> {
         .map(|t| format!("{} ({})", t.id, t.state))
         .collect::<Vec<_>>()
         .join("、");
-    Ok(Some(format!("Agent-On 项目状态已接续。{}。巡逻/任务捕获：{}。未释放任务 {} 项{}。共读台账：{}；详细状态用 agent-on dashboard --json。按项目规则和真实文件继续；结果回传不等于验证完成。原窗口继续，不重复初始化或自动新开窗口。", oncall, if config.enabled { "已启用" } else { "未启用" }, active.len(), if brief.is_empty() { String::new() } else { format!("：{brief}") }, store.dir.display())))
+    Ok(Some(format!("Agent-On 项目状态已接续。{}。巡逻/任务捕获：{}。未释放任务 {} 项{}。共读台账：{}；详细状态用 agent-on status --json。按项目规则和真实文件继续；结果回传不等于验证完成。原窗口继续，不重复初始化或自动新开窗口。", oncall, if config.enabled { "已启用" } else { "未启用" }, active.len(), if brief.is_empty() { String::new() } else { format!("：{brief}") }, store.dir.display())))
 }
 
 fn unavailable(error: &str) -> String {
-    format!("Agent-On 项目状态不可用，不能确认负责人或任务。请修复台账/会话接线并运行 agent-on dashboard --json 核对。取证错误：{error}")
+    format!("Agent-On 项目状态不可用，不能确认负责人或任务。请修复台账/会话接线并运行 agent-on status --json 核对。取证错误：{error}")
 }
 
 fn quote(value: &str) -> String {

@@ -4,6 +4,19 @@
 
 ## [未发布]
 
+- **交付统筹**：新增 `master` 一轮处理现有 PR 队列，核实际值守、政策与当前 head，串行合入并写独立审计账；中断先核 GitHub 再补账，不重复合并。WAIT / FIX / HARD_STOP 分开，必需检查未上报不算绿。方法与执行双落点：`playbook/delivery.md` / `kit/master-delivery.md`。
+- **解除登记自锁**：Git 操作闸与 lane 诊断分离，损坏登记和失效 base 不阻止真实提交/推送；其他 checkout 暂停的 Git 重放只保留诊断。明确本地临时裸仓 push 不当成线上 main 写入。派工的合入证据独立于清道夫报告。
+- **按范围验证与夜间全量**：PR 保持原检查名称，文档改动不编译 Rust，已知范围跑相关测试，共享基础与未知范围扩大验证；香港时间每天 01:23 在现有 GitHub runner 全量检查。停止合入后重复运行同一套 push CI；推送本 workflow 后才启用，需真实首次运行回执验收。
+- **日常流程收缩**：Dashboard 不再是入口，握手不催整理/清理/计数；经验复用已有项目记录，settle/digest 按需保留。Matt 的设计与工作包方法融入交付，避免叠加多套审查。双落点：`playbook/iteration-loop.md` / `boot/settlement.md`。
+
+- **跨项目功能交付入口与对话简报**：新增 skill `deliver`（中文“交付/统筹”），连接已有目标、task/dispatch、批次验收与值守交单；Matt 方法按需接入，无插件也能执行。`status` 默认展示目标、窗口登记、依赖、卡点、待验收和下一步；项目事实收集从网页模块抽到 `project_status`，JSON 及旧 status 面板参数兼容。方法论/接入件成对落点：`playbook/delivery.md` / `kit/delivery-workflow.md`；骨架、派工、审查、合流、SOP 与入口同步收缩为局部验证、批次审查、修复后局部复查和综合周检。没有自动关闭现有 CI、修改下游保护规则、启用周计划或全局安装；旧 Dashboard 保留兼容，本批为收缩前的可用切片。
+- **独立活动回传**：新增 opt-in `activity enable/disable/status/bind/report`，观察与巡逻分开；共用 capture 接已支持的宿主事件，只采目标摘要/工具名称，原窗口在启动/提交时共读简报。项目和系统面板新增「窗口在做什么」，明确 native-hook/显式自述/进程差别、任务阶段不跟随窗口结束。旧 turn 迟到/重复、恢复假开工、作者阻塞被工具流量清除、超时/损坏假零均有回归；不授模型、派工、合流或删除权。2026-10-04 用户批准本机 executor/插件升级，实际安装同源，本 Codex 窗口 native-hook/PostToolUse 已现场验证；Claude 待重载，完整生命周期、其他项目和全平台自动 adapter 未验收。执行书：`kit/live-control-plane.md`，开发记录：`snapshot/2026-10-03-activity-channel.md`，安装证据：`snapshot/2026-10-04-native-activity-host-upgrade.md`。本批仍未发布。
+- **用户指令型阶段交接**：现有 dispatch 新增同项目只读规划的 handoff-from/result/at/evidence；精确审阅回执不匹配就拒绝，固定目标/范围/来源树与 HEAD/报告摘要，不随后来的规划修订改写。沿原 launcher、值守/重叠/依赖/宿主权限闸，同编号并发只派一次；失败保留任务与快照、不换型或重放。Stop/结果自述不触发派工、不验收、不释放，上游写成果仍需实际合入。方法论/接入件成对落点：`playbook/model-playbook.md` / `kit/patrol-control-plane.md`；skill 与只读看板 JSON 说明同步。此处自动携带上下文不等于无人值守多阶段流水线；本机执行器已获准安装，仍未发布、未实跑其他账户模型。
+- **模型选择权归用户**：规划/执行/验收所用工具、模型与推理档位由用户决定；Agent-On 仅按明确指令调度。撤回本轮早期的目录默认兜底与档位替换：只有用户显式 `--model` 才传递，未指定沿用当次宿主设置，启动/retry/resume 不查询目录选型，旧自动选择回执也不成为启动参数。拒绝后保留任务并报告，不自动改派、降档或重放。方法论/执行书成对落点：`playbook/model-playbook.md` / `kit/patrol-control-plane.md`；旧混编建议和方法论索引同步对齐。本地源码不等于全局安装、自动活动 hook 或阶段流水线已完成。
+- **纠正进行中展示语义**：系统和项目面板明确区分已登记任务阶段与实时窗口活动；缺活动源时 API 明报 unknown/null，空任务栏不代表没有人在工作。待验收卡片不再以历史「正在…」进度作当前状态。此修复不把旧任务批量改为 working；本机升级已获准且真实 Codex 工具事件已回传，Claude、完整生命周期及其他项目仍待验，不宣称全量自动采集完成。执行书：`kit/live-control-plane.md`。
+- **本机系统总览**：`dashboard --system` 有界汇总选定项目目录，五种 Agent 的任务/回执/进程信号与错误分源展示；项目/工具/搜索筛选、活动优先与全部展开，保留只读项目详情。Git common-dir 归一 linked worktree 与别名；损坏来源隔离、未知/陈旧/扫描上限明报。新增 `agent report` 通用自述入口，不授宿主/值守身份、不更新或释放原任务。一个观察器供多页面共读，不反复派工、逐仓重查或联网。未安装其他项目接线，不声称已捕获全部原生窗口/错误、跨机或云端；本项为薄 CLI 投影，不改合流与执行授权。执行书：`kit/live-control-plane.md`；证据见 [本轮记录](snapshot/2026-10-03-system-overview.md)。
+- **Codex CLI 可选诊断与失败回执**：`model-check` 只读观察有效配置、账户类型、托管要求与目录；配置/档位不兼容明报，不替换、不参与启动。`model_resolution` 启动回执仅记用户指令依据 explicit 或 host-settings / not-probed；实际登录/账户/权限仍由宿主验证。启动失败或宿主非成功退出写 blocked，重试只清自己的失败、不清作者其他阻塞。早期自动兼容的真实只读调用仅作历史证据，现已撤回自动选择逻辑；2026-10-04 本机执行器与插件已获准升级，没有启动其他真实模型。证据见 [排错记录](memory/2026-10-03-codex-model-compatibility.md)。
+
 ## v0.28.2（2026-10-11）——测试夹具与宿主会话身份隔离
 
 > **patch**：只修测试隔离，运行行为与 v0.28.1 相同。用户在本仓会话要求验证后 commit＋push＋tag。修复与封版两笔经用户当场批准，以 `--no-verify` 跳过 pre-commit 单树闸：主 checkout 里另一会话自 10-05 未提交的 CHANGELOG/AGENTS/README 与 coordination 测试改动仍在，本轮没碰，那边同步 main 时要先提交，再合并这三份文档。发布不自动安装宿主执行器或插件。

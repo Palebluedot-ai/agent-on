@@ -1,7 +1,7 @@
 //! A read-only projection of existing ledgers, not another task store or model runtime.
 //! One collector serves all browser clients; opening a page never launches a model.
 
-use crate::{coordination as c, landing, oncall, worktree};
+use crate::{coordination as c, project_status::collect, system_dashboard};
 use clap::Args;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
@@ -12,13 +12,22 @@ use std::time::{Duration, Instant};
 
 #[derive(Args)]
 pub(crate) struct DashboardArgs {
+    #[arg(long, conflicts_with_all = ["system", "root", "project"])]
+    pub(crate) repo: Option<PathBuf>,
+    /// Aggregate local projects without dispatching or installing hooks
+    #[arg(long, conflicts_with = "refresh_landing")]
+    pub(crate) system: bool,
+    /// Bounded project discovery root (repeatable; default: ~/Projects)
+    #[arg(long, requires = "system")]
+    root: Vec<PathBuf>,
+    /// Explicit project outside discovery roots or below excluded/nested directories
+    #[arg(long, requires = "system")]
+    project: Vec<PathBuf>,
     #[arg(long)]
-    repo: Option<PathBuf>,
-    #[arg(long)]
-    json: bool,
+    pub(crate) json: bool,
     /// Serve an optional local browser panel until Ctrl-C
     #[arg(long, conflicts_with = "json")]
-    serve: bool,
+    pub(crate) serve: bool,
     #[arg(long, default_value_t = 8765)]
     port: u16,
     /// Opt in to one shared network refresh every 60 seconds (no model calls)
@@ -26,140 +35,47 @@ pub(crate) struct DashboardArgs {
     refresh_landing: bool,
 }
 
-fn section(result: Result<Value, String>) -> Value {
-    match result {
-        Ok(value) => json!({"available":true,"data":value}),
-        Err(error) => json!({"available":false,"error":error}),
-    }
-}
-
-fn parsed(code: i32, text: String) -> Result<Value, String> {
-    if code != 0 {
-        return Err(text.trim().to_string());
-    }
-    serde_json::from_str(&text).map_err(|e| e.to_string())
-}
-
-/// Reads only the primary/common-dir facts, so linked worktrees see the same project.
-pub(crate) fn collect(repo: &Path) -> Result<Value, String> {
-    let store = c::Store::open(repo)?;
-    let common = worktree::common_git_dir(&store.repo)?;
-    let config = section(
-        store
-            .config()
-            .and_then(|v| serde_json::to_value(v).map_err(|e| e.to_string())),
-    );
-    let mut patrol = section(c::scan(&store, None));
-    if let Some(sessions) = patrol["data"]["sessions"].as_array_mut() {
-        for session in sessions {
-            let age = session["heartbeat_at"]
-                .as_str()
-                .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
-                .map(|at| {
-                    (chrono::Utc::now() - at.with_timezone(&chrono::Utc))
-                        .num_seconds()
-                        .max(0)
-                });
-            let pids: [Option<u32>; 2] = [
-                session["pid"].as_u64().map(|p| p as u32),
-                session["child_pid"].as_u64().map(|p| p as u32),
-            ];
-            session["heartbeat_age_seconds"] = json!(age);
-            session["process_alive"] = json!(if pids.iter().any(Option::is_some) {
-                Some(pids.into_iter().flatten().any(c::pid_alive))
-            } else {
-                None
-            });
-        }
-    }
-    let raw = c::git(&store.repo, &["worktree", "list", "--porcelain"])?;
-    let mut trees = Vec::new();
-    let tasks = store.tasks();
-    for (i, tree) in worktree::parse_worktrees(&raw).into_iter().enumerate() {
-        let facts = (|| -> Result<Value, String> {
-            let status = c::git(&tree.path, &["status", "--porcelain=v1", "-z"])?;
-            let unique = c::git(
-                &tree.path,
-                &["rev-list", "--count", "HEAD", "--not", "--remotes"],
-            )?;
-            Ok(json!({"clean":status.is_empty(),"local_only_commits":unique.parse::<u64>().ok()}))
-        })();
-        trees.push(json!({"path":tree.path,"head":tree.head,"branch":tree.branch,
-            "primary":i==0,"locked":tree.locked,"prunable":tree.prunable,"facts":section(facts),
-            "managed":tasks.as_ref().ok().map(|tasks|tasks.iter().any(|t|t.managed && t.worktree==tree.path))}));
-    }
-    let (code, output) = oncall::status(&store.repo, true);
-    let oncall = section(parsed(code, output));
-    let opts = landing::LandingOpts {
-        json: true,
-        ..Default::default()
-    };
-    let (code, output) = landing::run_status(&store.repo, &opts);
-    let landing = section(parsed(code, output));
-    for tree in &mut trees {
-        if let Some(track) = landing["data"]["snapshot"]["tracks"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .find(|track| track["worktree"] == tree["path"])
-        {
-            tree["lifecycle"] = track["lifecycle"].clone();
-            tree["lifecycle_reason"] = track["lifecycle_reason"].clone();
-        }
-    }
-    let snapshot = landing::load_snapshot(&common).ok().flatten();
-    let age = snapshot
-        .as_ref()
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s.generated_at).ok())
-        .map(|at| {
-            (chrono::Utc::now() - at.with_timezone(&chrono::Utc))
-                .num_seconds()
-                .max(0)
-        });
-    let repo_head = c::git(&store.repo, &["rev-parse", "HEAD"])?;
-    let mut attention = Vec::new();
-    if config["data"]["enabled"] != true {
-        attention.push("巡逻未启用：现存 Git 树可见，宿主任务与会话不保证自动捕获。".to_string());
-    }
-    if !landing["available"].as_bool().unwrap_or(false) {
-        attention.push(
-            "尚无可用 PR 快照；运行 agent-on landing refresh，或启用面板的 --refresh-landing。"
-                .into(),
-        );
-    } else if age.is_none_or(|n| n > 120) {
-        attention.push("PR 取证已超过两分钟；这是上次观察，不能据此直接决定合并。".into());
-    }
-    let hooks = worktree::git(&store.repo, &["config", "--get", "core.hooksPath"]).ok();
-    if hooks.is_none() {
-        attention.push("未设置原生 Git hooks；需要 agent-on worktree hooks install。".into());
-    }
-    let daily_gc = crate::worktree_schedule::inspect(&store.repo);
-    if daily_gc.installed && !daily_gc.healthy() {
-        attention.push(crate::worktree_schedule::render_status(&daily_gc));
-    }
-    let daily_gc = section(serde_json::to_value(daily_gc).map_err(|error| error.to_string()));
-    Ok(
-        json!({"schema_version":1,"observed_at":c::now(),"repo":store.repo,"head":repo_head,
-        "config":config,"patrol":patrol,"oncall":oncall,"landing":landing,
-        "landing_age_seconds":age,"worktrees":trees,"attention":attention,
-        "hooks_path":hooks,"daily_gc":daily_gc,
-        "coverage":"本机 Git 事实与已有回执；Stop/退出/结果自述不等于验证通过或任务释放"}),
-    )
-}
-
 pub(crate) fn run(args: DashboardArgs) -> i32 {
     let repo = args
         .repo
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-    let result = if args.serve {
-        serve(&repo, args.port, args.refresh_landing)
+    let projection = if args.system {
+        Projection::System(system_dashboard::Collector::new(args.root, args.project))
     } else {
-        collect(&repo).map(|value| {
+        Projection::Project(repo)
+    };
+    let result = if args.serve {
+        serve(projection, args.port, args.refresh_landing)
+    } else {
+        let mut projection = projection;
+        projection.collect().map(|value| {
             if args.json {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&value).unwrap_or_default()
                 );
+            } else if value["scope"] == "system" {
+                println!(
+                    "Agent-On · 本机系统总览\n项目 {} · 任务 {} · 需关注 {}",
+                    value["counts"]["projects"],
+                    value["counts"]["active_tasks"],
+                    value["counts"]["errors"]
+                );
+                for project in value["projects"].as_array().into_iter().flatten() {
+                    println!(
+                        "{} · 任务 {} · {}",
+                        project["name"].as_str().unwrap_or("?"),
+                        project["tasks"],
+                        if project["available"] == false {
+                            "记录不可读"
+                        } else if project["connected"] == true {
+                            "已有记录"
+                        } else {
+                            "未接入"
+                        }
+                    );
+                }
+                println!("打开系统面板：agent-on dashboard --system --serve");
             } else {
                 println!(
                     "Agent-On · {}\n观察时间：{}",
@@ -192,18 +108,32 @@ fn count(value: &Value) -> usize {
     value.as_array().map_or(0, Vec::len)
 }
 
-fn serve(repo: &Path, port: u16, refresh: bool) -> Result<(), String> {
-    let store = c::Store::open(repo)?;
+enum Projection {
+    Project(PathBuf),
+    System(system_dashboard::Collector),
+}
+impl Projection {
+    fn collect(&mut self) -> Result<Value, String> {
+        match self {
+            Self::Project(repo) => collect(repo),
+            Self::System(collector) => Ok(collector.collect()),
+        }
+    }
+}
+fn serve(mut projection: Projection, port: u16, refresh: bool) -> Result<(), String> {
     let listener = TcpListener::bind(("127.0.0.1", port)).map_err(|e| e.to_string())?;
     let address = listener
         .local_addr()
         .map_err(|e| e.to_string())?
         .to_string();
-    let state = Arc::new(Mutex::new(collect(&store.repo)?));
+    let state = Arc::new(Mutex::new(projection.collect()?));
     let shared = state.clone();
-    let project = store.repo.clone();
+    let refresh_repo = match &projection {
+        Projection::Project(repo) => Some(repo.clone()),
+        Projection::System(_) => None,
+    };
     std::thread::spawn(move || loop {
-        match collect(&project) {
+        match projection.collect() {
             Ok(mut value) => {
                 value["remote_refresh_enabled"] = json!(refresh);
                 let mut previous = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -220,7 +150,7 @@ fn serve(repo: &Path, port: u16, refresh: bool) -> Result<(), String> {
         std::thread::sleep(Duration::from_secs(5));
     });
     if refresh {
-        let project = store.repo.clone();
+        let project = refresh_repo.ok_or("系统总览只读本机缓存；联网刷新请在项目面板显式开启")?;
         let shared = state.clone();
         std::thread::spawn(move || loop {
             let started = Instant::now();
@@ -241,6 +171,7 @@ fn serve(repo: &Path, port: u16, refresh: bool) -> Result<(), String> {
         }
     );
     std::io::stdout().flush().map_err(|e| e.to_string())?;
+    let mut details = std::collections::BTreeMap::new();
     for stream in listener.incoming() {
         let mut stream = stream.map_err(|e| e.to_string())?;
         stream
@@ -250,7 +181,7 @@ fn serve(repo: &Path, port: u16, refresh: bool) -> Result<(), String> {
             .set_write_timeout(Some(Duration::from_secs(2)))
             .map_err(|e| e.to_string())?;
         // Small bounded GET requests; no request can invoke shell, merge or deletion.
-        let _ = respond(&mut stream, &address, &state);
+        let _ = respond(&mut stream, &address, &state, &mut details);
     }
     Ok(())
 }
@@ -305,23 +236,35 @@ fn allowed<'a>(request: &'a str, address: &str) -> Result<&'a str, u16> {
     {
         return Err(403);
     }
-    if path == "/api/status"
+    if path.starts_with("/api/")
         && !headers
             .iter()
             .any(|(k, v)| k == "x-agent-on" && *v == "dashboard")
     {
         return Err(403);
     }
-    if path != "/" && path != "/api/status" {
+    if path != "/" && path != "/api/status" && project_route(path).is_none() {
         return Err(404);
     }
     Ok(path)
+}
+
+fn project_route(path: &str) -> Option<(&str, bool)> {
+    let (id, api) = if let Some(id) = path.strip_prefix("/api/projects/") {
+        (id, true)
+    } else {
+        (path.strip_prefix("/projects/")?, false)
+    };
+    // Opaque fixed-length identity, never a client-supplied filesystem path.
+    (id.len() == 17 && id.starts_with('p') && id[1..].bytes().all(|b| b.is_ascii_hexdigit()))
+        .then_some((id, api))
 }
 
 fn respond(
     stream: &mut TcpStream,
     address: &str,
     state: &Arc<Mutex<Value>>,
+    details: &mut std::collections::BTreeMap<String, (Instant, Value)>,
 ) -> std::io::Result<()> {
     let mut request = Vec::new();
     let mut buffer = [0; 1024];
@@ -337,16 +280,61 @@ fn respond(
     }
     let text = String::from_utf8_lossy(&request);
     let (code, kind, body) = match allowed(&text, address) {
-        Ok("/") => (
-            200,
-            "text/html; charset=utf-8",
-            include_str!("dashboard.html").to_string(),
-        ),
-        Ok(_) => (
+        Ok("/") => {
+            let system = state.lock().unwrap_or_else(|e| e.into_inner())["scope"] == "system";
+            (
+                200,
+                "text/html; charset=utf-8",
+                if system {
+                    include_str!("system_dashboard.html")
+                } else {
+                    include_str!("dashboard.html")
+                }
+                .to_string(),
+            )
+        }
+        Ok("/api/status") => (
             200,
             "application/json",
             state.lock().unwrap_or_else(|e| e.into_inner()).to_string(),
         ),
+        Ok(path) => {
+            let (id, api) = project_route(path).unwrap();
+            let project = state.lock().unwrap_or_else(|e| e.into_inner())["projects"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|p| p["id"] == id)
+                .cloned();
+            match project {
+                Some(project) if project["detail_available"] == true => {
+                    if !api {
+                        (
+                            200,
+                            "text/html; charset=utf-8",
+                            include_str!("dashboard.html").to_string(),
+                        )
+                    } else {
+                        let cached = details
+                            .get(id)
+                            .filter(|(at, _)| at.elapsed() < Duration::from_secs(5))
+                            .map(|(_, v)| v.clone());
+                        let value=cached.unwrap_or_else(|| {
+                            let value=collect(Path::new(project["repo"].as_str().unwrap_or_default()))
+                                .unwrap_or_else(|e|json!({"collection_error":e,"patrol":{"available":false,"error":e}}));
+                            if details.len()>=128 { details.clear(); }
+                            details.insert(id.to_string(),(Instant::now(),value.clone()));value
+                        });
+                        (200, "application/json", value.to_string())
+                    }
+                }
+                _ => (
+                    404,
+                    "text/plain",
+                    "项目未发现或尚无 Git 项目详情".to_string(),
+                ),
+            }
+        }
         Err(code) => (code, "text/plain", format!("request refused ({code})")),
     };
     write!(stream,"HTTP/1.1 {code} Response\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'\r\nConnection: close\r\n\r\n{body}",body.len())
@@ -367,5 +355,33 @@ mod tests {
         );
         for request in ["GET /api/status HTTP/1.1\r\nHost: evil.test\r\nX-Agent-On: dashboard\r\n","GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: https://evil.test\r\nX-Agent-On: dashboard\r\n","GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n"] {assert_eq!(allowed(request,addr),Err(403))}
         assert_eq!(allowed("POST /api/status HTTP/1.1", addr), Err(405));
+    }
+    #[test]
+    fn system_detail_routes_are_opaque_and_read_only() {
+        let addr = "127.0.0.1:8765";
+        for path in [
+            "/projects/p0123456789abcdef",
+            "/api/projects/p0123456789abcdef",
+        ] {
+            let request =
+                format!("GET {path} HTTP/1.1\r\nHost: {addr}\r\nX-Agent-On: dashboard\r\n");
+            assert_eq!(allowed(&request, addr), Ok(path));
+        }
+        for path in [
+            "/projects/../../secret",
+            "/projects/p0123456789abcdef/..",
+            "/api/projects/%2Ftmp",
+            "/projects/p0123456789abcdef?repo=/tmp",
+            "/projects/pé123456789abcde",
+        ] {
+            assert!(project_route(path).is_none());
+        }
+        assert_eq!(
+            allowed(
+                &format!("GET /api/projects/p0123456789abcdef HTTP/1.1\r\nHost: {addr}\r\n"),
+                addr
+            ),
+            Err(403)
+        );
     }
 }

@@ -13,6 +13,10 @@
 **下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
 冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
 
+未发布开发：系统总览、活动未知提示与可选型号诊断已在本地源码；2026-10-03 用户明确规划/执行的工具与模型由本人决定，已撤回自动型号/档位兜底，执行约定见 `playbook/model-playbook.md` / `kit/patrol-control-plane.md`，决策见 `snapshot/2026-10-03-codex-model-compatibility.md`。用户随后要求继续，已补明确确认后的单次规划交接（固定回执/时间、自动带上下文、防重复），续接见 `snapshot/2026-10-03-explicit-stage-handoff.md`。2026-10-04 已获准安装本机实际执行器及两边插件，本批未发布；无人值守阶段流水线、真实跨模型交接及全平台活动接线未验收。上列版本 pin 不变。
+
+活动回传续接：独立 `activity` 观察开关、窗口/任务绑定、原生事件与自述分源、原窗口共读和两种面板已实现。开发证据见 `snapshot/2026-10-03-activity-channel.md`；2026-10-04 用户 approved 后，本机四个实际执行器与两个插件核对同源，真实本 Codex 窗口已有 native-hook/PostToolUse 回传。安装及未完成边界见 `snapshot/2026-10-04-native-activity-host-upgrade.md`。Claude 待原窗口重载后验真实事件；新增/变更 hook 信任由用户按宿主流程处理。只在本仓启观察，Dartify、其他平台自动 adapter 与完整事件生命周期未验收；不把构造输入当现场证据。推荐 pin 不变。
+
 v0.28.1（2026-10-05）修 Claude 个人 PreToolUse 漏认原生会话 ID，补恢复重认领与三字段拦截诊断。未更新本机 executor/插件，Dartify 原窗口真实 payload 仍待验，不能宣称现场恢复。发布范围与证据见 `snapshot/2026-10-05-oncall-resume-identity.md`。
 
 v0.28.2（2026-10-11）只修测试隔离：在 Claude/Codex 会话里跑 `cargo test`，夹具不再继承宿主会话身份；运行行为与 v0.28.1 相同。

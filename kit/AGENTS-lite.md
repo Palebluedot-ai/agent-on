@@ -8,7 +8,8 @@
 
 **§skill 路由(默认·轻装也写死)**：
 - **制度在 agent-on**(完成=贴证据 / 暂停项禁令 / 外向硬门先确认 / 结账回流)——不外包给任何环节 skill。
-- **有 GStack 时**环节点名走 GStack(规划/审查/发布/调试等);**无则**主会话 + kit fallback,不开第二套流程宗教。
+- **明确目标走交付入口**：读 Agent-On `kit/delivery-workflow.md`；检查节奏读 `playbook/delivery.md`。局部验证、批次审查、相关必需检查后合入，综合体检按周；现有 CI 未实际调整前仍须满足。
+- **环节工具按需**：用户选定 Matt / GStack 时沿该选择；无则主会话 + kit。同阶段只用一套，低风险任务不强制独立审查或额外窗口。
 - **不默认 Superpowers**:禁用 `superpowers:brainstorming` / `writing-plans` 抢跑 init 与规划;实现**不**走 subagent-driven-development 默认引擎(太重)。用户口头点名某 skill 才例外。
 
 ## §1 铁律(三条,轻装也不许省)
@@ -27,4 +28,4 @@
 
 ## §4 沉淀(闭环不分档)
 
-踩坑/返工/用户纠正,当场往 `loop-notes.md` 记一行(带证据指针);小项目的教训一样值钱,结账一样回流。
+真实返工、误拦或用户纠正先修原因；必要证据留已有项目记录或 `loop-notes.md`，共享问题再回流。结账用于补收，不要求每次成功交付都另开复盘。

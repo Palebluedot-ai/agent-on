@@ -15,6 +15,9 @@
    值守上岗即登记 `agent-on oncall claim --session <会话名>`，下班 `release`；
    功能会话用 `agent-on oncall status` 读交单地址（不靠猜会话名）。
 2. **功能会话交付线**：开发 → 提交 → 开 PR → 首轮 CI 触发 → 描述写全 → 交单 = 交付完成。
+   以一个可交付批次为单位，开发时局部验证、批次末审查一次、修复后局部复查；
+   同一证据不因窗口多而反复重跑。综合体检沿项目周检，合入仍满足当前相关必需检查；
+   风格/可选重构不自动阻塞，不为等周检把独立成果攒成一周大 PR。
    功能会话不自己 merge、不为追平 rebase main 后强推、不直推受保护分支。
    **本条约束的是功能会话自己**：已开 PR 的分支，任何让它吃进 base 的操作——本地
    `merge origin/<default>`、`rebase`、push 被拒后的本地收拾——一律只走服务端
@@ -23,8 +26,8 @@
    **复核没跑完就开 draft**：有调度的仓里开 PR 就等于进了合并队列，调度只看 CI 绿 + 描述写全，
    不知道你还在复核。合并前复核要么开 PR 之前跑完，要么 `gh pr create --draft`，复核过了再
    `gh pr ready`——draft 转 ready 才算交单。
-   **等 CI 对准 head**：先记 `gh pr view <N> --json headRefOid`，用
-   `gh run list --json headSha,status,conclusion` 确认这个 head 的 run 已经 completed，再看
+   **必需 CI 对准 head**：先记 `gh pr view <N> --json headRefOid`，用
+   `gh run list --json headSha,status,conclusion` 确认这个候选的必需检查已完成，再看
    `gh pr checks` 和 `mergeStateStatus`——checks 只是「此刻挂着什么」的快照，update-branch 刚返回时
    仓内 CI 可能还没起跑。
 3. **交单**：开完 PR 向值守交单（模板↓）。收件地址以 `agent-on oncall status`

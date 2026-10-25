@@ -198,50 +198,6 @@ fn latest_activity(task: &Task, root: &Path) -> Result<DateTime<Utc>> {
     Ok(latest)
 }
 
-fn merged_pr_covers(store: &Store, task: &Task, base: &str) -> Result<bool> {
-    // Reuse the existing report's tested PR-head coverage predicate. A MERGED label alone is
-    // insufficient: commits added after the PR head must remain protected.
-    let (code, report) = crate::worktree::run_gc(
-        &store.repo,
-        &crate::worktree::GcOpts {
-            dry_run: true,
-            json: true,
-            base: Some(base.into()),
-            quiet_hours: 0,
-        },
-    );
-    if code != 0 {
-        return Ok(false);
-    }
-    let report: Value = serde_json::from_str(&report).map_err(|e| e.to_string())?;
-    Ok(report["worktrees"].as_array().is_some_and(|rows| {
-        rows.iter().any(|row| {
-            row["path"].as_str() == task.worktree.to_str()
-                && row["pr"]["status"] == "merged"
-                && row["pr"]["covers_head"] == true
-                && row["criteria"]["integrated"]["result"] == "pass"
-        })
-    }))
-}
-pub(crate) fn integrated(store: &Store, task: &Task, base_sha: &str, base: &str) -> Result<bool> {
-    let head = if task.worktree.exists() {
-        git(&task.worktree, &["rev-parse", "HEAD"])?
-    } else {
-        git(
-            &store.repo,
-            &["rev-parse", &format!("refs/agent-on/recovery/{}", task.id)],
-        )?
-    };
-    if task.released_head.as_deref() != Some(head.as_str()) {
-        return Ok(false);
-    }
-    Ok(git(
-        &store.repo,
-        &["merge-base", "--is-ancestor", &head, base_sha],
-    )
-    .is_ok()
-        || merged_pr_covers(store, task, base)?)
-}
 fn no_live_cwd(root: &Path) -> Result<()> {
     let output = Command::new("lsof")
         .args(["+D"])
@@ -348,9 +304,7 @@ fn eligible(store: &Store, task: &Task, config: &Config, base_sha: &str) -> Resu
     if task.released_head.as_deref() != Some(head.as_str()) {
         return Err("HEAD changed after release; new work requires a new explicit release".into());
     }
-    if git(root, &["merge-base", "--is-ancestor", &head, base_sha]).is_err()
-        && !merged_pr_covers(store, task, &config.janitor_base)?
-    {
+    if !crate::integration::released_task(store, task, base_sha, &config.janitor_base)? {
         return Err("HEAD not integrated; merged PR head coverage absent or unknown".into());
     }
     let activity = latest_activity(task, root)?;

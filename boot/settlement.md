@@ -3,6 +3,8 @@
 > 职责边界:本篇是迭代闭环第③④⑥站的执行书——上半场「结账」由项目会话执行(回流),下半场「消化」由 agent-on 仓会话执行(落地),附「升级」独立口令。为什么这么设计见 [../playbook/iteration-loop.md](../playbook/iteration-loop.md)。
 > 负担预算(硬约束):结账 = 一句口令 + 零确认;消化 = 一场会话 + 一组选择题;升级 = 一次 diff 批准。执行中发现超预算的步骤,记 loop-notes 并当场简化。
 
+本执行书只在用户要求结账、补收或处理可复用问题时运行；正常交付不触发它。项目已有 PR、任务记录、宿主记忆中的证据可以直接引用，不要求先补一轮 loop-notes。没有新问题就返回“无新增回流”，不做成长数量播报。
+
 ## 上半场:结账(在项目仓,听到「agent-on 结账」即执行)
 
 0. **对表播报(不升级) + 待消化 N 读时对账**:读项目 `agent-on.lock.md` 的 pin 与 agent-on 的 `CHANGELOG.md`,一句话播报「当前 pin vX.Y.Z,落后 N 版,含 / 不含 major」。若 agent-on 仓 HEAD 领先最新 tag(攒批中),加报「另有未发布变化 N 个 commit」——**未发布不构成可升级版本,别伪装**。升级是另一个口令,此处只播报。**顺手对账待消化 N**(与 [session-handshake.md](session-handshake.md) 读取表同行):读 `loop-notes.md` 顶部「agent-on 待消化 N」;若 N>0,打开 agent-on `intake/` 对应项目文件——该批卡已全部 landed/rejected/deferred 则当场把待办位改 N=0 并随项目仓 commit。清 0 责任在「下次打开项目」的会话,不在消化端(跨仓边界禁止消化端回写项目;IPONews 实证:main 上长期粘「待消化 3」而 intake 已全 landed)。
@@ -14,11 +16,8 @@
 2. **证据硬门 + 域判据**:没有证据指针(commit / 命令输出 / run_id)的条目不予出仓——留在项目里,不算数。出仓候选还必须是「**AI 协作过程**」的教训(编排/纪律/工具行为/防幻觉);**项目域知识(业务规则、领域语义、产品口径)归项目端自己的 AGENTS/docs,不出仓**——agent-on 不吸域知识,防方法论仓指令膨胀(2026-07-15 判例:delayed-data 卡 rejected,用户裁决「项目域都归项目」)。
 3. **装配 Promotion Card**(模板 [../kit/promotion-card-template.md](../kit/promotion-card-template.md)):六项缺一拒收,另带 pattern slug + 本项目 pin 版本。落盘前建议对将写入的 intake 文件跑 `agent-on intake-lint <文件>`(或整目录);不通过则修卡再结——贡献上游时硬建议。
 4. **落盘承接层(只写文件,不碰 git——跨仓边界硬规矩 2026-07-13)**:全部卡写进 agent-on 仓 `intake/<YYYY-MM-DD>-<项目名>.md` **一个新文件,到此为止**——项目端会话对 agent-on 仓**不 `add`、不 `commit`、不 `push`**,git 动作全归 agent-on 仓会话(消化开场收件)。多项目并发零冲突:文件按项目命名互不相交,连 git 层都不碰。同日同项目再次结账:**追加进当日同名文件**,不另建——已标 synced 的条目自动跳过,幂等。(沿革:07-12 曾规定「commit 后立即 push」修并发缝;07-13 Euan 会话依此在项目端 commit,撞上同日新立的跨仓边界被判越界——两规打架一天,按用户硬规矩收敛为「项目端零 git」,并发缝由「不碰 git」更彻底地解掉。)
-5. **回执(必须落在项目 default branch)**:项目侧 memory_card 标 `sync_status=synced`;lock 追加 last_settlement 行;项目仓 commit。**default-branch 硬门**:回执 commit 必须是项目 default branch(通常 main)的祖先——验收 `git merge-base --is-ancestor <回执commit> origin/main`(或本地 main)为真,**否则不算结账完成**。若会话在 worktree/feature 上:只允许写 agent-on intake;项目回执须 checkout main 写完并 commit,或 cherry-pick 回执 commit 到 main 后再报完成(IPONews 实证:回执 `acf6e4a` diff 正确但困在 feature 枝,方法论已进真线、项目账本却丢了——跨仓两侧耐久性不对称)。
-6. **积压播报 + 消化提示(默认动作,不止一句问句)**:数 `intake/` 未标去向的文件数并播报。然后**两个动作一起做**,别只问一句就完:
-   - **生成可粘贴的消化开场**:直接吐一行让用户复制到新会话即用的命令——用已解析的 **`$WRITE_ROOT` 绝对路径**(来自 `AGENT_ON_ROOT` / `~/.config/agent-on/config.json` / lock「本地路径」),形如 `cd <WRITE_ROOT> && 说「消化会话」`(或 `/agent-on digest`),并把当前积压数写进去。**写明「在主目录开,别让宿主自建 worktree」**——消化开在 linked worktree 里看不见承接队列(桌面端开会话时关掉自建 worktree,或用终端 `claude`;见下半场第 0 步第四检)。**禁止写死** `~/Projects/Agent-On`(那不是产品默认)。若 `$WRITE_ROOT` 未登记:先拒绝结账完成叙事,贴登记 B 的三选一(见 skill/SKILL.md),不要编路径。
-   - **写进项目待办位**:把「agent-on 待消化 N 张」写进项目 `loop-notes.md` 顶部固定待办位(没有就建一行)。session-handshake 的读取表已把它列为必读项——下次这个项目任意握手,都会把「有 N 张卡等着回 agent-on 消化」带出来,不靠人记得。**N 的生命周期**:结账本步只负责**写/抬高** N;消化完成后项目侧不自动清零(消化端跨仓禁止回写项目)——靠握手或下次结账 step0 **读时对账**清零(见上 step0)。别假设「消化完 N 会自己变 0」。
-   - **顺口报成长**:一句「本次回流 N 条;agent-on 现累计 bench 案例 X 张、playbook Y 篇」——数字从 `ls | wc -l` 数出来,禁止手编。「我进步了」可见,是结账习惯活下去的燃料。
+5. **留下耐久回执**：项目已有记录或 lock 追加 intake 位置与来源，沿正常交付批次提交。正在 feature/worktree 开发时不强制切 main、跨树 cherry-pick 或为一条回执单开 PR；写明“素材已收、项目回执待随本批合入”，合入后再标完整收口。
+6. **一次回报即可**：简述收了什么、证据与 intake 位置。确有需要维护者处理的问题时提供已解析 WRITE_ROOT 的消化入口；不为计数创建固定待办位，不每次握手反复催消化，也不以 bench/playbook 数量宣称模型成长。
 
 > **中断即安全**:结账幂等——intake 文件已落盘的卡就算数;重跑口令时已标 `synced` 的条目自动跳过,不产重复卡。从哪步断的,重念口令从头走一遍即可,已完成的步骤是空操作。
 

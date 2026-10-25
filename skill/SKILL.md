@@ -1,8 +1,8 @@
 ---
 name: agent-on
-description: Agent-On 项目脚手架入口：初始化与续接、经验回流、可选独立巡逻窗口和跨模型派工。通过 /agent-on 或 $agent-on 显式调用，按目标读取对应执行书。
+description: Agent-On 项目协作入口：初始化与续接、目标交付、跨窗口分工跟进、值守交单与经验回流。通过 /agent-on 或 $agent-on 显式调用，按目标读取对应执行书。
 disable-model-invocation: true
-argument-hint: "[init|adopt|handshake|patrol|dispatch|agent-os|task|janitor|worktree|settle|digest|upgrade|doctor]"
+argument-hint: "[deliver|master|status|init|adopt|handshake|dispatch|task|upgrade|doctor]"
 ---
 
 # agent-on 调用入口
@@ -38,12 +38,16 @@ agent-on setup                     # → 默认目录 + config
 | `init` | `$READ_ROOT/BOOTSTRAP.md` | 新项目从零初始化 | 仅需 `$READ_ROOT` |
 | `adopt` | `$READ_ROOT/boot/adopt.md` | 接管已开工项目 | 仅需 `$READ_ROOT` |
 | `handshake` | `$READ_ROOT/boot/session-handshake.md` | 换会话续跑三步握手 | 仅需 `$READ_ROOT` |
+| `deliver` / `交付` / `统筹` | `$READ_ROOT/kit/delivery-workflow.md` | 按目标分工、局部验证、批次审查、值守交单；默认沿已有授权继续 | 当前项目；复用已有状态与任务，不要求写 B |
+| `master` | `$READ_ROOT/kit/master-delivery.md` | 一轮可续接的 PR 统筹；已授权时 `--apply` 串行合入并记账 | 当前项目的合入政策与审计；在班值守身份 |
 | `worktree` | `$READ_ROOT/kit/worktree-control-plane.md` | 多会话轨道登记 / 边界审计 / shared Git hooks / 合流与保守回收；空后缀先跑 `agent-on worktree status`，回收盘点走 report-only `gc --dry-run` | 需 `$READ_ROOT` + 项目已是 git 仓；lane 与 hooks 状态只写本机 git common dir，可选调度只写用户本机配置/日志，不写 B |
 | `settle` | `$READ_ROOT/boot/settlement.md`（上半场） | 教训回流 intake | **必须 `$WRITE_ROOT`**；intake 只写 B，禁止写 plugin cache |
 | `digest` | `$READ_ROOT/boot/settlement.md`（下半场） | 消化落地 canonical | **必须在 `$WRITE_ROOT` 的主树会话**（开场第四检；宿主不让挪会话时按出口②清场后在 worktree 里消化）；无 B 则拒绝 |
 | `upgrade` | `$READ_ROOT/boot/settlement.md`（升级节） | bump 项目 lock pin | 需 `$READ_ROOT`（读 CHANGELOG） |
 | `doctor` | （本文件 + 跑 `agent-on doctor`） | 打印 read_root / work_root / 登记指引 | 无 |
-| `dashboard` / `status` | `$READ_ROOT/kit/live-control-plane.md` | 统一查看任务、窗口、worktree 与 PR；用户要打开面板则启动可选本机服务 | 项目 git 仓；读取既有本机台账 |
+| `status` | `$READ_ROOT/kit/live-control-plane.md` | 原窗口读取目标、窗口登记、卡点、待验收与下一步；默认文本，`--json` 共读事实 | 项目 git 仓；只读，不开服务、不派工 |
+| `dashboard` | 同上 | 用户明确要网页时打开可选本机面板 | 项目 git 仓；读取既有本机台账 |
+| `activity` | 同上 | 显式开启独立窗口观察、绑定已有任务或共读活动；不启巡逻/派工 | 项目 git 仓；未发布源码及实际 executor/hooks 接线 |
 | `patrol` | `$READ_ROOT/kit/patrol-control-plane.md` | 创建独立巡逻会话，之后复用，原窗口仍是入口 | 项目 git 仓；本机 control 回执 |
 | `dispatch` / `agent-os` | 同上 | 明确目标和共享路径后调用 Claude/Codex/Grok/Hermes | 项目 git 仓 + 已有执行器；在班派工经值守 |
 | `task` | 同上 | 登记、真实结果回执、带证据释放 | 项目 git 仓 |
@@ -55,8 +59,10 @@ agent-on setup                     # → 默认目录 + config
 
 ## 规则
 
-- **自然入口 / 空参数**：有明确目标就按现有任务与项目状态续跑，不重复让用户选内部角色或整张子命令表。只问当前确实缺失的信息；完全没有目标才列简短帮助。用户说“看当前状态 / 打开面板”走 dashboard，不重绘项目里的静态 dashboard.html。
-- **项目根没有 `agent-on.lock.md`**：判断全新 vs 存量 → init 或 adopt，报一句即可。
+- **自然入口 / 空参数**：有明确交付目标就走 deliver，复用现有任务与授权继续；只问代码、记录和上下文无法回答的必要决策。没有目标才列简短帮助。“看当前状态”走 status；“打开面板”走 dashboard。
+- **项目根没有 `agent-on.lock.md`**：用户要求初始化或正式接入时区分 init/adopt；读取状态与交付明确目标不触发整包初始化。
+- **检查节奏**：交付时读 `$READ_ROOT/playbook/delivery.md`；开发局部验证、批次审查、合入满足相关必需检查、全量回归按夜间、综合复盘按周。Matt / GStack / kit 同阶段选一套；已有有效证据按范围复用，需求变化就地更新验收。
+- **改进回流**：模型可以处理设计与审查，项目经验仍须有可引用证据；沿已有项目记录留痕，不强迫成功任务结账。settle/digest 是按需补收和维护入口，不是交付前置条件。
 - **worktree 参数**：`/agent-on worktree` 空后缀 = 读模式并跑只读 `agent-on worktree status`；有 `claim|set-status|status|check|hooks|gc|forget` 后缀时，先按模式核边界，再把后缀原样交给同名 CLI。并行模式首次用 `hooks install`，可选每日报告才加 `--daily-gc`；`gc` 必须显式带 `--dry-run`，不存在 apply/delete 模式。不得把任何 status/check/hooks/gc 偷换成删除或静默改写用户 Claude/Codex 配置。
 - **settle/digest 前**：若 `$WRITE_ROOT` 为空，**停止**，提示 `agent-on setup`；不要写进 plugin cache，不要假设 `~/Projects/Agent-On`。
 - **消化开场粘贴命令**：用已解析的 `$WRITE_ROOT` 绝对路径（或口令「消化」），禁止写死 Chao 本机路径。
@@ -64,7 +70,8 @@ agent-on setup                     # → 默认目录 + config
 - **消化收尾硬门**：canonical 有改动则必须封版打 tag 并 push（`agent-on tag-release`）；禁止「消化完成、tag 留到以后」。
 - **认不出的子命令**：列表让用户重选。
 - **patrol**：空后缀启用独立巡逻窗口；先复用已有回执。CLI 默认 Terminal（或用户选 tmux），host 跟随当前工具；Codex 桌面用下述原生桥接。status/scan 不建聊；hooks 的安装/信任按宿主正常流程，不改全局权限。
-- **dispatch / agent-os**：目标已明确就登记并派工，只补实际缺失信息。先归并共享文件，按需隔离树；模型默认沿用 host 设置，不固定角色与模型。中文口令走同一执行书。
+- **dispatch / agent-os**：目标与用户指派已明确就登记并派工，只补实际缺失信息。规划/执行/验收所用工具、模型与推理档位由用户决定，Agent-On 不自动选型、改派或降档；未指定型号沿用宿主当次设置，不将目录推荐或失败当作换号授权。先归并共享文件，按需隔离树。中文口令走同一执行书。
+- **阶段交接**：用户明确确认只读规划结果并指派接手者时，按同一执行书用 dispatch 的 handoff-from/result/at/evidence 携带那版真实回执；报告或 Stop 不是用户指令，不能据它自行开下一窗口。source at 已更新先报告，不猜最新版本。写成果仍须已合入依赖，不用交接跳过合流。未指定型号省略，不重复要求用户先选型号；缺真实交接指派才补问。
 - **janitor**：enable 只授权执行书里的有限范围，不接管现有旧树后直接删。原生 worktree 的归档走宿主 archive；CLI 清道夫只处理它创建的 checkout。
 - 读到目标文件后**照它执行**，不在这里复述改写步骤。
 - **口令 ≠ Skill 调用**：中文口令「agent-on 结账 / 升级 / 消化」= 读本表目标文件照做，**不走 Skill 工具**。本 skill 挂了 `disable-model-invocation`，禁止 `Skill(agent-on)` 代调。工具若回「Do not replicate this skill's workflow」只禁 Skill 绕行，**不禁口令路径**。斜杠 / `$agent-on` 与口令**结果等价、调用面不等价**（斜杠管确定性，口令管自然语言）。
@@ -72,7 +79,7 @@ agent-on setup                     # → 默认目录 + config
 ## Codex 桌面桥接（用户请求启用独立窗口/派工时）
 
 1. `patrol start --host codex-app --window external` 或对应 dispatch 返回回执和 bootstrap；已有 bound thread 直接复用。
-2. 用 `list_projects` 核对当前项目，`create_thread` 带 bootstrap 与项目，默认 local。用户请求 worktree 时由宿主创建，不另外造 Git 树；不覆盖用户的模型选择。
+2. 用 `list_projects` 核对当前项目，`create_thread` 带 bootstrap 与项目，默认 local。用户请求 worktree 时由宿主创建，不另外造 Git 树；用户明确指定型号才传 model，未指定就省略以沿用宿主设置，不自行选择或覆盖。
 3. `clientThreadId` 表示准备中，不传给需要 threadId 的工具。取得真实 id 后 `wait_threads` 等一次进展，再 `patrol bind <receipt-id> --thread-id <实际id>`；要求 worktree 的加 `--worktree-path <实际返回路径>`。失败保留回执；结果未知先查现有聊天，不能盲目重复创建。
 4. 创建成功按宿主规则输出 created-thread directive。bootstrap 自动启动初次报告，用户不用重复发送。原生独立聊天不保证第二个系统窗口；需要真实终端弹窗用 Terminal 适配器。
 5. 用户已启用周期巡逻/回收时用宿主 heartbeat，记录实际 automation id；无可行动变化时安静，config 关闭就停止对应调度。缺少创建/heartbeat 工具则用终端适配器并说明覆盖，不用预填链接冒充运行。

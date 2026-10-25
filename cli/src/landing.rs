@@ -1233,8 +1233,12 @@ fn build_refresh(
     let common = wt::common_git_dir(&root)?;
     let (base_ref, base_branch) = resolve_base(&root, opts.base.as_deref())?;
     let (base_sha, base_sha_source) = resolve_base_sha(&root, &base_ref, &base_branch)?;
-    let prev = load_snapshot(&common)?;
-    let lanes = wt::load_records(&root)?;
+    let (lanes, mut notes) = wt::lane_inventory(&root)
+        .unwrap_or_else(|error| (Vec::new(), vec![format!("lane 元数据不可用：{error}")]));
+    let prev = load_snapshot(&common).unwrap_or_else(|error| {
+        notes.push(format!("旧 PR 缓存不可用，重新取证：{error}"));
+        None
+    });
     let worktrees = wt::parse_worktrees(&wt::git(&root, &["worktree", "list", "--porcelain"])?);
     let now_iso = chrono::Utc::now().to_rfc3339();
 
@@ -1252,7 +1256,6 @@ fn build_refresh(
     let lane_by_id: BTreeMap<String, &wt::LaneRecord> =
         lanes.iter().map(|l| (l.id.clone(), l)).collect();
 
-    let mut notes = Vec::new();
     let mut stats = RefreshStats::default();
 
     // 1) One cheap batched probe of every open PR.
@@ -1860,7 +1863,9 @@ fn reload_with_live_lifecycle(
     let Some(mut snapshot) = load_snapshot(&common)? else {
         return Err("还没有 landing 快照；先跑 `agent-on landing refresh` 取证一次".to_string());
     };
-    let lanes = wt::load_records(&root)?;
+    let (lanes, metadata_notes) = wt::lane_inventory(&root)
+        .unwrap_or_else(|error| (Vec::new(), vec![format!("lane 元数据不可用：{error}")]));
+    snapshot.notes.extend(metadata_notes);
     let lane_by_id: BTreeMap<String, &wt::LaneRecord> =
         lanes.iter().map(|l| (l.id.clone(), l)).collect();
     let worktrees = wt::parse_worktrees(&wt::git(&root, &["worktree", "list", "--porcelain"])?);

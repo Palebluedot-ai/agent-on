@@ -1,4 +1,6 @@
-# 本仓第一道 CI。职责边界：只跑**能机械判定**的不变量——CLI 测试、承接层校验、
+# 本仓 CI。职责边界：PR 按改动范围验证，香港时间每天 01:23 跑全量。
+# 使用 GitHub 托管 runner，不调用模型；合入后不再重复同一轮 PR 全量检查。
+# 只跑**能机械判定**的不变量——CLI 测试、承接层校验、
 # 文档三闸、外部贡献只许碰 intake/。它不替代评审，不判断内容对错，也不碰 lane
 # 控制面（那是本机 common git dir 的事，CI 上没有那些 worktree）。
 #
@@ -14,16 +16,16 @@
 name: gate
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  schedule:
+    - cron: '23 17 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: gate-${{ github.ref }}
+  group: gate-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,7 +34,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 确定本次验证范围
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            python3 .github/scripts/quality_scope.py --base "$BASE" --head "$HEAD" --output "$RUNNER_TEMP/quality-plan.json"
+          else
+            python3 .github/scripts/quality_scope.py --full --output "$RUNNER_TEMP/quality-plan.json"
+          fi
       - name: 缓存 cargo
+        if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.intake == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -42,16 +59,25 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
       - name: cargo fmt
+        if: steps.scope.outputs.rust == 'true'
         run: cargo fmt --manifest-path cli/Cargo.toml --check
       - name: cargo clippy
+        if: steps.scope.outputs.rust == 'true'
         run: cargo clippy --manifest-path cli/Cargo.toml --all-targets -- -D warnings
       # 只跑 ubuntu：macOS 侧真正装 LaunchAgent 的那段本来就不在单测里（单测只验
       # 渲染与状态落盘，不激活调度器），所以加一条 macos-latest 腿买不到新覆盖，
       # 只买到 10 倍分钟数。macOS 上的实际激活仍靠本机 `worktree hooks status` 验。
-      - name: cargo test
-        run: cargo test --manifest-path cli/Cargo.toml
+      - name: 受影响测试（夜间与手动运行全量）
+        if: steps.scope.outputs.rust == 'true'
+        run: python3 .github/scripts/quality_scope.py --run --output "$RUNNER_TEMP/quality-plan.json"
+      - name: 独立合并审计与 CI 范围回归
+        if: steps.scope.outputs.audit == 'true'
+        run: |
+          python3 -m unittest discover -s tools/merge-audit
+          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       # 承接层是唯一对外收货口，六项不齐的卡进来就再也没人补。
       - name: intake 六项齐
+        if: steps.scope.outputs.intake == 'true'
         run: cargo run --manifest-path cli/Cargo.toml --quiet -- intake-lint
 
   docs:
