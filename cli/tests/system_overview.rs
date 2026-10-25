@@ -431,9 +431,13 @@ impl Server {
         let stdout = child.stdout.take().unwrap();
         let (sender, receiver) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
+            let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            let _ = BufReader::new(stdout).read_line(&mut line);
+            let _ = reader.read_line(&mut line);
             let _ = sender.send(line);
+            // Keep the pipe open for the remaining startup text. Closing it
+            // after the URL can terminate the server with a broken pipe.
+            let _ = std::io::copy(&mut reader, &mut std::io::sink());
         });
         let line = receiver
             .recv_timeout(Duration::from_secs(20))
