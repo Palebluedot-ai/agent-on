@@ -1,7 +1,7 @@
 {
   "name": "agent-on",
-  "version": "0.28.2",
-  "description": "AI 协作项目脚手架：给 Claude Code 与 Codex CLI 提供项目启动 / 状态持久化 / 沉淀闭环的方法论内核。中文口令 · /agent-on · $agent-on 同一份内核。",
+  "version": "0.29.0",
+  "description": "AI 协作项目交付：续接目标、跨窗口分工与跟进、值守合入；按改动验证，经验按需回流。中文口令 · /agent-on · $agent-on 同一份内核。",
   "author": {
     "name": "YANG CHAO",
     "email": "diving.into.ai@gmail.com",
@@ -23,8 +23,8 @@
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Agent-On",
-    "shortDescription": "项目启动 / 状态持久化 / 沉淀闭环的 AI 协作方法论内核",
-    "longDescription": "Agent-On 用文件系统持久化对抗 prompt 挥发：新项目冷启动搭骨架、换会话握手接续、多 worktree 控制与只读回收盘点、里程碑结账回流。init / adopt / handshake / worktree / settle / digest / upgrade / doctor 经 $agent-on 触发，与 Claude Code 的 /agent-on 及中文口令同一份内核。",
+    "shortDescription": "跨窗口分工、跟进与合入的项目协作入口",
+    "longDescription": "Agent-On 用已有目标、任务、依赖和真实交付证据续接项目。deliver 接工作包，status 汇总卡点与下一步，master 复用值守和独立审计推进就绪 PR。开发中验证受影响部分，批次审查一次，全量检查可放夜间；Dashboard 与 settle/digest 按需保留。工具与模型由用户决定。",
     "developerName": "YANG CHAO",
     "category": "Coding",
     "capabilities": [
@@ -33,8 +33,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "帮我初始化一个新项目",
-      "接管这个项目"
+      "统筹这个项目的功能交付",
+      "汇总跨窗口进展和下一步",
+      "帮我初始化一个新项目"
     ]
   }
 }

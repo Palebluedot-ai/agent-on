@@ -8,20 +8,13 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.28.2`**（值守核实际宿主/会话 ID 与工作区，认领/释放/心跳原子落盘；启动/恢复/compact 注入已有项目状态，默认不启角色或造窗口。旧登记缺实际身份需原负责人明确重新接班；损坏登记不冒称无人值守。原本机只读面板、动态 PR 证据、可选巡逻/派工/有限清道夫、真实 index/待推历史闸和共用审计账保留；Hermes 自动 hook/认证任务、跨机云端回执未验收。值守三权、机器合并政策与旧 report-only GC 不变。发布不自动升级本机：旧安装先重建实际 executor，再更新插件缓存/重启并信任当前 hooks；源码须 Rust 1.89+。tag-release 仍原子推 origin 默认分支与 annotated tag，值守在班时归值守）。
-版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。  
-**下一里程碑 v1.0**：诚实验收定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)（外人用过 + 至少一次回流进官方消化）。  
-冷启动读：本文件 + CHARTER + CHANGELOG 最新 tag 节 + 上列 snapshot。
+**最新推荐 pin：`v0.29.0`**。日常主线是 deliver / status / master：目标续接、跨窗口分工跟进、按当前提交串行合入与独立记账。坏 lane、旧 base、其他 checkout 暂停的重放不再阻止本次正常 Git 操作；真实活跃同文件冲突仍提示。开发中验证受影响范围，一批一次审查，本仓香港时间每天 01:23 全量 CI。Dashboard、巡逻、清理和 settle/digest 按需保留，工具/模型继续由用户决定。
 
-未发布开发：系统总览、活动未知提示与可选型号诊断已在本地源码；2026-10-03 用户明确规划/执行的工具与模型由本人决定，已撤回自动型号/档位兜底，执行约定见 `playbook/model-playbook.md` / `kit/patrol-control-plane.md`，决策见 `snapshot/2026-10-03-codex-model-compatibility.md`。用户随后要求继续，已补明确确认后的单次规划交接（固定回执/时间、自动带上下文、防重复），续接见 `snapshot/2026-10-03-explicit-stage-handoff.md`。2026-10-04 已获准安装本机实际执行器及两边插件，本批未发布；无人值守阶段流水线、真实跨模型交接及全平台活动接线未验收。上列版本 pin 不变。
+版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。本轮用户范围、Matt 方法、回归与真实交付见 [实施记录](snapshot/2026-10-25-master-delivery-and-nightly-quality.md)。发布后安装仍须核实际执行器与插件，不用目录版本号代替 build-info。
 
-活动回传续接：独立 `activity` 观察开关、窗口/任务绑定、原生事件与自述分源、原窗口共读和两种面板已实现。开发证据见 `snapshot/2026-10-03-activity-channel.md`；2026-10-04 用户 approved 后，本机四个实际执行器与两个插件核对同源，真实本 Codex 窗口已有 native-hook/PostToolUse 回传。安装及未完成边界见 `snapshot/2026-10-04-native-activity-host-upgrade.md`。Claude 待原窗口重载后验真实事件；新增/变更 hook 信任由用户按宿主流程处理。只在本仓启观察，Dartify、其他平台自动 adapter 与完整事件生命周期未验收；不把构造输入当现场证据。推荐 pin 不变。
+**下一里程碑 v1.0**：外人用过 + 至少一次回流进官方消化，定义见 [验收边界](snapshot/2026-07-16-v10-and-setup.md)。冷启动读本文件、CHARTER、CHANGELOG 最新 tag 节与该验收边界。
 
-v0.28.1（2026-10-05）修 Claude 个人 PreToolUse 漏认原生会话 ID，补恢复重认领与三字段拦截诊断。未更新本机 executor/插件，Dartify 原窗口真实 payload 仍待验，不能宣称现场恢复。发布范围与证据见 `snapshot/2026-10-05-oncall-resume-identity.md`。
-
-v0.28.2（2026-10-11）只修测试隔离：在 Claude/Codex 会话里跑 `cargo test`，夹具不再继承宿主会话身份；运行行为与 v0.28.1 相同。
-
-历史：v0.2 融合 → v0.3 首次闭环 → v0.4 dogfood+guard → v0.5 分发 → **v0.6 消化攒批发版**。融合地图仍在 [snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)（考古，非当前阶段）。
+活动/阶段交接和系统观察作为兼容资产封存；真实 Codex native-hook 已有历史现场证据，Claude 重载、其他项目、跨机、Hermes 自动 hook 与认证模型调用不在本批现场验收之内。值守三权、机器合并政策、旧 report-only GC 与有限清道夫边界继续生效；源码须 Rust 1.89+。
 
 ## 自举纪律（本仓遵守自己卖的方法论）
 

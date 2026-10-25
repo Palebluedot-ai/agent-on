@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "agent-on",
-      "description": "AI 协作项目脚手架：项目启动 / 状态持久化 / 沉淀闭环的方法论内核，服务 Claude Code 与 Codex CLI。",
-      "version": "0.28.2",
+      "description": "AI 协作项目交付：续接目标、跨窗口分工与跟进、值守合入；按改动验证，经验按需回流。中文口令 · /agent-on · $agent-on 同一份内核。",
+      "version": "0.29.0",
       "source": "./",
       "author": {
         "name": "YANG CHAO",
