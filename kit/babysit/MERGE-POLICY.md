@@ -104,7 +104,7 @@
 
 | 类别 | 具体判据 | 为什么不是硬停 |
 |---|---|---|
-| **改的是规矩本身** | `AGENTS.md` · `CHARTER.md` · `BOOTSTRAP.md` · `kit/babysit/**` · `playbook/multi-contributor-protocol.md` | 它可 `git revert`；改的是全场行为，用户该有机会当场喊停，但不必阻塞——用播报兑现信号 |
+| **改的是规矩本身** | `AGENTS.md` · `CHARTER.md` · `BOOTSTRAP.md` · `docs/babysit.md` · `kit/babysit/**` · `playbook/multi-contributor-protocol.md` | 模板和项目实例同属规矩。它可 `git revert`；改的是全场行为，用户该有机会当场喊停，但不必阻塞——用播报兑现信号 |
 
 ### 按目录整括，不按文件枚举（2026-08-20 红队实测）
 
