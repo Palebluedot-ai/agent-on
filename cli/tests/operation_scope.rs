@@ -103,6 +103,77 @@ fn unrelated_staged_commit_passes_with_shared_dirty_files() {
 }
 
 #[test]
+fn broken_lane_metadata_cannot_block_real_commits_or_pushes() {
+    let f = Field::new();
+    let registry = f.root.join(".git/agent-on/lanes");
+    fs::create_dir_all(&registry).unwrap();
+    fs::write(registry.join("unrelated.json"), "{").unwrap();
+    f.note();
+    must(&f.root, &["add", "notes.txt"]);
+    must(&f.root, &["commit", "-m", "notes with broken registry"]);
+    must(&f.root, &["push", "origin", "main"]);
+    assert_eq!(f.committed_paths(), "notes.txt\n");
+
+    // Bad bookkeeping must not hide a real collision either.
+    f.collide();
+    let out = git(&f.root, &["commit", "-a", "-m", "shared"]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("blocked: shared.txt"), "{}", text(&out));
+    assert!(!text(&out).contains("parse"), "{}", text(&out));
+}
+
+#[test]
+fn a_stale_lane_base_cannot_lock_its_own_worktree() {
+    let f = Field::new();
+    let out = Command::new(env!("CARGO_BIN_EXE_agent-on"))
+        .current_dir(&f.root)
+        .args([
+            "worktree",
+            "claim",
+            "--id",
+            "own",
+            "--goal",
+            "notes",
+            "--base",
+            "main",
+            "--owns",
+            "notes.txt",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", text(&out));
+    let record_path = f.root.join(".git/agent-on/lanes/own.json");
+    let mut record: serde_json::Value =
+        serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap();
+    record["base"] = "missing-base".into();
+    fs::write(&record_path, serde_json::to_vec(&record).unwrap()).unwrap();
+    f.note();
+    must(&f.root, &["add", "notes.txt"]);
+    must(&f.root, &["commit", "-m", "notes with obsolete base"]);
+    must(&f.root, &["push", "origin", "main"]);
+    assert_eq!(f.committed_paths(), "notes.txt\n");
+}
+
+#[test]
+fn another_checkouts_paused_rebase_does_not_hold_this_commit_hostage() {
+    let f = Field::new();
+    fs::write(f.other.join("shared.txt"), "worker branch\n").unwrap();
+    must(&f.other, &["commit", "-am", "worker change"]);
+    fs::write(f.root.join("shared.txt"), "main branch\n").unwrap();
+    must(&f.root, &["commit", "-am", "main change"]);
+    let out = git(&f.other, &["rebase", "main"]);
+    assert!(!out.status.success(), "fixture rebase must stop");
+    let paused = fs::read(f.other.join("shared.txt")).unwrap();
+    fs::write(f.root.join("shared.txt"), "main next change\n").unwrap();
+    must(&f.root, &["commit", "-am", "continue delivery"]);
+    must(&f.root, &["push", "origin", "main"]);
+    assert_eq!(fs::read(f.other.join("shared.txt")).unwrap(), paused);
+    assert!(!must(&f.other, &["ls-files", "--unmerged"])
+        .stdout
+        .is_empty());
+}
+
+#[test]
 fn only_uses_gits_temporary_index_and_preserves_other_staged_work() {
     let f = Field::new();
     f.collide();

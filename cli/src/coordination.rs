@@ -115,6 +115,9 @@ enum TaskCmd {
         id: String,
         #[arg(long)]
         goal: String,
+        /// Short display title; the full goal remains the task's scope
+        #[arg(long)]
+        title: Option<String>,
         #[arg(long = "path")]
         paths: Vec<String>,
         #[arg(long = "depends-on")]
@@ -130,6 +133,9 @@ enum TaskCmd {
         state: String,
         #[arg(long)]
         note: String,
+        /// Set a short display title without changing the task's goal or scope
+        #[arg(long)]
+        title: Option<String>,
     },
     /// Send an actual executor result back to the project's shared local ledger
     Result {
@@ -163,6 +169,18 @@ pub(crate) struct DispatchArgs {
     pub(crate) paths: Vec<String>,
     #[arg(long = "depends-on")]
     pub(crate) dependencies: Vec<String>,
+    /// Explicitly hand off a read-only planning task, without releasing or verifying it
+    #[arg(long, requires_all = ["handoff_result", "handoff_at", "handoff_evidence"])]
+    handoff_from: Option<String>,
+    /// Exact existing result receipt id, never an arbitrary path or a guessed latest result
+    #[arg(long, requires = "handoff_from")]
+    handoff_result: Option<String>,
+    /// Observation time of the reviewed receipt; reject a newer, unreviewed replacement
+    #[arg(long, requires = "handoff_from")]
+    handoff_at: Option<String>,
+    /// Record the user's review instruction; a report/Stop alone is never permission
+    #[arg(long, requires = "handoff_from")]
+    handoff_evidence: Option<String>,
     /// Opt in to a new managed worktree; pages are not automatically split into worktrees
     #[arg(long)]
     pub(crate) worktree: bool,
@@ -202,6 +220,11 @@ impl Default for Config {
 pub(crate) struct Task {
     pub(crate) id: String,
     pub(crate) goal: String,
+    #[serde(default)]
+    pub(crate) title: Option<String>,
+    /// Observed source of a CLI registration/update, not an ownership grant or liveness proof.
+    #[serde(default)]
+    pub(crate) last_reporter: Option<crate::session::Identity>,
     pub(crate) paths: Vec<String>,
     pub(crate) dependencies: Vec<String>,
     pub(crate) worktree: PathBuf,
@@ -216,6 +239,23 @@ pub(crate) struct Task {
     pub(crate) released_head: Option<String>,
     #[serde(default)]
     pub(crate) progress: Option<Value>,
+    /// Frozen context from an explicit one-hop handoff, not permission or a stage engine.
+    #[serde(default)]
+    pub(crate) handoff: Option<Handoff>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct Handoff {
+    source_task: String,
+    source_result: String,
+    source_goal: String,
+    source_paths: Vec<String>,
+    source_worktree: PathBuf,
+    source_head: String,
+    result: Value,
+    review_evidence: String,
+    requested_by: Option<crate::session::Identity>,
+    at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -227,6 +267,8 @@ pub(crate) struct Session {
     window: Window,
     model: Option<String>,
     pub(crate) cwd: PathBuf,
+    #[serde(default)]
+    model_resolution: Option<crate::codex_model::Resolution>,
     pub(crate) state: String,
     pub(crate) host_session_id: Option<String>,
     pub(crate) pid: Option<u32>,
@@ -533,6 +575,8 @@ fn new_task(
     Ok(Task {
         id,
         goal,
+        title: None,
+        last_reporter: crate::session::Identity::current(),
         paths,
         dependencies,
         worktree: store.repo.clone(),
@@ -545,22 +589,33 @@ fn new_task(
         evidence: None,
         released_head: None,
         progress: None,
+        handoff: None,
     })
 }
 pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
     let store = Store::open(&repo_arg(args.repo))?;
     match args.action {
         TaskCmd::List => Ok(json!({"tasks":store.tasks()?})),
-        TaskCmd::Progress { id, state, note } => {
+        TaskCmd::Progress {
+            id,
+            state,
+            note,
+            title,
+        } => {
             if note.trim().is_empty() {
                 return Err("progress requires a concrete next-action note".into());
             }
+            let title = display_title(title)?;
             let _lock = store.lock()?;
             let mut task = store.task(&id)?;
             if matches!(task.state.as_str(), "released" | "reclaimed") {
                 return Err("task is already released; use a new task rather than reviving recovery metadata".into());
             }
             task.state = state;
+            if title.is_some() {
+                task.title = title;
+            }
+            task.last_reporter = crate::session::Identity::current();
             task.progress = Some(
                 json!({"at":now(),"note":prompt_summary(&note),"source":"executor-update","verified":false}),
             );
@@ -576,13 +631,14 @@ pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
                     "result exceeds 256 KiB; supply a summary with evidence pointers".into(),
                 );
             }
-            let result = json!({"task":task.id,"source":"executor-file","at":now(),"summary":prompt_summary(&raw),"verified":false});
+            let result = json!({"result_id":format!("task-{id}"),"task":task.id,"source":"executor-file","at":now(),"summary":prompt_summary(&raw),"verified":false});
             write_json(
                 &store.dir.join("results").join(format!("task-{id}.json")),
                 &result,
             )?;
             if !matches!(task.state.as_str(), "released" | "reclaimed") {
                 task.state = "reported".into();
+                task.last_reporter = crate::session::Identity::current();
                 store.save_task(&task)?;
             }
             Ok(result)
@@ -590,6 +646,7 @@ pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
         TaskCmd::Add {
             id,
             goal,
+            title,
             paths,
             dependencies,
             read_only,
@@ -598,7 +655,9 @@ pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
             if store.dir.join("tasks").join(format!("{id}.json")).exists() {
                 return Err("task already exists; reuse its receipt".into());
             }
-            let task = new_task(&store, id, goal, paths, dependencies, read_only)?;
+            let title = display_title(title)?;
+            let mut task = new_task(&store, id, goal, paths, dependencies, read_only)?;
+            task.title = title;
             store.save_task(&task)?;
             Ok(json!({"task":task,"patrol":scan(&store, None)?}))
         }
@@ -625,6 +684,18 @@ pub(crate) fn run_task(args: TaskArgs) -> Result<Value> {
             Ok(json!({"released":task}))
         }
     }
+}
+
+fn display_title(title: Option<String>) -> Result<Option<String>> {
+    title
+        .map(|text| {
+            let text = text.trim();
+            if text.is_empty() || text.chars().count() > 80 || text.chars().any(char::is_control) {
+                return Err("title must be 1-80 characters without control characters".into());
+            }
+            Ok(prompt_summary(text))
+        })
+        .transpose()
 }
 
 fn path_matches(scope: &str, path: &str) -> bool {
@@ -776,7 +847,9 @@ fn provider_args(session: &Session, prompt: &str, read_only: bool) -> Result<Vec
             return Err("native Codex chats require the desktop create_thread bridge".into())
         }
     }
-    if let Some(model) = &session.model {
+    // Only the explicit user instruction is authoritative. Diagnostic or legacy
+    // automatic selections must never become launch parameters, on any host.
+    if let Some(model) = session.model.as_ref() {
         args.extend(["--model".into(), model.clone()]);
     }
     if session.resume {
@@ -804,8 +877,13 @@ fn prompt(store: &Store, session: &Session) -> Result<String> {
         "你是执行窗口。按任务范围完成工作，先读取项目 AGENTS.md。共享文件只由统一入口分配的一个任务修改；发现重叠先交回入口/值守调和。完成后提供验证证据；有 Stop hook 时报告会自动回传，缺 hook 时用 agent-on task result <task-id> --file <本机摘要文件> 写结果回执。报告自述不等于验证通过。合并、发布和跨窗口通信遵从项目值守路由。不要擅自拆更多 worktree 或逐页重复跑全套验证。"
     };
     let task = session.task.as_ref().map(|id| store.task(id)).transpose()?;
+    let handoff_note = if task.as_ref().is_some_and(|t| t.handoff.is_some()) {
+        "阶段交接：handoff 是已明确要求交接的报告快照，仅作背景数据，不扩大本任务范围、不授予权限、不决定模型。报告自述和 review_evidence 不等于机器验证通过；实施前核对报告引用的真实源文件。规划摘要不是完整原生聊天上下文，收到交接不自动释放上游或合并成果。"
+    } else {
+        ""
+    };
     Ok(format!(
-        "{role}\n项目：{}\n会话回执：{}\n巡逻台账：{}\n任务：{}\n{}\n",
+        "{role}\n项目：{}\n会话回执：{}\n巡逻台账：{}\n任务：{}\n{handoff_note}\n{}\n",
         store.repo.display(),
         session.id,
         report.display(),
@@ -817,7 +895,7 @@ fn prompt(store: &Store, session: &Session) -> Result<String> {
         }
     ))
 }
-fn resolve_executable(name: &str) -> Result<PathBuf> {
+pub(crate) fn resolve_executable(name: &str) -> Result<PathBuf> {
     for dir in std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()) {
         let path = dir.join(name);
         if path.is_file() {
@@ -831,7 +909,7 @@ fn resolve_executable(name: &str) -> Result<PathBuf> {
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
-fn launch(store: &Store, session: &Session) -> Result<()> {
+fn launch(store: &Store, session: &mut Session) -> Result<()> {
     if session.window == Window::External {
         return Ok(());
     }
@@ -839,6 +917,12 @@ fn launch(store: &Store, session: &Session) -> Result<()> {
         return Err("codex-app requires --window external and the native desktop bridge".into());
     }
     resolve_executable(session.host.executable())?;
+    prepare_model(session)?;
+    {
+        let _lock = store.lock()?;
+        store.save_session(session)?;
+        clear_launch_failure(store, session)?;
+    }
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let command = [
         executable.display().to_string(),
@@ -889,6 +973,7 @@ fn fresh_session(
         host,
         window,
         model,
+        model_resolution: None,
         cwd: task.map_or_else(|| store.repo.clone(), |t| t.worktree.clone()),
         state: if window == Window::External {
             "prepared".into()
@@ -947,16 +1032,119 @@ fn start_patrol(store: &Store, host: Host, window: Window, model: Option<String>
     // Persist the singleton before opening UI; do not hold the shared ledger lock while
     // a launcher waits for operating-system permissions or the new runner starts.
     drop(_lock);
-    if let Err(error) = launch(store, &session) {
-        session.state = "failed".into();
-        let _lock = store.lock()?;
-        store.save_session(&session)?;
+    if let Err(error) = launch(store, &mut session) {
+        record_launch_failure(store, &mut session, &error)?;
         return Err(error);
     }
     Ok(
         json!({"session":store.session(&session.id)?,"bootstrap":bootstrap,"ledger":store.dir,"ready":false}),
     )
 }
+/// Caller holds the shared writer lock. Capture one exact, already-existing report;
+/// never treat the report itself as dispatch permission or read an arbitrary path.
+fn handoff_context(store: &Store, args: &DispatchArgs) -> Result<Option<Handoff>> {
+    let Some(source_id) = args.handoff_from.as_deref() else {
+        return Ok(None);
+    };
+    if source_id == args.id {
+        return Err("a task cannot hand off to itself".into());
+    }
+    let result_id = args
+        .handoff_result
+        .as_deref()
+        .ok_or("exact handoff result required")?;
+    validate_id(result_id.strip_prefix("task-").unwrap_or(result_id))?;
+    let evidence = args
+        .handoff_evidence
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or("handoff requires an explicit review instruction; a report is not permission")?;
+    let source = store.task(source_id)?;
+    if !source.read_only {
+        return Err("handoff-from is for read-only planning; use --depends-on after release/integration for code-producing tasks".into());
+    }
+    if !matches!(
+        source.state.as_str(),
+        "reported" | "released" | "working" | "dispatched" | "waiting"
+    ) {
+        return Err(
+            "planning source is queued/blocked/unavailable; resolve its state before handoff"
+                .into(),
+        );
+    }
+    let origin = Store::open(&source.worktree)?;
+    if origin.dir != store.dir {
+        return Err("planning source belongs to another repository".into());
+    }
+    let path = store.dir.join("results").join(format!("{result_id}.json"));
+    let result_dir = fs::symlink_metadata(store.dir.join("results"))
+        .map_err(|_| "handoff result unavailable; no task launched")?;
+    let result_file =
+        fs::symlink_metadata(&path).map_err(|_| "handoff result unavailable; no task launched")?;
+    if !result_dir.file_type().is_dir() || !result_file.file_type().is_file() {
+        return Err(
+            "handoff requires a regular ledger result; symlinks and special files are not accepted"
+                .into(),
+        );
+    }
+    let mut raw = Vec::new();
+    File::open(&path)
+        .map_err(|_| "handoff result unavailable; no task launched".to_string())?
+        .take(65_537)
+        .read_to_end(&mut raw)
+        .map_err(|_| "cannot read handoff result")?;
+    if raw.len() > 65_536 {
+        return Err("handoff result exceeds 64 KiB; supply a bounded result summary".into());
+    }
+    let result: Value = serde_json::from_slice(&raw).map_err(|_| "malformed handoff result")?;
+    if result["task"].as_str() != Some(source_id) {
+        return Err("handoff result does not belong to the planning source".into());
+    }
+    match result["source"].as_str() {
+        Some("executor-file") if result_id == format!("task-{source_id}") => (),
+        Some("host-stop-hook") if result["session"].as_str() == Some(result_id) => {
+            let session = store.session(result_id)?;
+            if session.task.as_deref() != Some(source_id) {
+                return Err("handoff result session does not belong to the planning source".into());
+            }
+        }
+        _ => return Err("unsupported handoff result source or mismatched receipt id".into()),
+    }
+    let summary = result["summary"]
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or("handoff result has no concrete summary")?;
+    let at = result["at"]
+        .as_str()
+        .filter(|s| chrono::DateTime::parse_from_rfc3339(s).is_ok())
+        .ok_or("handoff result has no valid observation time")?;
+    if args.handoff_at.as_deref() != Some(at) {
+        return Err("planning result changed since review; inspect the updated receipt and explicitly request handoff again".into());
+    }
+    // Whitelist data rather than passing arbitrary extra receipt keys into a prompt.
+    let handoff = Handoff {
+        source_task: source.id,
+        source_result: result_id.into(),
+        source_goal: prompt_summary(&source.goal),
+        source_paths: source.paths,
+        source_worktree: origin.caller,
+        source_head: git(&source.worktree, &["rev-parse", "HEAD"])?,
+        result: json!({"task":source_id,"session":result["session"].as_str(),
+            "source":result["source"],"at":at,"summary":prompt_summary(summary),"verified":false}),
+        review_evidence: prompt_summary(evidence),
+        requested_by: crate::session::Identity::current(),
+        at: now(),
+    };
+    if serde_json::to_vec(&handoff)
+        .map_err(|e| e.to_string())?
+        .len()
+        > 32_768
+    {
+        return Err("handoff context exceeds 32 KiB; narrow the source scope".into());
+    }
+    Ok(Some(handoff))
+}
+
 pub(crate) fn dispatch(args: DispatchArgs) -> Result<Value> {
     let store = Store::open(&repo_arg(args.repo.clone()))?;
     require_dispatch_authority(&store.caller)?;
@@ -982,6 +1170,8 @@ pub(crate) fn dispatch(args: DispatchArgs) -> Result<Value> {
     if args.window != Window::External {
         resolve_executable(args.host.executable())?;
     }
+    // Check and freeze the exact source before creating a task, checkout or session.
+    let handoff = handoff_context(&store, &args)?;
     let mut task = new_task(
         &store,
         args.id.clone(),
@@ -990,13 +1180,14 @@ pub(crate) fn dispatch(args: DispatchArgs) -> Result<Value> {
         args.dependencies,
         args.read_only,
     )?;
+    task.handoff = handoff;
     for dep in &task.dependencies {
         let dependency = store.task(dep)?;
         if !matches!(dependency.state.as_str(), "released" | "reclaimed") {
             return Err(format!("dependency {dep} is still active; integrate the shared change before launching consumers"));
         }
         let base = git(&store.repo, &["rev-parse", "HEAD"])?;
-        if !crate::janitor::integrated(&store, &dependency, &base, "HEAD")? {
+        if !crate::integration::released_task(&store, &dependency, &base, "HEAD")? {
             return Err(format!("dependency {dep} is released but its result is not integrated into the primary checkout"));
         }
     }
@@ -1074,10 +1265,8 @@ pub(crate) fn dispatch(args: DispatchArgs) -> Result<Value> {
         bootstrap.as_bytes(),
     )?;
     drop(_lock);
-    if let Err(error) = launch(&store, &session) {
-        session.state = "failed".into();
-        let _lock = store.lock()?;
-        store.save_session(&session)?;
+    if let Err(error) = launch(&store, &mut session) {
+        record_launch_failure(&store, &mut session, &error)?;
         return Err(format!(
             "{error}; task and any managed checkout remain preserved in the ledger"
         ));
@@ -1156,10 +1345,8 @@ pub(crate) fn run_patrol(args: PatrolArgs) -> Result<Value> {
             session.started_at = now();
             store.save_session(&session)?;
             drop(_lock);
-            if let Err(error) = launch(&store, &session) {
-                session.state = "failed".into();
-                let _lock = store.lock()?;
-                store.save_session(&session)?;
+            if let Err(error) = launch(&store, &mut session) {
+                record_launch_failure(&store, &mut session, &error)?;
                 return Err(error);
             }
             Ok(json!({"session":store.session(&session.id)?,"ready":false}))
@@ -1193,10 +1380,8 @@ pub(crate) fn run_patrol(args: PatrolArgs) -> Result<Value> {
             store.save_session(&session)?;
             let bootstrap = prompt(&store, &session)?;
             drop(_lock);
-            if let Err(error) = launch(&store, &session) {
-                session.state = "failed".into();
-                let _lock = store.lock()?;
-                store.save_session(&session)?;
+            if let Err(error) = launch(&store, &mut session) {
+                record_launch_failure(&store, &mut session, &error)?;
                 return Err(error);
             }
             Ok(
@@ -1282,6 +1467,67 @@ pub(crate) fn run_patrol(args: PatrolArgs) -> Result<Value> {
         PatrolCmd::Serve { id } => serve(&store, &id),
     }
 }
+fn record_launch_failure(store: &Store, session: &mut Session, error: &str) -> Result<()> {
+    let _lock = store.lock()?;
+    session.state = "failed".into();
+    session.pid = None;
+    session.child_pid = None;
+    session.heartbeat_at = now();
+    store.save_session(session)?;
+    block_failed_task(store, session, error, "launch-failure")
+}
+// Caller holds the ledger lock; a runtime failure is evidence, not acceptance or permission
+// to erase an author's other blocking decision.
+fn automatic_failure(task: &Task) -> bool {
+    task.progress
+        .as_ref()
+        .is_some_and(|p| matches!(p["source"].as_str(), Some("launch-failure" | "host-exit")))
+}
+fn block_failed_task(store: &Store, session: &Session, error: &str, source: &str) -> Result<()> {
+    if let Some(id) = &session.task {
+        let mut task = store.task(id)?;
+        if !matches!(task.state.as_str(), "released" | "reclaimed" | "reported")
+            && (task.state != "blocked" || automatic_failure(&task))
+        {
+            task.state = "blocked".into();
+            task.progress = Some(
+                json!({"at":now(),"note":prompt_summary(error),"source":source,"verified":false}),
+            );
+            store.save_task(&task)?;
+        }
+    }
+    Ok(())
+}
+// Caller holds the ledger lock. Only remove a failure this runner recorded, never an
+// author's unrelated blocking note or an accepted result.
+fn clear_launch_failure(store: &Store, session: &Session) -> Result<()> {
+    if let Some(id) = &session.task {
+        let mut task = store.task(id)?;
+        if task.state == "blocked" && automatic_failure(&task) {
+            task.state = "dispatched".into();
+            task.progress = Some(
+                json!({"at":now(),"note":"启动检查已通过，等待实际宿主确认","source":"launch-check","verified":false}),
+            );
+            store.save_task(&task)?;
+        }
+    }
+    Ok(())
+}
+fn prepare_model(session: &mut Session) -> Result<()> {
+    if session.host == Host::Codex {
+        let resolution = crate::codex_model::launch_choice(session.model.as_deref());
+        eprintln!(
+            "Codex model: {} ({})",
+            resolution
+                .selected_model
+                .as_deref()
+                .unwrap_or("host settings"),
+            resolution.source
+        );
+        session.model_resolution = Some(resolution);
+    }
+    Ok(())
+}
 fn serve(store: &Store, id: &str) -> Result<Value> {
     let mut session;
     {
@@ -1296,16 +1542,34 @@ fn serve(store: &Store, id: &str) -> Result<Value> {
         session.state = "running-unconfirmed".into();
         store.save_session(&session)?;
     }
-    let read_only = session.role == "patrol"
-        || session
-            .task
-            .as_ref()
-            .map(|id| store.task(id))
-            .transpose()?
-            .is_some_and(|t| t.read_only);
-    let bootstrap = prompt(store, &session)?;
-    let executable = resolve_executable(session.host.executable())?;
-    let args = provider_args(&session, &bootstrap, read_only)?;
+    // Refresh the instruction receipt even for legacy sessions. No metadata query or
+    // automatic replacement; retry/resume preserves only the explicit user choice.
+    let prepared = (|| {
+        if session.host == Host::Codex {
+            prepare_model(&mut session)?;
+            let _lock = store.lock()?;
+            store.save_session(&session)?;
+            clear_launch_failure(store, &session)?;
+        }
+        let read_only = session.role == "patrol"
+            || session
+                .task
+                .as_ref()
+                .map(|id| store.task(id))
+                .transpose()?
+                .is_some_and(|t| t.read_only);
+        let bootstrap = prompt(store, &session)?;
+        let executable = resolve_executable(session.host.executable())?;
+        let args = provider_args(&session, &bootstrap, read_only)?;
+        Ok::<_, String>((executable, args))
+    })();
+    let (executable, args) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            record_launch_failure(store, &mut session, &error)?;
+            return Err(error);
+        }
+    };
     let mut child = match Command::new(executable)
         .args(args)
         .current_dir(&session.cwd)
@@ -1327,8 +1591,7 @@ fn serve(store: &Store, id: &str) -> Result<Value> {
     {
         Ok(child) => child,
         Err(error) => {
-            session.state = "failed".into();
-            store.save_session(&session)?;
+            record_launch_failure(store, &mut session, &error.to_string())?;
             return Err(error.to_string());
         }
     };
@@ -1377,6 +1640,9 @@ fn serve(store: &Store, id: &str) -> Result<Value> {
     session.child_pid = None;
     session.heartbeat_at = now();
     store.save_session(&session)?;
+    if !status.as_ref().is_ok_and(|status| status.success()) {
+        block_failed_task(store, &session, &format!("宿主未正常结束（exit {:?}）；查看原生窗口日志。不会自动换号、重试或重放工具，确认原因后再续接。", session.exit_code), "host-exit")?;
+    }
     Ok(
         json!({"session":session,"host_success":status.map_err(|e| e.to_string())?.success(),"task_release":"explicit evidence still required"}),
     )
@@ -1413,7 +1679,7 @@ fn notify_scan_change(store: &Store, report: &Value, previous: &mut String) {
 
 // Do not store tool inputs/output or transcripts. Prompt goals are private project-local data;
 // obvious credentials are redacted, but this is not a promise to detect every possible secret.
-fn prompt_summary(prompt: &str) -> String {
+pub(crate) fn prompt_summary(prompt: &str) -> String {
     let re = regex::Regex::new(
         r#"(?i)(api[_-]?key|token|password|secret|authorization)\s*[:=]\s*(?:bearer\s+)?(?:"[^"]*"|'[^']*'|\S+)"#,
     ).unwrap();
@@ -1445,7 +1711,10 @@ pub(crate) fn capture_stdin() -> i32 {
 }
 fn capture(data: &Value) -> Result<Option<String>> {
     let startup = crate::session::startup_context(data)?;
-    match capture_event(data) {
+    if let Err(error) = crate::activity::capture(data) {
+        eprintln!("agent-on activity capture skipped: {error}");
+    }
+    let result = match capture_event(data) {
         Ok(context) => Ok(context.or(startup)),
         Err(error) => match startup {
             Some(context) => Ok(Some(format!(
@@ -1453,7 +1722,12 @@ fn capture(data: &Value) -> Result<Option<String>> {
             ))),
             None => Err(error),
         },
-    }
+    };
+    let activity = crate::activity::context(data);
+    result.map(|context| match (context, activity) {
+        (Some(base), Some(activity)) => Some(format!("{base} {activity}")),
+        (base, activity) => base.or(activity),
+    })
 }
 fn capture_event(data: &Value) -> Result<Option<String>> {
     let cwd = data

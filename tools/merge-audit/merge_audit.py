@@ -57,6 +57,8 @@ LEVELS = {
 EXIT_AUTO = 0        # 自动合，不用出声
 EXIT_NOTABLE = 10    # 自动合，但当轮必须播报一行
 EXIT_HARD_STOP = 20  # 不许自动合，必须问用户
+EXIT_WAIT = 30       # CI / 评审 / 平台计算未完成；自动等下一轮，不问用户
+EXIT_FIX = 40        # 已确认失败；交作者修复，不当成授权问题
 EXIT_ERROR = 2
 
 
@@ -317,12 +319,65 @@ def merge_health(pr: dict, policy: dict) -> dict:
             reasons.append("评审结论是 CHANGES_REQUESTED")
 
     if cfg.get("block_on_failing_checks", True):
-        for c in (pr.get("statusCheckRollup") or []):
+        for c in blocking_checks(pr, policy):
             concl = (c.get("conclusion") or c.get("state") or "").upper()
             if concl in red_set:
                 reasons.append(f"检查「{c.get('name') or c.get('context') or '?'}」= {concl}")
 
     return {"red": bool(reasons), "reasons": reasons}
+
+
+def blocking_checks(pr: dict, policy: dict) -> list[dict]:
+    """Only explicitly configured advisory checks leave the merge path.
+
+    Required names always win; unknown check names retain their existing behavior.
+    This classification is project policy, never a PR author's label or message.
+    """
+    cfg = policy.get("merge_health", {})
+    advisory = set(cfg.get("advisory_check_names", [])) - set(cfg.get("required_checks", []))
+    return [c for c in pr.get("statusCheckRollup") or []
+            if (c.get("name") or c.get("context")) not in advisory]
+
+
+def execution_state(pr: dict, policy: dict, health: dict) -> dict:
+    """Policy permission and current readiness are different facts."""
+    if pr.get("mergedAt") or pr.get("state") == "MERGED":
+        return {"state": "MERGED", "reasons": []}
+    if pr.get("state") == "CLOSED":
+        return {"state": "CLOSED", "reasons": ["PR 已关闭"]}
+    if pr.get("_files_truncated"):
+        return {"state": "WAIT", "reasons": ["文件证据不完整，等待重新取证"]}
+    waiting = []
+    if pr.get("isDraft"):
+        waiting.append("PR 仍是 draft")
+    held = set(pr_labels(pr)) & set(policy.get("merge_health", {}).get("hold_labels", ["hold", "do-not-merge"]))
+    if held:
+        waiting.append("PR 暂停合入：" + ", ".join(sorted(held)))
+    if not pr.get("headRefOid"):
+        waiting.append("当前 head SHA 未取到")
+    if (pr.get("mergeable") or "UNKNOWN") == "UNKNOWN":
+        waiting.append("GitHub 正在计算是否可合入")
+    if pr.get("reviewDecision") == "REVIEW_REQUIRED":
+        waiting.append("所需评审尚未完成")
+    checks = blocking_checks(pr, policy)
+    reported = {c.get("name") or c.get("context") for c in checks}
+    for name in policy.get("merge_health", {}).get("required_checks", []):
+        if name not in reported:
+            waiting.append(f"必需检查「{name}」尚未上报")
+    terminal = {"SUCCESS", "NEUTRAL", "SKIPPED"} | set(
+        policy.get("merge_health", {}).get("check_conclusions_treated_as_red", []))
+    for c in checks:
+        state = (c.get("conclusion") or c.get("state") or "").upper()
+        if state not in terminal:
+            waiting.append(f"检查「{c.get('name') or c.get('context') or '?'}」尚未完成")
+    # Actual failures require repair even if another check is still pending.
+    failures = [r for r in health["reasons"]
+                if r != "PR 是 draft" and not r.startswith("mergeable=UNKNOWN")]
+    if failures:
+        return {"state": "FIX", "reasons": failures}
+    if waiting:
+        return {"state": "WAIT", "reasons": waiting}
+    return {"state": "READY", "reasons": []}
 
 
 def classify(pr: dict, policy: dict, diff: str | None = None) -> dict:
@@ -353,6 +408,7 @@ def classify(pr: dict, policy: dict, diff: str | None = None) -> dict:
                             "why": rule.get("why", ""), "evidence": ev})
 
     decision = "HARD_STOP" if hard else ("NOTABLE" if notable else "AUTO")
+    health = merge_health(pr, policy)
     return {
         "pr": pr.get("number"),
         "title": pr.get("title", ""),
@@ -360,7 +416,13 @@ def classify(pr: dict, policy: dict, diff: str | None = None) -> dict:
         "decision": decision,
         "hard_stop": hard,
         "notable": notable,
-        "health": merge_health(pr, policy),
+        "health": health,
+        "execution": execution_state(pr, policy, health),
+        "head_sha": pr.get("headRefOid"),
+        "merge_state": pr.get("mergeStateStatus"),
+        "draft": pr.get("isDraft", False),
+        "paused": bool(pr.get("isDraft") or set(pr_labels(pr)) & set(
+            policy.get("merge_health", {}).get("hold_labels", ["hold", "do-not-merge"]))),
         "files": pr_paths(pr),
         "merged_at": pr.get("mergedAt"),
         "merge_commit": ((pr.get("mergeCommit") or {}).get("oid")),
@@ -409,6 +471,8 @@ def verify_chain(raw: list[str]) -> int | None:
 def append_record(path: Path, rec: dict) -> dict:
     path.parent.mkdir(parents=True, exist_ok=True)
     _, raw = read_ledger(path)
+    if broken := verify_chain(raw):
+        die(f"账本链在第 {broken} 行断裂，保留原件，不能继续追加记录")
     rec = dict(rec)
     rec["prev"] = line_hash(raw[-1]) if raw else GENESIS
     line = json.dumps(rec, ensure_ascii=False, sort_keys=True)
@@ -421,7 +485,7 @@ def append_record(path: Path, rec: dict) -> dict:
 
 # changedFiles 是**真相计数**：gh 的 files 数组静默截断到 100 条，没有它就察觉不到自己被截断了。
 PR_FIELDS = ("number,title,author,body,labels,files,changedFiles,mergedAt,mergeCommit,"
-             "reviewDecision,statusCheckRollup,isDraft,mergeable,state")
+             "reviewDecision,statusCheckRollup,isDraft,mergeable,state,headRefOid,mergeStateStatus")
 
 GH_FILES_PAGE_CAP = 100  # gh --json files 的硬上限（实测 gh 2.88.1）
 
@@ -574,6 +638,7 @@ def cmd_precheck(args) -> int:
             "evidence": [f"gh pr diff {args.pr} 取不到内容（未登录 / 网络 / PR 太大）"],
         })
         v["decision"] = "HARD_STOP"
+        v["execution"] = {"state": "WAIT", "reasons": ["diff 取证失败，等待重试；批准不能替代取证"]}
 
     if args.json:
         print(json.dumps(v, ensure_ascii=False, indent=2))
@@ -584,12 +649,18 @@ def cmd_precheck(args) -> int:
         elif v["decision"] == "NOTABLE":
             print("\n→ 可以自动合，但本轮面板必须写一行让用户看见。")
         else:
-            print("\n→ 自动合，合完 record 一行即可。")
+            print("\n→ 政策允许自动合；执行状态 READY 后合入并 record。")
+        print(f"→ 执行状态：{v['execution']['state']}" +
+              ("：" + "；".join(v['execution']['reasons']) if v['execution']['reasons'] else ""))
         if v["health"]["red"]:
             print("→ 健康度红：合之前先分诊，别红着合。")
 
-    if v["decision"] == "HARD_STOP" or v["health"]["red"]:
+    if v["decision"] == "HARD_STOP":
         return EXIT_HARD_STOP
+    if v["execution"]["state"] == "FIX":
+        return EXIT_FIX
+    if v["execution"]["state"] in {"WAIT", "CLOSED"}:
+        return EXIT_WAIT
     return EXIT_NOTABLE if v["decision"] == "NOTABLE" else EXIT_AUTO
 
 
@@ -907,7 +978,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("policy", help="打印生效规则（人读）")
     s.set_defaults(func=cmd_policy)
 
-    s = sub.add_parser("precheck", help="合之前判一次：0=自动合 10=自动合但播报 20=必须问用户")
+    s = sub.add_parser("precheck", help="0/10=政策允许且就绪 20=政策硬停 30=等状态 40=需修复")
     s.add_argument("--pr", type=int, required=True)
     s.add_argument("--json", action="store_true")
     s.add_argument("--no-deep", action="store_true", help="跳过 diff 密钥扫描（快，但漏一层）")

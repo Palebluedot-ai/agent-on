@@ -726,38 +726,62 @@ pub(crate) fn dormant_after_days(cwd: &Path) -> u64 {
 }
 
 pub(crate) fn load_records(cwd: &Path) -> Result<Vec<LaneRecord>, String> {
+    let (records, errors) = lane_inventory(cwd)?;
+    if errors.is_empty() {
+        Ok(records)
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+/// Optional coordination metadata may be partially damaged. Consumers of Git
+/// facts retain good records and surface diagnostics without locking delivery.
+pub(crate) fn lane_inventory(cwd: &Path) -> Result<(Vec<LaneRecord>, Vec<String>), String> {
     let dir = registry_dir(cwd)?;
     if !dir.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     }
     let mut records = Vec::new();
+    let mut errors = Vec::new();
     for entry in fs::read_dir(&dir).map_err(|e| format!("read {}: {e}", dir.display()))? {
-        let path = entry
-            .map_err(|e| format!("read {} entry: {e}", dir.display()))?
-            .path();
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                errors.push(e.to_string());
+                continue;
+            }
+        };
+        let path = entry.path();
         if path.extension().and_then(|v| v.to_str()) != Some("json") {
             continue;
         }
-        let raw = fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
-        let record: LaneRecord =
-            serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
-        if record.version != RECORD_VERSION {
-            return Err(format!(
-                "unsupported lane record version {} in {} (expected {})",
-                record.version,
-                path.display(),
-                RECORD_VERSION
-            ));
+        match read_lane_record(&path) {
+            Ok(record) => records.push(record),
+            Err(error) => errors.push(error),
         }
-        if !valid_id(&record.id) || !VALID_STATUSES.contains(&record.status.as_str()) {
-            return Err(format!("invalid lane record: {}", path.display()));
-        }
-        normalize_owns(&record.owns)
-            .map_err(|e| format!("invalid lane record {}: {e}", path.display()))?;
-        records.push(record);
     }
     records.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(records)
+    Ok((records, errors))
+}
+
+fn read_lane_record(path: &Path) -> Result<LaneRecord, String> {
+    let raw = fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    let record: LaneRecord =
+        serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
+    if record.version != RECORD_VERSION {
+        return Err(format!(
+            "unsupported lane record version {} in {} (expected {})",
+            record.version,
+            path.display(),
+            RECORD_VERSION
+        ));
+    }
+    if !valid_id(&record.id) || !VALID_STATUSES.contains(&record.status.as_str()) {
+        return Err(format!("invalid lane record: {}", path.display()));
+    }
+    normalize_owns(&record.owns)
+        .map_err(|e| format!("invalid lane record {}: {e}", path.display()))?;
+    Ok(record)
 }
 
 /// Lane id registered for the worktree that contains `cwd`, if any.
@@ -1686,9 +1710,19 @@ fn rebase_note(other: &str, progress: &RebaseProgress) -> String {
 
 /// Lines that apply to one worktree. Empty means nothing blocks a commit there.
 fn focus_lines(report: &AuditReport, here: &str) -> Vec<String> {
+    let mut lines = conflict_lines(&report.conflicts, here);
+    for (tree, message) in report.error_trees.iter().zip(report.errors.iter()) {
+        if tree == here {
+            lines.push(format!("error: {message}"));
+        }
+    }
+    lines
+}
+
+fn conflict_lines(conflicts: &[Conflict], here: &str) -> Vec<String> {
     let mut lines = Vec::new();
     let mut rebasing: Vec<(&str, &RebaseProgress)> = Vec::new();
-    for conflict in &report.conflicts {
+    for conflict in conflicts {
         if conflict.worktree == here {
             lines.push(format!(
                 "blocked: {} is also uncommitted in {}",
@@ -1703,11 +1737,6 @@ fn focus_lines(report: &AuditReport, here: &str) -> Vec<String> {
     }
     for (other, progress) in rebasing {
         lines.push(rebase_note(other, progress));
-    }
-    for (tree, message) in report.error_trees.iter().zip(report.errors.iter()) {
-        if tree == here {
-            lines.push(format!("error: {message}"));
-        }
     }
     lines
 }
@@ -1745,14 +1774,56 @@ fn gate_for_scope(repo: &Path, paths: Option<&BTreeSet<String>>) -> (i32, String
         Ok(None) => {}
         Err(e) => return (1, format!("error: {e}\n")),
     }
-    let mut report = match build_report(&here) {
-        Ok(report) => report,
+    // Do not use the diagnostic report here. It reads optional lane records,
+    // historical bases and dependencies, none of which govern a Git write.
+    let raw = match git(&here, &["worktree", "list", "--porcelain"]) {
+        Ok(raw) => raw,
         Err(e) => return (1, format!("error: {e}\n")),
     };
-    if let Some(paths) = paths {
-        report.conflicts.retain(|row| paths.contains(&row.path));
+    let files = match paths {
+        Some(paths) => paths.clone(),
+        None => match uncommitted_files(&here) {
+            Ok(files) => files.into_iter().collect(),
+            Err(e) => return (1, format!("error: {e}\n")),
+        },
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|age| age.as_secs())
+        .unwrap_or(0);
+    let dormant_after = dormant_after_days(&here);
+    let mut conflicts = Vec::new();
+    for wt in parse_worktrees(&raw) {
+        let other = fs::canonicalize(&wt.path).unwrap_or(wt.path);
+        if other == here {
+            continue;
+        }
+        // A paused replay in another checkout is not evidence of an active
+        // competing edit. Leave it intact; Git resolves integration conflicts
+        // when that branch is ready. It cannot hold unrelated sessions hostage.
+        if matches!(control_operation_in_progress(&other), Ok(Some(_))) {
+            continue;
+        }
+        // A missing/unreadable other checkout is diagnostic debt, not proof
+        // that it is writing one of the paths carried by this operation.
+        let Ok(other_files) = uncommitted_files(&other) else {
+            continue;
+        };
+        let other_rebase = rebase_progress(&other, now);
+        for file in other_files {
+            if files.contains(&file)
+                && copy_is_recent(file_epoch(&other, &file), now, dormant_after)
+            {
+                conflicts.push(Conflict {
+                    worktree: here.display().to_string(),
+                    path: file,
+                    other: other.display().to_string(),
+                    other_rebase: other_rebase.clone(),
+                });
+            }
+        }
     }
-    let lines = focus_lines(&report, &here.display().to_string());
+    let lines = conflict_lines(&conflicts, &here.display().to_string());
     if lines.is_empty() {
         return (0, String::new());
     }
@@ -2084,7 +2155,7 @@ fn pr_for_worktree(
                 if head == oid {
                     Some(true)
                 } else {
-                    ancestor_result(path, "HEAD", oid).ok()
+                    ancestor_result(path, head, oid).ok()
                 }
             });
             let audit = GcPrAudit {
@@ -2189,6 +2260,38 @@ fn integrated_criterion(
             evidence: "integration cannot be proven".to_string(),
         },
     }
+}
+
+/// Integration evidence without invoking worktree GC or reading lane metadata.
+/// A squash merge only counts when the hosted PR covers this exact task head
+/// and targets the requested base; an older merged PR is not sufficient.
+pub(crate) fn head_integrated(
+    repo: &Path,
+    checkout: &Path,
+    head: &str,
+    base_sha: &str,
+    base: &str,
+) -> Result<bool, String> {
+    if ancestor_result(repo, head, base_sha)? {
+        return Ok(true);
+    }
+    if !checkout.exists() {
+        return Ok(false);
+    }
+    let branch = git(checkout, &["symbolic-ref", "--short", "HEAD"]).ok();
+    let expected_base = hosted_base_name(repo, base);
+    let inventory = query_all_prs(repo);
+    let (kind, pr, _) = pr_for_worktree(
+        repo,
+        branch.as_deref(),
+        head,
+        expected_base.as_deref(),
+        inventory.rows.as_deref(),
+    );
+    Ok(matches!(
+        integrated_criterion(Some(false), kind, &pr).result,
+        CheckState::Pass
+    ))
 }
 
 fn preserved_criterion(
@@ -2864,8 +2967,8 @@ mod tests {
     }
 
     /// Dartify 2026-09-25: the tree holding the file had stopped mid-rebase and
-    /// its session had gone idle. "Also uncommitted" read like someone editing;
-    /// the block has to say it is a replay stuck at step x of y.
+    /// its session had gone idle. Keep its diagnostic progress, but a paused
+    /// replay must not prevent another checkout from completing its work.
     #[test]
     fn block_names_the_other_trees_rebase_progress() {
         let (_tmp, root, wt) = fixture();
@@ -2888,14 +2991,8 @@ mod tests {
 
         fs::write(root.join("app/base.txt"), "primary edit\n").unwrap();
         let (code, out) = gate_for(&root);
-        assert_eq!(code, 1, "{out}");
-        assert!(
-            out.contains("blocked: app/base.txt is also uncommitted in"),
-            "{out}"
-        );
-        assert!(out.contains("mid-rebase at step 2 of 3"), "{out}");
-        // The owner of the exit is the rebasing session, not this one.
-        assert!(out.contains("rebase --abort"), "{out}");
+        assert_eq!(code, 0, "{out}");
+        assert!(out.is_empty(), "{out}");
 
         let (_, json) = run_audit(&root, true, false);
         let report: serde_json::Value = serde_json::from_str(&json).unwrap();

@@ -6,6 +6,25 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use tempfile::TempDir;
 
+/// Identity and host markers a live Claude/Codex session exports. Inherited by
+/// `cargo test` run inside one, they would outrank the fixture identity.
+const HOST_SESSION_ENV: &[&str] = &[
+    "CODEX_THREAD_ID",
+    "AGENT_ON_HOST",
+    "AGENT_ON_SESSION_ID",
+    "AGENT_ON_PARENT_CODEX_THREAD_ID",
+    "CLAUDE_ENV_FILE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_HOST_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "PLUGIN_ROOT",
+    "CLAUDE_PLUGIN_ROOT",
+    "AGENT_ON_CONTROL_ID",
+    "AGENT_ON_CONTROL_REPO",
+    "CLAUDE_PROJECT_DIR",
+    "CODEX_PROJECT_DIR",
+];
+
 struct Fixture {
     _tmp: TempDir,
     repo: PathBuf,
@@ -26,14 +45,12 @@ impl Fixture {
     }
     fn command(&self) -> Command {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_agent-on"));
-        cmd.current_dir(&self.repo)
-            .env_remove("CODEX_THREAD_ID")
-            .env("AGENT_ON_HOST", "codex")
-            .env("AGENT_ON_SESSION_ID", "fixture-main")
-            .env_remove("AGENT_ON_CONTROL_ID")
-            .env_remove("AGENT_ON_CONTROL_REPO");
-        cmd.env_remove("CLAUDE_PROJECT_DIR")
-            .env_remove("CODEX_PROJECT_DIR");
+        cmd.current_dir(&self.repo);
+        for key in HOST_SESSION_ENV {
+            cmd.env_remove(key);
+        }
+        cmd.env("AGENT_ON_HOST", "codex")
+            .env("AGENT_ON_SESSION_ID", "fixture-main");
         cmd
     }
     fn cli(&self, args: &[&str]) -> Output {
@@ -132,6 +149,149 @@ fn git(repo: &Path, args: &[&str]) -> String {
         String::from_utf8_lossy(&out.stderr)
     );
     String::from_utf8(out.stdout).unwrap().trim().into()
+}
+
+#[test]
+fn mixed_host_manual_tasks_share_ledger_and_keep_reporter_separate_from_authority() {
+    let f = Fixture::new();
+    let codex = f.ok(&[
+        "task",
+        "add",
+        "codex-ui",
+        "--title",
+        "看板界面",
+        "--goal",
+        "full scope remains here",
+    ]);
+    assert_eq!(codex["task"]["title"], "看板界面");
+    assert_eq!(codex["task"]["last_reporter"]["host"], "codex");
+    let out = f
+        .command()
+        .env("AGENT_ON_HOST", "claude")
+        .env("AGENT_ON_SESSION_ID", "fixture-claude")
+        .args([
+            "task",
+            "add",
+            "claude-tests",
+            "--title",
+            "回归测试",
+            "--goal",
+            "test independent paths",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let claude: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(claude["task"]["last_reporter"]["host"], "claude");
+    assert_eq!(
+        claude["task"]["last_reporter"]["session_id"],
+        "fixture-claude"
+    );
+    let panel = f.ok(&["dashboard", "--json"]);
+    assert_eq!(
+        panel["patrol"]["data"]["tasks"].as_array().unwrap().len(),
+        2
+    );
+    assert_eq!(panel["config"]["data"]["enabled"], false);
+    assert_eq!(panel["oncall"]["data"]["present"], false);
+    assert!(panel["patrol"]["data"]["sessions"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let progress = f.ok(&[
+        "task",
+        "progress",
+        "claude-tests",
+        "--state",
+        "blocked",
+        "--note",
+        "waiting for user",
+        "--title",
+        "回归测试待确认",
+    ]);
+    assert_eq!(progress["task"]["last_reporter"]["host"], "codex");
+    assert_eq!(progress["task"]["title"], "回归测试待确认");
+    assert_eq!(progress["task"]["goal"], "test independent paths");
+    assert_eq!(progress["task"]["progress"]["verified"], false);
+    assert!(progress["task"]["released_at"].is_null());
+    let tree = f.repo.parent().unwrap().join("linked");
+    git(
+        &f.repo,
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "codex/linked",
+            tree.to_str().unwrap(),
+        ],
+    );
+    let linked = f.ok(&["dashboard", "--repo", tree.to_str().unwrap(), "--json"]);
+    assert_eq!(
+        linked["patrol"]["data"]["tasks"],
+        f.ok(&["task", "list"])["tasks"]
+    );
+}
+
+#[test]
+fn legacy_task_titles_and_reporters_are_optional_and_unknown_is_not_invented() {
+    let f = Fixture::new();
+    f.ok(&["task", "add", "legacy", "--goal", "old task"]);
+    let path = f.dir().join("tasks/legacy.json");
+    let mut old: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("title");
+    old.as_object_mut().unwrap().remove("last_reporter");
+    fs::write(&path, old.to_string()).unwrap();
+    let tasks = f.ok(&["task", "list"]);
+    assert!(tasks["tasks"][0]["title"].is_null());
+    assert!(tasks["tasks"][0]["last_reporter"].is_null());
+    let out = f
+        .command()
+        .env_remove("AGENT_ON_HOST")
+        .env_remove("AGENT_ON_SESSION_ID")
+        .args([
+            "task",
+            "progress",
+            "legacy",
+            "--state",
+            "working",
+            "--note",
+            "anonymous local update",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let task: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(task["task"]["last_reporter"].is_null());
+}
+
+#[test]
+fn invalid_display_title_is_rejected_without_changing_task_state() {
+    let f = Fixture::new();
+    assert!(!f
+        .cli(&["task", "add", "empty", "--goal", "scope", "--title", " "])
+        .status
+        .success());
+    assert!(!f.dir().join("tasks/empty.json").exists());
+    let before = f.ok(&["task", "add", "valid", "--goal", "scope", "--title", "标题"]);
+    assert!(!f
+        .cli(&[
+            "task",
+            "progress",
+            "valid",
+            "--state",
+            "working",
+            "--note",
+            "work",
+            "--title",
+            "line\nbreak"
+        ])
+        .status
+        .success());
+    assert_eq!(f.ok(&["task", "list"])["tasks"][0], before["task"]);
 }
 
 #[test]

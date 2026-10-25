@@ -390,6 +390,53 @@ fn git_push_action(args: &[String]) -> Option<Action> {
     None
 }
 
+/// A single push to an explicit local bare test repository has no hosted
+/// public state. Resolve the destination, including symlinks, before deciding;
+/// named remotes, URLs, wrappers and compound commands keep normal routing.
+fn local_fixture_push(cmd: &str) -> bool {
+    let words = tokens(cmd);
+    if words.first().is_none_or(|word| base_name(word) != "git")
+        || words
+            .iter()
+            .any(|word| is_separator(word) || ends_command(word))
+    {
+        return false;
+    }
+    let mut at = 1;
+    if words.get(at).map(String::as_str) == Some("-C") {
+        at += 2;
+    }
+    if words.get(at).map(String::as_str) != Some("push") {
+        return false;
+    }
+    at += 1;
+    while words.get(at).is_some_and(|word| {
+        matches!(
+            word.as_str(),
+            "-u" | "--set-upstream" | "--tags" | "--follow-tags" | "--dry-run"
+        )
+    }) {
+        at += 1;
+    }
+    let Some(destination) = words
+        .get(at)
+        .map(Path::new)
+        .filter(|path| path.is_absolute())
+    else {
+        return false;
+    };
+    let Ok(destination) = fs::canonicalize(destination) else {
+        return false;
+    };
+    let temporary = [std::env::temp_dir(), PathBuf::from("/tmp")]
+        .iter()
+        .filter_map(|root| fs::canonicalize(root).ok())
+        .any(|root| destination.starts_with(&root) && destination != root);
+    temporary
+        && worktree::git(&destination, &["rev-parse", "--is-bare-repository"])
+            .is_ok_and(|value| value == "true")
+}
+
 const CHAT_HOSTS: &[&str] = &[
     "hooks.slack.com",
     "slack.com/api",
@@ -549,8 +596,10 @@ fn classify_command(name: &str, rest: &[String]) -> Option<Action> {
         }
         // `tag-release --push` runs its `git push` inside the CLI, out of the
         // `git` arm's sight, and lands the default branch plus a tag.
-        "agent-on" => (rest.first().map(String::as_str) == Some("tag-release")
+        "agent-on" => ((rest.first().map(String::as_str) == Some("tag-release")
             && rest.iter().any(|t| t == "--push"))
+            || (rest.first().map(String::as_str) == Some("master")
+                && rest.iter().any(|t| t == "--apply")))
         .then_some(Action::Merge),
         "curl" | "wget" | "http" | "httpie" => {
             let joined = rest.join(" ").to_ascii_lowercase();
@@ -1270,6 +1319,9 @@ pub(crate) fn route_decision(data: &Value) -> i32 {
     let Some(action) = classify_bash(cmd) else {
         return 0;
     };
+    if action == Action::Merge && local_fixture_push(cmd) {
+        return 0;
+    }
     if let Err(error) = load(&cwd) {
         eprintln!("值守登记不可用，无法判定本窗口的合入/对外权限；请修复登记并核对 oncall status：{error}");
         return 2;

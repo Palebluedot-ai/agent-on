@@ -1,22 +1,28 @@
 //! agent-on CLI — replaces former Python scripts.
 
+mod activity;
 mod audit_lint;
 mod build_info;
+mod codex_model;
 mod coordination;
 mod dashboard;
 mod doctor;
 mod drift;
 mod guard;
 mod intake_lint;
+mod integration;
 mod janitor;
 mod landing;
+mod master;
 mod oncall;
 mod paths;
 mod prepush;
+mod project_status;
 mod routing;
 mod session;
 mod setup;
 mod source_identity;
+mod system_dashboard;
 mod tag_release;
 mod worktree;
 mod worktree_hooks;
@@ -49,9 +55,25 @@ enum Commands {
         #[arg(long)]
         cwd: Option<PathBuf>,
     },
-    /// One project view of tasks, sessions, worktrees and PR evidence
-    #[command(alias = "status")]
+    /// Diagnose native Codex metadata; never select a replacement or change launch settings
+    #[command(name = "model-check")]
+    ModelCheck {
+        #[arg(long)]
+        cwd: Option<PathBuf>,
+        /// Preserve an explicit model exactly; never substitute a private/unlisted choice
+        #[arg(long)]
+        model: Option<String>,
+    },
+    /// Read-only project or local system overview
     Dashboard(dashboard::DashboardArgs),
+    /// Delivery brief: tasks, registered windows, blockers and next actions; read-only
+    Status(dashboard::DashboardArgs),
+    /// Coordinate one delivery pass: ready merges, waiting checks, repair handoffs
+    Master(master::MasterArgs),
+    /// Record a platform-neutral status receipt (never grants task or merge authority)
+    Agent(system_dashboard::AgentArgs),
+    /// Independent, opt-in window activity; never starts patrol or changes task authority
+    Activity(activity::ActivityArgs),
     /// PreToolUse git guard (stdin JSON → exit 0 allow / 2 block)
     Guard,
     /// Optional project patrol: a separate window, task ledger, and early overlap reports
@@ -406,8 +428,25 @@ fn main() {
             print!("{}", paths::doctor_report(cwd.as_deref()));
             0
         }
+        Commands::ModelCheck { cwd, model } => coordination::print_result(
+            codex_model::resolve(
+                &cwd.unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from("."))),
+                model.as_deref(),
+            )
+            .and_then(|plan| serde_json::to_value(plan).map_err(|e| e.to_string())),
+        ),
         Commands::Guard => guard::run_from_stdin(),
         Commands::Dashboard(args) => dashboard::run(args),
+        // Preserve the former status alias flags for existing callers.
+        Commands::Status(args) if args.serve || args.system => dashboard::run(args),
+        Commands::Status(args) => project_status::run(args.repo, args.json),
+        Commands::Master(args) => {
+            let (code, output) = master::run(args);
+            print!("{output}");
+            code
+        }
+        Commands::Agent(args) => coordination::print_result(system_dashboard::report(args)),
+        Commands::Activity(args) => coordination::print_result(activity::run(args)),
         Commands::Patrol(args) => coordination::print_result(coordination::run_patrol(args)),
         Commands::Task(args) => coordination::print_result(coordination::run_task(args)),
         Commands::Dispatch(args) => coordination::print_result(coordination::dispatch(args)),
