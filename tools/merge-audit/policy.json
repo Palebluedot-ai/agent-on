@@ -108,6 +108,7 @@
         "AGENTS.md",
         "CHARTER.md",
         "BOOTSTRAP.md",
+        "docs/babysit.md",
         "kit/babysit/**",
         "playbook/multi-contributor-protocol.md"
       ]

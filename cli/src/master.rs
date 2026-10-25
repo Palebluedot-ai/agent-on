@@ -395,7 +395,9 @@ fn pass(args: &MasterArgs) -> Result<Value, String> {
                     let path = args.approval.as_ref().ok_or("缺用户批准证据")?;
                     pointer = approval_pointer(&d.root, path)?;
                 } else {
-                    rows.push(json!({"pr":pr,"state":if state == "READY" {"HARD_STOP"} else {state},"reason":verdict["hard_stop"],"head":head}));
+                    rows.push(json!({"pr":pr,"state":if state == "READY" {"HARD_STOP"} else {state},
+                        "reason":if state == "READY" {&verdict["hard_stop"]} else {&verdict["execution"]["reasons"]},
+                        "policy":verdict["hard_stop"],"head":head}));
                     continue;
                 }
             }
