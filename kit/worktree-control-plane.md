@@ -61,7 +61,7 @@ git worktree add -b feat/142-auth-api .worktrees/auth-api origin/main
 
 **从隔离会话派子代理并行改代码，让宿主给每个子代理开树**（Claude Code：Agent 的 `isolation: "worktree"`）。别自己 `git worktree add` 再把代理派进去——宿主的隔离钉在派出者会话上，和代理 cd 到哪里无关。Dartify 2026-09-24 三路并行：手工开好三棵树再派代理，三个全撞墙（Write/Edit 被拒「Edit the worktree copy of this file instead of the shared-checkout path」；`cd <别的树> && git …` 被拒；`EnterWorktree` 报成功后连 `pwd` 都被拒），三路成了三份躺在 scratchpad 里的草稿；改用 `isolation: "worktree"` 后，同一天五条代理都跑通了 git / 测试 / `gh pr create`。代理的树从派出者当前 HEAD 长出来：派之前先把自己钉到 `origin/<default>`（`git switch --detach origin/<default>`），免得代理从记账分支头上起步；代理开工第一步用 `pwd` + `git log -1` 自证。宿主换了隔离模型，这条作废。
 
-需要 lane 记账时进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane。使用 dispatch 的受管任务回执也不是强制再 claim 的理由：
+需要 lane 记账时进入**实际路径**登记；registry 不依赖目录名猜 branch 或 lane。已有项目任务也不是强制再 claim 的理由：
 
 ```bash
 agent-on worktree claim \
@@ -172,7 +172,7 @@ agent-on worktree status
 agent-on worktree status --json
 ```
 
-多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；统一用户视图见 [本机控制面](live-control-plane.md)。lane 记账、实际 Git 事实与提交闸分别承担各自职责。
+多 PR 排队、增量取证与五类生命周期汇总由上层的 [landing 控制面](landing-control-plane.md)负责（`agent-on landing refresh|status|plan`）；统一用户视图见 [本机控制面](../docs/migration-v0.30.md)。lane 记账、实际 Git 事实与提交闸分别承担各自职责。
 
 人读的 `status` 只回答「这棵树能不能提交」：没撞上打 `ok`；撞上了每个路径一行 `blocked: <路径> is also uncommitted in <另一棵树>`（对方停在 rebase 半路时多一行 `note:`）；本树审计跑不起来打 `error:`。未登记 worktree、边界重叠、实际改动越界、依赖未 landed、相对 base 落后、独有 commit、工作区 clean 与回收分类只在 `status --json` 里（`unregistered_worktrees` / `overlaps` / `dependency_blocks` / `lanes[]`），不挡 commit。
 
@@ -299,7 +299,7 @@ agent-on worktree forget --id auth-api
 
 ## 自动化与权限边界
 
-- 原有自动化只报告：Git hooks 在实际 commit/push 范围做同文件检查，PreToolUse 只做路由与跨仓授权；读取 git / registry / PR 状态，写本机报告。lane 状态不由 hook 或旧 GC 猜。显式启用的巡逻/清道夫额外能力与有限受管回收，以 [巡逻执行书](patrol-control-plane.md) 为准。
+- 原有自动化只报告：Git hooks 在实际 commit/push 范围做同文件检查，PreToolUse 只做路由与跨仓授权；读取 git / registry / PR 状态，写本机报告。lane 状态不由 hook 或旧 GC 猜。自建巡逻和清道夫已删除；旧安装按 [迁移说明](../docs/migration-v0.30.md) 停用。
 - 必须人工或获得目标明确的用户授权：删除 worktree 目录、删除本地/远端分支、`--force`、进入别的 worktree add/commit、代另一轨处理 dirty 内容。
 - 即使用户笼统说“清一清”，locked、dirty 或 unknown 也不删；先解除占用、逐项分类或抢救，再重新盘点。
 - 禁止从一个 worktree 对另一个 worktree 批量 `checkout` / `restore` / `stash`；这不是清理，是跨轨改写。

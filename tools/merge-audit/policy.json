@@ -115,7 +115,7 @@
     }
   ],
   "merge_health": {
-    "_comment": "当前候选的健康度；required_checks 必须已上报，advisory_check_names 仅用于明确不阻塞的检查。必需名优先，其他检查保持原判定。全量回归安排在夜间。",
+    "_comment": "本仓 Actions 每日与按需手动运行，PR 不要求每日 job 上报；无 PR 检查如实记为未运行，不伪称通过。实际检查失败、待决检查和评审仍按原规则处理。其他项目应按其实际保护填写 required_checks。",
     "block_on_changes_requested": true,
     "block_on_failing_checks": true,
     "check_conclusions_treated_as_red": [
@@ -129,10 +129,7 @@
     ],
     "block_on_draft": true,
     "block_on_not_mergeable": true,
-    "required_checks": [
-      "CLI 测试 + 承接层校验",
-      "文档三闸（职责边界棘轮 / 死链 / 推荐 pin）"
-    ],
+    "required_checks": [],
     "advisory_check_names": []
   },
   "merge_method": "merge"

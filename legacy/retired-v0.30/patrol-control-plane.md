@@ -1,5 +1,7 @@
 # 巡逻、派工与清道夫
 
+> 历史档案：本功能已于 v0.30.0 删除，以下描述仅记录旧版本，不是现行操作指令。升级见 [迁移说明](../../docs/migration-v0.30.md)。
+
 > 职责边界：本页是可选协调功能的执行书，说明入口、状态与能力边界；值守仍负责合并、发布、对外通信和跨窗口中转。原有 worktree 同文件闸与 `gc --dry-run` 不变。
 
 ## 一个人只需一个入口
@@ -16,7 +18,7 @@
 
 任务列表用 `任务 / 执行窗口 / 状态 / 下一步` 四列。钉住目标、证据与权限；不复述每个工具调用。
 
-主窗口与巡逻窗口各自在原会话 compact，沿用当前任务和回执，不因为压缩重新派发或造树。需求摘要和巡逻台账不是完整任务记忆；接续仍读已有任务记录、相关源文件与实际状态。流程约定见 [会话续接](../boot/session-handshake.md)；当前源码补 SessionStart 的状态注入，安装/信任与实际身份见 [项目接续控制面](session-control-plane.md)，尚无自动压缩前保存完整任务的接线。
+主窗口与巡逻窗口各自在原会话 compact，沿用当前任务和回执，不因为压缩重新派发或造树。需求摘要和巡逻台账不是完整任务记忆；接续仍读已有任务记录、相关源文件与实际状态。流程约定见 [会话续接](../../boot/session-handshake.md)；当前源码补 SessionStart 的状态注入，安装/信任与实际身份见 [项目接续控制面](../../kit/session-control-plane.md)，尚无自动压缩前保存完整任务的接线。
 
 ## 启用与自动开窗
 
@@ -34,7 +36,7 @@ agent-on patrol scan
 
 巡逻的本地观察器每 30 秒更新路径证据，不重复调用模型。重叠或待确认集合变化时才发本机提示（macOS 系统通知；其他系统在巡逻终端提示），同一问题不反复刷屏。独立模型会话先给初始报告，此后按用户查询读取最新台账；不会假装每次文件变化都已得到模型判断。主窗口每次用户提交会收到当前台账位置与重叠数量，可据此调整派工。模型语义判断、视觉一致性仍按具体风险触发。
 
-`patrol disable` 停止巡逻需求捕获和自动开窗，不杀现有会话。未发布源码另有独立 `activity enable/disable`，只观察窗口事件、不派工；关闭巡逻不等于关闭已明确启用的观察，关闭观察也不撤回任务或清道夫配置，见 [面板执行书](live-control-plane.md)。退出 host 后可用 `patrol resume <receipt-id>` 按已记录的精确会话 ID 续接；缺少 ID 时拒绝用 `--last` 猜。启动卡住或原生聊天已关但没有 SessionEnd 时，明确指定 `patrol close <receipt-id> --evidence '实际关闭依据'`；运行中的进程不能被这条命令冒充关闭。
+`patrol disable` 停止巡逻需求捕获和自动开窗，不杀现有会话。未发布源码另有独立 `activity enable/disable`，只观察窗口事件、不派工；关闭巡逻不等于关闭已明确启用的观察，关闭观察也不撤回任务或清道夫配置，见 [面板执行书](../../kit/live-control-plane.md)。退出 host 后可用 `patrol resume <receipt-id>` 按已记录的精确会话 ID 续接；缺少 ID 时拒绝用 `--last` 猜。启动卡住或原生聊天已关但没有 SessionEnd 时，明确指定 `patrol close <receipt-id> --evidence '实际关闭依据'`；运行中的进程不能被这条命令冒充关闭。
 
 未接到真实 host ID 的失败启动用 `patrol retry <receipt-id>`，复用原任务和 checkout；已接到 ID 就精确 resume。状态不明先确认关闭，不重复创建或新开树。
 
@@ -65,7 +67,7 @@ Claude/Codex/Grok/Hermes 适配器调用用户指定、本机已安装的 CLI，
 
 Hermes 执行任务用 `dispatch --host hermes`，调用 `hermes chat --in <实际树> --query <字面 prompt>`，精确续接用 --resume 与 --no-restore-cwd，防止恢复到另一目录。当前 adapter 不接管 Hermes 私有配置或 host hooks，没有可验证的只读沙箱，因此拒绝 Hermes 巡逻与 --read-only。进程状态由 runner 回传，缺 hook 时保持未确认，结果沿现有 task result；真实认证模型任务另需实测。官方接口见 [Hermes CLI reference](https://hermes-agent.nousresearch.com/docs/reference/cli-commands/)。
 
-日常状态可直接打开 [本机面板](live-control-plane.md)。它统一显示已有回执与旧树，空台账会如实说明覆盖缺口；不为显示状态另开模型窗口。
+日常状态可直接打开 [本机面板](../../kit/live-control-plane.md)。它统一显示已有回执与旧树，空台账会如实说明覆盖缺口；不为显示状态另开模型窗口。
 
 任务也可只登记：`task add <id> --goal '…' --path '…'`。执行者用 `task progress <id> --state working|blocked|waiting --note '当前事实和下一步'` 显式回传；`task result` 后为 reported，表示已有结果自述、未验收。它们不改变验证标记、不释放任务；已释放任务不能被 progress 复活。执行窗口退出后，由入口/作者以实际证据 `task release <id> --evidence '…'`。发布、merge、update-branch 和权限仍归值守，dispatch 不获得这些权力。
 

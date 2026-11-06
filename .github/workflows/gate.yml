@@ -1,29 +1,13 @@
-# 本仓 CI。职责边界：PR 按改动范围验证，香港时间每天 01:23 跑全量。
-# 使用 GitHub 托管 runner，不调用模型；合入后不再重复同一轮 PR 全量检查。
-# 只跑**能机械判定**的不变量——CLI 测试、承接层校验、
-# 文档三闸、外部贡献只许碰 intake/。它不替代评审，不判断内容对错，也不碰 lane
-# 控制面（那是本机 common git dir 的事，CI 上没有那些 worktree）。
-#
-# 必需检查名是「CLI 测试 + 承接层校验」和「文档三闸（职责边界棘轮 / 死链 / 推荐 pin）」。
-# 这两个 job 每次都要给出结论。外部贡献 job 只在非成员 PR 上跑，跳过时结论是 SKIPPED。
-# 范围只决定步骤跑不跑，禁止给整条 workflow 加 path filter，否则被跳过的 required check
-# 会停在 Pending。文档、文档闸和 PR 模板不编译 Rust；承接层 lint 只在 intake 或 linter
-# 改动时跑。共享基础、闸和未知 Rust 路径仍跑全量测试。PR 上 clippy 查本次会执行的目标；
-# 改本调度器，以及夜间/手动全量，才用 `--all-targets`。
-#
-# 立这道闸的理由写在自己的案例集里：bench/cases/17-gen2-governance-drift.md
-# 「写治理文档前先问这条规则有没有对应的执行或验证」。本仓在 v0.19.0 之前
-# 一条 workflow 都没有，自举纪律六条全靠会话自觉——自己就是那张卡的标本。
-#
-# 逃生门（照 kit/ledger-ratchet-pattern.md「闸必带逃生门」）：
-#   - 仓库 variable `AGENT_ON_DOC_GATE_OFF=true` 一键关文档闸；
-#   - 职责边界棘轮补一行基线即绿，不逼任何人一次补完存量；
-#   - 取证失败（读不到文件 / git 不可用）与「真违规」分开退出码，不训练「红了当没看见」。
+# 本仓 CI：香港时间每天 01:23 全量，必要时手动；PR、push、tag 均不触发。
+# 普通交付在本地验证受影响行为，不因每轮打 tag 重跑远端全量。
+# 合入身份、冲突、外部作者范围及独立审计仍在每次合入时核验。
+# 本仓 policy.required_checks 不要求以下每日 job；已有外部检查红灯不忽略。
+# schedule 可能延迟，计划时间不是实际成功时间。文档闸可通过仓变量
+# AGENT_ON_DOC_GATE_OFF 显式关闭；OFF 不等于通过。
 
 name: gate
 
 on:
-  pull_request:
   schedule:
     - cron: '23 17 * * *'
   workflow_dispatch:
@@ -39,53 +23,57 @@ jobs:
   cli:
     name: CLI 测试 + 承接层校验
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUST_TOOLCHAIN: '1.97.1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: 确定本次验证范围
-        id: scope
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
+      - name: 全量验证计划
+        run: python3 .github/scripts/quality_scope.py --full --output "$RUNNER_TEMP/quality-plan.json"
+      - name: 固定 Rust 工具链
+        id: toolchain
         run: |
-          if [ "$EVENT" = pull_request ]; then
-            python3 .github/scripts/quality_scope.py --base "$BASE" --head "$HEAD" --output "$RUNNER_TEMP/quality-plan.json"
-          else
-            python3 .github/scripts/quality_scope.py --full --output "$RUNNER_TEMP/quality-plan.json"
-          fi
-      - name: 缓存 cargo
-        if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.intake == 'true'
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component clippy,rustfmt
+          echo "RUSTUP_TOOLCHAIN=$RUST_TOOLCHAIN" >> "$GITHUB_ENV"
+          echo "fingerprint=$(rustup run "$RUST_TOOLCHAIN" rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - name: 缓存依赖下载
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            cli/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-download-v2-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: cargo-download-v2-${{ runner.os }}-
+      - name: 缓存构建结果
+        uses: actions/cache@v4
+        with:
+          path: cli/target
+          # Content keys can save refreshed builds; the old OS+lock exact key never did.
+          # Compiler/profile/lock must match before restoring any compiled artifacts.
+          key: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-${{ hashFiles('cli/src/**', 'cli/tests/**', 'cli/Cargo.toml', 'cli/build.rs', '.github/workflows/gate.yml') }}
+          restore-keys: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-
       - name: cargo fmt
-        if: steps.scope.outputs.rust == 'true'
         run: cargo fmt --manifest-path cli/Cargo.toml --check
       - name: cargo clippy
-        if: steps.scope.outputs.rust == 'true'
         run: python3 .github/scripts/quality_scope.py --clippy --output "$RUNNER_TEMP/quality-plan.json"
       # 只跑 ubuntu：macOS 侧真正装 LaunchAgent 的那段本来就不在单测里（单测只验
       # 渲染与状态落盘，不激活调度器），所以加一条 macos-latest 腿买不到新覆盖，
       # 只买到 10 倍分钟数。macOS 上的实际激活仍靠本机 `worktree hooks status` 验。
-      - name: 受影响测试（夜间与手动运行全量）
-        if: steps.scope.outputs.rust == 'true'
+      - name: 全量 Rust 测试
         run: python3 .github/scripts/quality_scope.py --run --output "$RUNNER_TEMP/quality-plan.json"
       - name: 独立合并审计与 CI 范围回归
-        if: steps.scope.outputs.audit == 'true'
         run: |
           python3 -m unittest discover -s tools/merge-audit
           python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       # 承接层是唯一对外收货口，六项不齐的卡进来就再也没人补。
       - name: intake 六项齐
-        if: steps.scope.outputs.intake == 'true'
-        run: cargo run --manifest-path cli/Cargo.toml --quiet -- intake-lint
+        run: cargo run --manifest-path cli/Cargo.toml --locked --quiet -- intake-lint
 
   docs:
     name: 文档三闸（职责边界棘轮 / 死链 / 推荐 pin）
@@ -99,34 +87,3 @@ jobs:
         env:
           AGENT_ON_DOC_GATE_OFF: ${{ vars.AGENT_ON_DOC_GATE_OFF }}
         run: python3 .github/scripts/check_docs.py
-
-  intake-only:
-    name: 外部贡献只许碰 intake/
-    runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request' &&
-      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: 校验改动范围
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          changed="$(git diff --name-only "$BASE" "$HEAD")"
-          # boot/settlement.md「上游贡献形态」：社区只交 intake-only PR / Issue，
-          # 禁止直改 playbook/kit/bench 正文——canonical 只有本仓消化会话能动。
-          outside="$(printf '%s\n' "$changed" | grep -v '^intake/' || true)"
-          if [ -n "$outside" ]; then
-            echo "INTAKE-ONLY: FAIL —— 以下改动不在 intake/ 承接层："
-            printf '  - %s\n' $outside
-            echo ""
-            echo "出口：把素材写成 intake/<日期>-<项目>.md 一份卡，正文改动的诉求写进卡里，"
-            echo "由本仓的消化会话落进 playbook/kit/bench。这不是嫌弃你的改动，是 canonical"
-            echo "只能有一个写者（见 boot/settlement.md「上游贡献形态」）。"
-            exit 1
-          fi
-          echo "INTAKE-ONLY: PASS（$(printf '%s\n' "$changed" | grep -c . ) 个文件全在 intake/）"

@@ -123,11 +123,11 @@ fn save(cwd: &Path, record: &OncallRecord) -> Result<(), String> {
         .parent()
         .ok_or_else(|| "invalid on-call registry path".to_string())?;
     fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
-    crate::coordination::write_json(&path, record)
+    crate::state_io::write_json(&path, record)
 }
 
-fn registry_lock(cwd: &Path) -> Result<crate::coordination::Lock, String> {
-    crate::coordination::lock_path(&oncall_path(cwd)?.with_extension("lock"))
+fn registry_lock(cwd: &Path) -> Result<crate::state_io::Lock, String> {
+    crate::state_io::lock_path(&oncall_path(cwd)?.with_extension("lock"))
 }
 
 pub(crate) fn matches_owner(
@@ -694,22 +694,31 @@ fn other_window(cwd: &Path, to: &str, identity: Option<&Identity>) -> Option<Str
     if to.is_empty() || SESSION_INTERNAL.contains(&to.to_ascii_lowercase().as_str()) {
         return None;
     }
-    // Native chats can share the same checkout and have no separate lane.
-    // Only bound host ids prove another window; preparation receipts do not.
-    if let Ok(store) = crate::coordination::Store::open(cwd) {
-        if let Ok(sessions) = store.sessions() {
-            for session in sessions {
-                let Some(id) = session.host_session_id.as_deref() else {
+    // Read legacy bindings only to preserve routing restrictions during migration.
+    // No new window registry or activity collector is created.
+    if let Ok(common) = worktree::common_git_dir(cwd) {
+        if let Ok(entries) = std::fs::read_dir(common.join("agent-on/control/sessions")) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_none_or(|ext| ext != "json") {
+                    continue;
+                }
+                let Ok(bytes) = std::fs::read(&path) else {
                     continue;
                 };
-                if identity.is_some_and(|i| {
-                    i.session_id == id
-                        && crate::coordination::host_identity_name(session.host) == i.host
-                }) {
+                let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+                    continue;
+                };
+                let Some(id) = value["host_session_id"].as_str() else {
+                    continue;
+                };
+                let host = value["host"].as_str().unwrap_or("");
+                let host = if host == "codex-app" { "codex" } else { host };
+                if identity.is_some_and(|i| i.session_id == id && i.host == host) {
                     continue;
                 }
                 if to == id {
-                    return Some(session.id);
+                    return Some(value["id"].as_str().unwrap_or(id).to_string());
                 }
             }
         }

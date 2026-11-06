@@ -2262,38 +2262,6 @@ fn integrated_criterion(
     }
 }
 
-/// Integration evidence without invoking worktree GC or reading lane metadata.
-/// A squash merge only counts when the hosted PR covers this exact task head
-/// and targets the requested base; an older merged PR is not sufficient.
-pub(crate) fn head_integrated(
-    repo: &Path,
-    checkout: &Path,
-    head: &str,
-    base_sha: &str,
-    base: &str,
-) -> Result<bool, String> {
-    if ancestor_result(repo, head, base_sha)? {
-        return Ok(true);
-    }
-    if !checkout.exists() {
-        return Ok(false);
-    }
-    let branch = git(checkout, &["symbolic-ref", "--short", "HEAD"]).ok();
-    let expected_base = hosted_base_name(repo, base);
-    let inventory = query_all_prs(repo);
-    let (kind, pr, _) = pr_for_worktree(
-        repo,
-        branch.as_deref(),
-        head,
-        expected_base.as_deref(),
-        inventory.rows.as_deref(),
-    );
-    Ok(matches!(
-        integrated_criterion(Some(false), kind, &pr).result,
-        CheckState::Pass
-    ))
-}
-
 fn preserved_criterion(
     upstream: Option<&str>,
     unpushed: Option<u64>,

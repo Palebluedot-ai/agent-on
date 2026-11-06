@@ -10,7 +10,7 @@ class QualityScope(unittest.TestCase):
             [".github/pull_request_template.md"],
             [".github/PULL_REQUEST_TEMPLATE/intake.md"],
             [".github/scripts/check_docs.py", ".github/scripts/doc-boundary-baseline.txt"],
-            ["cli/tests/dashboard_browser.cjs"],
+            ["cli/tests/fixture.txt"],
         ):
             with self.subTest(paths=paths):
                 result = plan(paths)
@@ -35,7 +35,7 @@ class QualityScope(unittest.TestCase):
     def test_brief_covers_public_consumers(self):
         result = plan(["cli/src/project_status.rs"])
         self.assertFalse(result["full"])
-        self.assertEqual(result["tests"], ["project_status", "session_continuity", "system_overview"])
+        self.assertEqual(result["tests"], ["project_status"])
         self.assertFalse(result["intake"])
         self.assertEqual(
             clippy_command(result)[:6],
@@ -59,7 +59,7 @@ class QualityScope(unittest.TestCase):
     def test_shared_or_new_execution_paths_get_all_tests(self):
         for path in ["cli/src/worktree.rs", "cli/src/new.rs", "cli/Cargo.lock",
                      "hooks/hooks.json", "kit/guard/shim",
-                     "cli/src/guard.rs", "cli/src/coordination.rs", "cli/src/oncall.rs"]:
+                     "cli/src/guard.rs", "cli/src/state_io.rs", "cli/src/oncall.rs"]:
             with self.subTest(path=path):
                 result = plan([path])
                 self.assertTrue(result["full"])

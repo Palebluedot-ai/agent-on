@@ -802,8 +802,6 @@ fn linked_worktree_install_uses_one_shared_hook_and_schedule_identity() {
 #[cfg(unix)]
 #[test]
 fn persisted_schedule_survives_caller_path_and_executable_change() {
-    use std::os::unix::fs::PermissionsExt;
-
     let fixture = Fixture::new();
     let schedule = FakeScheduleEnv::new(&fixture._tmp.path().join("schedule-env"));
     let repo = fixture.root.to_str().unwrap();
@@ -814,16 +812,22 @@ fn persisted_schedule_survives_caller_path_and_executable_change() {
     assert!(installed.status.success(), "{}", combined(&installed));
     assert_eq!(schedule.install_state_files().len(), 1);
 
-    let copied_cli = fixture._tmp.path().join("agent-on-relocated");
-    fs::copy(env!("CARGO_BIN_EXE_agent-on"), &copied_cli).unwrap();
-    let mut permissions = fs::metadata(&copied_cli).unwrap().permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&copied_cli, permissions).unwrap();
+    // Exercise a different executable path without writing an executable just
+    // before exec (Linux can reject that with ETXTBSY). Keep the hard link on
+    // the binary's filesystem, even when the repo fixture uses another mount.
+    let original_cli = Path::new(env!("CARGO_BIN_EXE_agent-on"));
+    let relocated_dir = TempDir::new_in(original_cli.parent().unwrap()).unwrap();
+    let relocated_cli = relocated_dir.path().join("agent-on-relocated");
+    fs::hard_link(original_cli, &relocated_cli).unwrap();
+    assert_ne!(
+        fs::canonicalize(original_cli).unwrap(),
+        fs::canonicalize(&relocated_cli).unwrap()
+    );
     let changed_path = format!("{}:/usr/bin:/bin", schedule.bin.display());
     assert_ne!(changed_path, schedule.path);
 
     let status = schedule.agent_on_with(
-        copied_cli.to_str().unwrap(),
+        relocated_cli.to_str().unwrap(),
         &fixture.root,
         &["worktree", "hooks", "status", "--repo", repo],
         &changed_path,
@@ -836,7 +840,7 @@ fn persisted_schedule_survives_caller_path_and_executable_change() {
     );
 
     let removed = schedule.agent_on_with(
-        copied_cli.to_str().unwrap(),
+        relocated_cli.to_str().unwrap(),
         &fixture.root,
         &["worktree", "hooks", "uninstall", "--repo", repo],
         &changed_path,

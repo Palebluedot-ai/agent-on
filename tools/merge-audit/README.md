@@ -18,7 +18,7 @@
 
 默认账本固定为同一 Git 仓的主 worktree `ledger/merge-audit.jsonl`，脚本放在 linked worktree 也读写这份。`record` / `scan --write` / `report` 必须用同一绝对路径；显式 `--ledger` 拒绝相对路径。账本链断或 report 跑不通时退回逐单先问，不合并多树各自追加的账本。
 
-日常值守可直接运行 `agent-on master --apply`，串起 precheck、匹配 head 合入和 record；中断时先核实际结果再补账。项目接入见 [交付统筹](../../kit/master-delivery.md)。本工具仍只负责独立审计，不执行合入。
+日常值守可直接运行 `agent-on master --apply`，串起 precheck、匹配 head 合入和 record；中断时先核实际结果再补账。项目接入见 [交付统筹](../../kit/master-delivery.md)。本工具仍只负责独立审计，不执行合入。本仓 Actions 每日／按需手动运行，required_checks 为空；每次合入的 report／record 不减频。已有实际失败或待决检查仍处理，无 PR 检查不等于测试通过。
 
 ## 三个动作
 

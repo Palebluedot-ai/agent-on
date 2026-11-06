@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""本仓 CI 范围与执行入口：PR 验改动，夜间/手动验全量；不调用模型或修改仓库。
+"""本地受影响验证与每日 CI 的共用执行入口；不调用模型或修改仓库。
 
 文档、文档闸脚本和 PR 模板不编译 Rust。已知叶子模块跑对应集成测试，
 再加整个二进制的单元测试。共享基础、闸、未知 Rust 路径和本调度器自身扩大到全量。
 承接层 lint 只在 intake 卡或 linter 改动时跑，夜间全量仍跑。
-必需检查的 job 名称不变；跳过的是步骤，不是整条 workflow。
+本仓 Actions 仅每日/手动传 --full；--base/--head 用于本地批次验证。
 """
 from __future__ import annotations
 
@@ -19,24 +19,14 @@ ROOT = Path(__file__).resolve().parents[2]
 # Leaf modules: integration-test stems. The binary unit tests always run with them.
 # Empty means unit tests only. Unknown cli sources fail closed to the full suite.
 GROUPS = {
-    "project_status.rs": ["project_status", "session_continuity", "system_overview"],
-    "dashboard.rs": ["project_status", "system_overview", "coordination"],
-    "dashboard.html": ["project_status", "system_overview", "coordination"],
-    "system_dashboard.rs": ["project_status", "system_overview"],
-    "system_dashboard.html": ["project_status", "system_overview"],
-    "codex_model.rs": ["model_compatibility", "stage_handoff", "coordination"],
-    "activity.rs": [
-        "activity", "coordination", "project_status",
-        "session_continuity", "stage_handoff", "system_overview",
-    ],
+    "project_status.rs": ["project_status"],
+    "retirement.rs": ["project_status"],
     "audit_lint.rs": [],
     "build_info.rs": ["build_identity"],
     "doctor.rs": ["build_identity"],
     "drift.rs": [],
     "intake_lint.rs": ["setup_install"],
-    "integration.rs": ["coordination", "master"],
-    "janitor.rs": ["coordination"],
-    "landing.rs": ["master", "project_status", "system_overview"],
+    "landing.rs": ["master", "project_status"],
     "master.rs": ["master"],
     "routing.rs": [],
     "setup.rs": ["setup_install"],
@@ -49,7 +39,7 @@ SHARED_EXACT = {
     "cli/Cargo.lock",
     "cli/Cargo.toml",
     "cli/build.rs",
-    "cli/src/coordination.rs",
+    "cli/src/state_io.rs",
     "cli/src/guard.rs",
     "cli/src/main.rs",
     "cli/src/oncall.rs",

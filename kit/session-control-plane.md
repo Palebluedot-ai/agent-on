@@ -1,31 +1,21 @@
 # 项目接续与实际会话身份
 
-> 职责边界：同一 Git common dir 内的 Claude/Codex 启动、恢复、压缩续跑状态提示与值守身份接线。不初始化项目、不认领角色、不启用巡逻、不创建窗口；真正云端的独立 clone 不共享这份运行台账。
+> 职责边界：Claude/Codex 启动、恢复、compact 后的身份与简短接续提示。保留实际值守判断，不采集任务／活动、不创建窗口、不管理宿主压缩。
 
-已接入项目的用户继续在原窗口说目标。安装并正常信任当前插件 hooks 后，`SessionStart` 读取已有项目记录；startup、resume、compact 都返回同一份简短状态：实际值守、巡逻/捕获是否启用、未释放任务与台账地址。复用 `hooks/hooks.json` 的现有入口，不另存一份任务数据库。这里只补注入已有事实，不自动生成完整任务摘要或接管宿主压缩。
+已接入项目的 `SessionStart` 仅读取实际值守，提示沿当前对话和项目已有记录继续。项目识别依据为当前 checkout 的 lock、Agent-On 自身 CHARTER + BOOTSTRAP，或 common git dir 既有 agent-on 状态。未接入仓静默；损坏值守登记明确报不可用，不冒称无人在班。
 
-项目识别依据是 primary 根的 `agent-on.lock.md`，Agent-On 自身的 `CHARTER.md + BOOTSTRAP.md`，或已存在的 control 台账。未接入仓静默。巡逻关闭时接续只读已有台账，不建 control 目录、不记录 prompt；启用巡逻后的需求捕获仍走现有 capture。状态损坏明确报不可用，不冒称无人在班。
+## 身份与权限
 
-## 值守身份
+值守工作区、宿主和真实 session ID 必须同时匹配。`oncall claim --session` 是交单地址，不替代实际 ID；同目录不同窗口不能互相续心跳、释放或抢占。认领、心跳与释放在同一锁内原子写入，迟到旧事件不覆盖新值守。90 分钟失效与旧 v1 身份未确认语义不变。
 
-值守的工作区、宿主与实际会话 ID 必须同时匹配。`oncall claim --session <交单地址>` 中的 session 只是可读交单地址，不能代替实际 ID。同目录不同会话不能互相续心跳、release 或抢占；明确交接仍用原有 force 入口，权限与用户授权不变。认领、释放、续心跳用同一仓库锁并原子落盘；迟到的旧会话事件不能覆盖新值守。
+Codex 使用 `CODEX_THREAD_ID`；Claude 优先 `CLAUDE_CODE_SESSION_ID`。hook payload 的 `session_id` 优先于继承环境，workdir 不授予身份。Claude SessionStart 只追加适配器变量到宿主给出的 `CLAUDE_ENV_FILE`，字面值安全引用并保留其他 hooks；不改 shell 配置。嵌套宿主保留父／子身份区分。其他宿主须提供实际 `AGENT_ON_HOST` / `AGENT_ON_SESSION_ID`，缺身份不授值守权。
 
-已捕获并绑定实际 ID 的原生聊天即使共用目录也算不同窗口。guard 识别 SendMessage 与 send_message_to_thread 的实际目标，交单给值守可用该宿主的真实 ID；其他已确认窗口的横向消息仍转投值守。未捕获窗口和未知别名不能凭猜测识别，不能宣称覆盖所有平台消息。CLI 新派出的模型进程先清掉父宿主身份和 hook 环境，保留派工回执，再由目标宿主建立自己的身份。
+路由仍核 lane 和历史已绑定真实 ID，历史绑定只用于保留已有路由限制，不表示窗口仍在执行。未知窗口不靠猜测判断。Agent-On 不再新增窗口注册或活动采集；跨宿主启动交给用户选择的原生工具。
 
-- Codex 工具进程使用原生 `CODEX_THREAD_ID`。hooks 使用实际 payload 的 session_id；该字段优先于继承的环境 ID，workdir 不授予身份。Codex app 与 CLI 同属 Codex 身份域。
-- Claude 的 Bash 与 hook 进程优先使用宿主原生 `CLAUDE_CODE_SESSION_ID`；SessionStart 仍仅追加适配器变量到宿主给出的 `CLAUDE_ENV_FILE`，供后续 Bash 使用并兼容旧宿主。PreToolUse 不读取该文件，个人 hook 也未必有插件环境标记，因此不能依赖 Bash 的 export 来识别 hook 宿主。hook stdin 的 `session_id` 仍优先于任何环境 ID，`CLAUDE_CODE_HOST_SESSION_ID=local_…` 和 `CLAUDE_CODE_CHILD_SESSION=1` 不授予或否定值守身份。保留其他 hooks 的 export，字面值经 shell 引号处理，不改用户 shell 配置。从 Codex 启动的 Claude 标记父 thread ID；随后新 Codex 子会话使用自己的原生 ID。
-- 其他执行器的适配需要实际设置 `AGENT_ON_HOST` 与 `AGENT_ON_SESSION_ID`，不能把路由名、目录名或准备回执冒充已确认身份。未确认身份不能上岗或获得在班值守权；普通无值守工作仍按原规则。
+## 安装与验证
 
-旧 v1 登记仍可读取，但没有 identity 时标 `legacy-unverified`，不会按目录给任何窗口值守权，也不由任意窗口代续心跳。正常 90 分钟失效规则保留；若仍有值守需继续工作，由用户明确确认原值守重新接班后再执行 `oncall claim --session <地址> --force`。不为迁移静默接班或清空登记。
+插件只注册 SessionStart 与必要 PreToolUse guard；逐工具 capture、Stop、SessionEnd 采集已删除。隐藏兼容入口 `capture` 对非 SessionStart 事件静默无操作，防止尚未重载的旧 hook 重新开启记录。
 
-若 `status/whoami` 说本窗口在班而 guard 拦截，读 stderr 的「身份核对」：`mismatches` 明列 host、session_id、worktree 或不可解析身份，附本次 actor、登记、hook 原始 session_id、身份环境及宿主标记的有无。只输出身份字段，不落全量 payload 或任意环境日志。相同目录不等于相同窗口；改交单地址、释放登记都不能修复宿主接线。先核实际被调用的 executor 是否含修复，再核真实 PreToolUse 的字段。构造输入回归不能代替原窗口验证。
+先升级实际 CLI 与插件，再按宿主方式重载／信任。`build-info` 核实际执行版本；仓库源码通过测试不等于已加载宿主换版。身份错配诊断只显示必要身份字段，不记录任意环境或完整工具输入。
 
-## 安装与验证边界
-
-修改仓库源码不会升级全局 CLI、插件缓存或已有会话。先核实际 executor，再更新当前插件并按宿主正常流程信任 hooks；旧个人注册仅有 PreToolUse 时不能完成 SessionStart 注入。不得以未发布 debug 二进制通过测试冒充用户已安装。
-
-发布前回归包含：同目录冒认、不同宿主同 ID、并发认领、未知/旧登记、旧心跳迟到、工作目录冒认派工、Claude 环境字面引用与嵌套 Codex、linked worktree 共读、损坏台账。认证模型实跑和宿主信任是否生效另验，不能用替身 payload 测试替代。
-
-同一 clone 的 worktree 共读 common dir；换平台不重新初始化项目。远程 clone/临时云容器必须携带项目规则、pin 与指定合入入口，并实际回传任务证据；本机这里的“无人在班”不证明远程项目全局无人负责。本版没有分布式认领、云环境发布或跨机实时同步。
-
-依据：[Codex hooks](https://learn.chatgpt.com/docs/hooks) 的 SessionStart source、session_id、额外上下文和 compact 后注入；[Claude hooks](https://code.claude.com/docs/en/hooks) 的 SessionStart 与 per-session 环境文件。接口可用性仍以实际宿主版本与信任状态为准。
+回归保留同目录冒认、跨宿主相同 ID、并发认领、未知／旧／损坏登记、迟到心跳、payload 优先级、Claude 环境文件引用和写失败、历史绑定路由。真实宿主重载须另验；远程 clone 不共享本机 common dir，不能从本机“无人在班”推断远端负责人。

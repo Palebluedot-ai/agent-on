@@ -2,9 +2,9 @@
 
 # agent-on
 
-**让多个 AI 窗口把工作交付好。**
+**在当前对话里，把目标推进到真实交付。**
 
-原窗口说目标，Agent-On 续接上下文、协调分工、跟进卡点并收口交付。新项目和已开工项目都能接入。<br>
+说清目标后，Agent-On 复用项目规则和已有记录，验证成果并收口交付。新项目和已开工项目都能接入。<br>
 Claude Code · Codex · Grok 共用入口，沿项目现有规则接入。
 
 [![release](https://img.shields.io/github/v/tag/Palebluedot-ai/agent-on?label=release&sort=semver)](https://github.com/Palebluedot-ai/agent-on/tags)
@@ -16,7 +16,7 @@ Claude Code · Codex · Grok 共用入口，沿项目现有规则接入。
 
 </div>
 
-*Agent-On connects project context, cross-window work and evidence-based delivery. Use one entry to coordinate tasks, follow progress and land ready changes; onboarding and learning remain available when needed.*
+*Agent-On connects project context, existing project records and evidence-based delivery. Use one entry to continue work, verify results and land ready changes; onboarding and learning remain available when needed.*
 
 总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.29.0`。**
 
@@ -34,23 +34,23 @@ Claude Code · Codex · Grok 共用入口，沿项目现有规则接入。
 | 换个窗口 / 隔天再开，AI 忘了做到哪、为什么这么做 | 状态和决策只活在聊天记录里，没落进仓库 |
 | 每开一个新项目，都要把同样的规矩重新教一遍 | 上个项目的教训没有地方沉淀，更没有渠道回流 |
 
-Agent-On 把当前模型的设计、编码和诊断能力接进项目交付。模型负责工作本身；Agent-On 保留项目约束、可续接的任务关系、真实交付证据与唯一合入者。方法可以借用 Matt、GStack 或项目现有工具，同一环节选择一套。
+Agent-On 把当前模型的设计、编码和诊断能力接进项目交付。模型负责工作本身；Agent-On 保留项目约束、可续接的项目记录、真实交付证据与唯一合入者。方法可以借用 Matt、GStack 或项目现有工具，同一环节选择一套。
 
 ## 核心能力
 
 | 日常用途 | 入口与结果 |
 |---|---|
-| 推进一个目标 | “agent-on 交付 / 统筹”→ 复用当前任务，先归并共享修改，再按需要分工 |
-| 看各窗口做到哪里 | `agent-on status` → 目标、已有任务、卡点、待验收与下一步；不要求开 Dashboard |
-| 收口多个 PR | `agent-on master --apply` → 处理就绪项，等待 CI，匹配当前提交合入并自动记账；中断可续接 |
-| 保持交付速度 | 相关检查随批次，一次审查，夜间全量回归；通过的证据不因换窗口从头重做 |
+| 推进一个目标 | “agent-on 交付 / 统筹”→ 复用当前任务，在当前对话推进并验证 |
+| 看当前项目事实 | `agent-on status` → 当前 Git 状态、项目记录和 PR 缓存；不推断窗口活动 |
+| 收口多个 PR | `agent-on master --apply` → 处理就绪项，核实际合入条件，匹配当前提交合入并自动记账；中断可续接 |
+| 保持交付速度 | 本地相关验证、一次审查；本仓 Actions 每日一次，PR／合入／普通 tag 不重复跑；高风险按需手动全量 |
 | 少踩同一个坑 | 返工、误拦与用户纠正先修原因，引用已有证据；结账/消化保留按需补收 |
 
 新入口和检查节奏见 [交付执行书](kit/delivery-workflow.md)、[统筹接入](kit/master-delivery.md)；安装并核对实际执行器后使用。当前工作区的未发布改动不等于已安装功能。
 
 值守保留实际宿主、会话 ID 与工作区身份，同目录的不同窗口不能互相冒认。支持启动/恢复/compact 读取已有项目状态，不自动认领角色或创建窗口。见 [项目接续](kit/session-control-plane.md)。
 
-Dashboard、活动观察、独立巡逻、清道夫与型号诊断保留为可选支持能力，退出日常必经路径。图只在解释决策、代码关系或工作依赖有帮助时按需生成；不用第二份页面维护同一套状态。跨机、Hermes 自动 hook 与未接入项目的原生事件覆盖仍不宣称完成。
+自建派工、巡逻、活动采集、模型诊断和网页面板已删除。升级涉及命令与 JSON 结构变更，见 [v0.30 迁移说明](docs/migration-v0.30.md)。宿主模型与原生工具继续由用户选择。
 
 ## 30 秒看它怎么工作
 
@@ -157,33 +157,29 @@ agent-on doctor
 | **开新项目** | 初始化本项目 | `init` | 定档三问 → 播种骨架，当场开工 |
 | **接管半路项目** | 接管本项目 | `adopt` | 考古 → 定档 → 只补缺的件，不重建、不回填历史 |
 | **换会话接着干** | 握手后继续 | `handshake` | 读目标与现状，明确指令直接续跑；默认原窗口 compact |
-| **推进功能交付（未发布）** | agent-on 交付：<目标> | `deliver` | 收拢工作包、按需分工、相关验证、一次批次审查与值守交单 |
+| **推进功能交付** | agent-on 交付：<目标> | `deliver` | 当前对话推进、相关验证、一次批次审查与按规则交付 |
 | **看多会话全场** | 检查 worktree | `worktree` | 各执行轨的边界、依赖、漂移、可回收 |
 | **统筹合入** | agent-on 统筹交付 | `master` | 已授权时一轮串行合入、等待与记账；不重复接管 |
-| **看执行进展** | 看当前状态 | `status` | 原窗口读任务、卡点与下一步；新版文本简报在未发布源码，JSON 保持兼容 |
-| **按需开网页** | 打开面板 | `dashboard` | 任务、真实回传、worktree 与 PR 取证时间 |
+| **看执行进展** | 看当前状态 | `status` | 当前目录 Git 事实、已有记录和下一步；JSON schema v2 |
 | **自检路径** | agent-on doctor | `doctor` | 打印本机登记与 hook 执行面 |
 | **沉淀回流** | agent-on 结账 | `settle` | 把本项目带证据的教训送进 agent-on 的 `intake/` |
 | **升级方法论** | agent-on 升级 | `upgrade` | 核对 pin、模板差异与实际 hook / CLI，再按授权升级 |
 | **整理想法** | 整理想法 | — | 速记区 → 归类成文、标去向 |
-| **更新仪表盘** | 更新仪表盘 | — | 启用时从已有状态源重绘，数字不许手填 |
 
 **入口怎么选**：全新项目 → `init`；已开工但从没接过 agent-on → `adopt`（不是 handshake）；接过的项目每次换会话 → `handshake`。
 
-**已有目标怎么交付**：当前开发版用 `deliver` 进入 [功能交付流程](kit/delivery-workflow.md)，不要求先装 Matt。开发中局部验证，成果按批次审查，修复只复查影响范围，全量回归按夜间、综合复盘按周；相关必需检查和真实发布验证仍及时做。入口和模板是跨项目交付件，旧项目需按升级流程接入；它们不会自动修改其他项目的 CI 或启用周计划。
+**已有目标怎么交付**：用 `deliver` 进入 [功能交付流程](kit/delivery-workflow.md)，不要求先装 Matt。开发中局部验证，成果按批次审查，修复只复查影响范围，全量回归按夜间、综合复盘按周；相关必需检查和真实发布验证仍及时做。入口和模板是跨项目交付件，旧项目需按升级流程接入；它们不会自动修改其他项目的 CI 或启用周计划。
 
 多会话并行、worktree 控制面、合流队列的完整用法见 [docs/manual.md](docs/manual.md)。
 
-本机执行面板：`agent-on dashboard --serve --refresh-landing`，打开命令返回的 `http://127.0.0.1:8765/`。本机状态每 5 秒观察；显式开启后一个共享观察器每 60 秒更新 PR，多个浏览器不重复取证。不带 `--refresh-landing` 只读已有 PR 快照；`agent-on status --json` 返回同一数据结构。面板可嵌在现有桌面宿主的浏览器侧栏，关闭命令即停止服务。用法与覆盖缺口见 [本机控制面](kit/live-control-plane.md)。
 
-Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配器沿用本机 Hermes 的认证和审批，不安装它、不跳过授权；当前没有自动 Hermes hook 接线或可验证的只读沙箱，结果用现有 `task result` 回传。不能把适配器测试说成真实模型任务已验收。
 
 ## 三档装备：按任务选，不按风险整包升级
 
 | 装备 | 何时需要 | 最小内容 |
 |---|---|---|
 | **S 轻装（默认）** | 普通小改动、已有项目接入 | 规则映射、loop-notes、lock；复用已有目标与待办 |
-| **M 按需补件** | 工作持续、多会话要接续 | 只补缺少的状态与任务记录；阶段卡、仪表盘由实际需要决定 |
+| **M 按需补件** | 工作持续、多会话要接续 | 只补缺少的状态与任务记录；阶段卡由实际需要决定 |
 | **L 协作补件** | 接口两侧确实并行、共享状态要调和 | 相应契约、共享状态写者与合流记录；其他组件保持可选 |
 
 钱、真实数据、安全与外部服务只提高相关行为的授权和验证要求。档位描述装备重量，不自动触发全套文档、TDD 或模型考试。完成贴证据、保留暂停禁令与履行实际授权边界仍然适用；已有授权不重复询问。
@@ -224,7 +220,7 @@ Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配�
 | 目录 | 是什么 |
 |---|---|
 | [BOOTSTRAP.md](BOOTSTRAP.md) + [boot/](boot/) | 冷启动入口：新项目初始化、存量项目接管、换会话握手、结账 / 升级执行书 |
-| [kit/](kit/README.md) | 模板层：AGENTS 骨架与轻装版、phase 卡、派工 / 审查词、合流 checklist、worktree 与合流控制面、值守合并、仪表盘、想法收集箱等 |
+| [kit/](kit/README.md) | 模板层：AGENTS 骨架与轻装版、phase 卡、派工 / 审查词、合流 checklist、worktree 与合流控制面、值守合并、想法收集箱等 |
 | [playbook/](playbook/README.md) | 方法论 15 篇：SOP、防幻觉、真相源治理、阶段闸门、多人协作、迭代闭环、工作流编排…… |
 | [bench/](bench/) | 50 张翻车案例 + 能力探针 + 能力真相表 |
 | [cli/](cli/) | `agent-on` Rust CLI：doctor / setup / worktree / landing / oncall / guard / drift / tag-release 等 |
@@ -240,7 +236,7 @@ Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配�
 不会。项目 pin 在具体版本上，升级是显式口令。每次升级都核对适用模板差异和实际 hook / CLI，保留本地偏离；已有授权内实施，新增权限或迁移事项明确呈报。只改 pin 不代表实际执行面已更新。
 
 **每次都要念口令吗？**
-不用。只在三个时刻显性出现：每台机器装一次、每个项目接入时说一句、之后只剩结账 / 升级 / 整理想法 / 更新仪表盘四个日常口令。平时开发零操作。
+不用。只在三个时刻显性出现：每台机器装一次、每个项目接入时说一句、之后只剩结账 / 升级 / 整理想法三个日常口令。平时开发零操作。
 
 **Codex / Grok 真的能用吗？**
 能，项目侧零适配——`AGENTS.md` 本来就是跨工具标准。Claude Code 独有的子代理编排在 Codex 下退化为手工纪律，闭环照跑。
@@ -253,7 +249,7 @@ Hermes 可以通过 `dispatch --host hermes` 复用同一任务回执。适配�
 
 ## 状态与路线
 
-- **当前发布**：v0.29.0。日常入口为 deliver / status / master：续接目标、协调分工、汇总卡点、自动合入并记账。检查按改动范围执行，夜间全量；Dashboard 和结账/消化按需保留。实际宿主覆盖与安装回执见发布记录。
+- **当前发布**：v0.30.0（用户批准的 v0.x breaking 特例）。自建派工和多面板退场；保留当前对话交付、文字状态、Git 保护和独立合入审计。旧安装须按迁移说明更新。
 - **下一站 v1.0**：≥2 个项目有外人装机开工 + ≥1 次外部结账经消化落地。定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)。
 - 按版本的演进摘要见 [docs/manual.md](docs/manual.md)，逐版细节见 [CHANGELOG.md](CHANGELOG.md)。
 

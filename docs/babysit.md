@@ -16,7 +16,8 @@
 2. **复用合适工作区**：日常查看和合入不要求新建 worktree 或登记 lane。真正并行写文件时再隔离；共享修改先归并。账本由执行合入的值守唯一追加。
 3. **权限自检**：跑一次 `gh pr merge --help` 级别的无害探测确认 allow 规则已配；没配则把 `kit/babysit/SETUP.md` §1 的 settings 命令贴给用户手跑（本仓实测：未建 settings 时 `gh pr merge` 与 `gh api -X PUT` 被分类器间歇拦，两步不过即停——机制红线，agent 改不了自己的权限）。
 4. **核背景坐标（别信交接文档，自己跑）**：`git fetch origin -q && git rev-parse origin/main`、`gh pr list --state open`、最新 tag（`git tag --sort=-v:refname | head -1`）、上一班快照声称的关键事实逐条验证。
-5. **读规矩原文**：AGENTS.md（自举纪律 6/7/8 + 迭代闭环职责）、kit/merge-checklist 0c、boot/settlement.md 收尾四件。合并方式：merge commit（`--merge`）；版本批题头 `merge(vX.Y.Z): …`。**本仓 2026-08-20 起有 CI**（PR #37 装的 `.github/workflows/gate.yml`，三个 job：CLI 测试+承接层校验 / 文档三闸 / 外部贡献只许碰 intake）。GitGuardian 是外部 app 检查，不是第四个 workflow job，不要为了等它再重跑 Actions。机器政策仍要求前两个 job 名上报（`tools/merge-audit/policy.json` 的 `required_checks`）；job 每次都要给出结论，范围只跳过步骤。仍**无 GitHub required checks、无 up-to-date 硬门**——CI 红不会在 GitHub 层阻止合并，**由值守把关**：红了按 §4 分诊或打回，不合。核对面见 §2.2。
+5. **读规矩原文**：AGENTS.md（自举纪律 6/7/8 + 迭代闭环职责）、kit/merge-checklist 0c、boot/settlement.md 收尾四件。合并方式：merge commit（`--merge`）；版本批题头 `merge(vX.Y.Z): …`。**本仓 CI 每日香港 01:23 全量及按需手动运行**；PR、push、tag 不触发，机器政策 `required_checks=[]`，不等待每日 job。普通交付先本地受影响验证，不因打 tag 自动全量；高风险或证据不足按需补跑。GitGuardian 是外部 app，已有检查待决／失败仍照原政策处理。外部作者依旧硬停，合前人工核完整文件列表仅含 intake；真实 report／record 逐次执行。远端保护规则以实际 API 为准。
+
 6. `agent-on landing refresh` 取证建快照，之后每轮 `landing plan` 离线看队列。
 
 ### 交接快照（上一班下班时更新；本班核对，不信任）
@@ -50,7 +51,8 @@ open PR：无（#1 已于 08-19 02:01 关闭，功能由 #11 重落）
 5. **低频（每天一次）**：`agent-on worktree gc --dry-run` + 磁盘余量。
 6. **节奏**：以本次相关检查的实际运行状态为准，有单快循环（5–10 分钟），无单 noop 20–30 分钟；事故推一条通知 + 每轮最小探针。
    **一个口令切档**：用户说「值守加速」→ 心跳降到 3–5 分钟并回执确认一句；**连续 3 轮 noop 自动回落**到 20–30 分钟（回落不出声）；用户说「值守回落」立即回常态。用户不改任何配置文件。
-7. **时延目标**：默认合入档的 PR，从交单到合入**中位 ≤ 6 分钟**（`X = CI 中位 + 5 分钟`；2026-08-20 实测 CI 中位约 45 秒，取 1 分钟。**此前写 5 分钟是基于「本仓无 CI」，那句自 #37 起已失效**；算法与依据见 `kit/babysit/MERGE-POLICY.md` §5）。单条超时在 §5 记一行（PR 号 + 实际耗时 + 卡在哪段）；**一个班次的中位数超 5 分钟 = 事故**，写进 §7 下班交接并附最慢三条。必须先问档的 PR 不计入——它们的时延取决于用户什么时候看消息，不是流水线的事。
+7. **时延目标**：默认合入档从交单到合入中位 ≤ 5 分钟；本仓 PR 已无 Actions 执行等待，外部 app、评审、冲突和平台取证仍按实际耗时记原因。硬停等待用户不计入。这个目标不承诺远端响应时限。
+
 
 ## §3 权限边界（2026-08-20 起：自动合入是默认）
 

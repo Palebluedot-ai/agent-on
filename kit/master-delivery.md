@@ -1,10 +1,10 @@
-# 交付统筹：分工、跟进、合入
+# 交付统筹：验证、合入、审计
 
 > 职责边界：`agent-on master` 的项目接入与执行约定。复用值守身份、landing 队列和独立合并审计；宿主会话负责需求、分工、修复与唤醒。它不新建模型运行时，不自动开窗口。
 
 ## 日常入口
 
-用户说“agent-on 交付 / 统筹这个目标”后，沿 [交付入口](delivery-workflow.md) 续接目标、归并共享修改、按需要派工。原窗口读取 `agent-on status`，无需维护 Dashboard。单个窗口够用时直接实现。
+用户说“agent-on 交付 / 统筹这个目标”后，沿 [交付入口](delivery-workflow.md) 续接目标、归并共享修改，在当前对话直接推进。`agent-on status` 读取 Git 与合入事实，不维护第二份任务台账。
 
 一批成果就绪后，由已获授权的值守或无人在班时的维护者运行：
 
@@ -34,7 +34,7 @@ agent-on master --apply --pr 42 # 限定这一单
 ## 接入已有项目
 
 1. 按 [值守接入](babysit/SETUP.md) 配好当前项目的 `tools/merge-audit/policy.json` 与审计工具；保留项目已有授权与受信作者。`repo` 必须匹配实际仓库，不能借用 Agent-On 本仓的许可。
-2. `merge_method` 指定 `squash` / `merge` / `rebase`。`merge_health.required_checks` 写实际必须出现的检查名，防止新提交的检查尚未启动就误认全绿。`advisory_check_names` 只列已决定不阻塞的检查，必需名优先；未知检查仍按原政策判。
+2. `merge_method` 指定 `squash` / `merge` / `rebase`。`merge_health.required_checks` 写实际必须出现的检查名，防止新提交的检查尚未启动就误认全绿。本仓每日集中 CI 的 PR required 列表为空，缺检查表示未运行，不能说已通过；其他项目不得照抄清空。`advisory_check_names` 只列已决定不阻塞的检查，必需名优先；未知检查仍按原政策判。
 3. 先用预览核状态和政策；授权已齐就直接执行，不再重复问同一个授权。更新 CI 时同时核分支保护；已有 required 检查未改变前仍需满足。全面回归按项目需要放到夜间，架构与规则复盘可每周一次。
 4. 周期值守复用宿主原有调度，每次只调用一轮；无可行动变化时安静。CLI 本身不安装后台服务、不创建定时器。未配置调度或未收到首次真实运行回执，不报“已在无人值守”。
 
@@ -50,4 +50,4 @@ agent-on master --apply --pr 42 --head <已核完整SHA> --approval <已有用�
 
 同仓仅一个 master 执行进程可写，锁随进程退出自动释放。合入前原子保存一份临时回执；合入后记入已有主 worktree 的 `ledger/merge-audit.jsonl`，随后清除临时回执。若在两步之间中断，下次先向 GitHub 核实际结果：已合且 head 一致只补账，未合继续重新检查。不新增第二份长期账本。
 
-独立 `report` 仍是合入前条件；链断或真实越界必须处理。正常 WAIT 不是审计事故。工作目录、任务 result、旧网页或模型自述都不能替代真实合入证据。
+本仓外部作者 PR 仍先核完整文件列表仅含 intake；这项人工范围核验不随 PR Actions 删除。独立 `report` 仍是合入前条件；链断或真实越界必须处理。正常 WAIT 不是审计事故。工作目录、任务 result、旧网页或模型自述都不能替代真实合入证据。

@@ -64,9 +64,9 @@
 
 **衍生功能先归并**:执行中长出独立目标先记录，由入口判断与现有任务合并还是另开隔离窗口，用 `--depends-on` 显式排顺序;当前不做 → 想法箱/暂停项。`agent-on worktree status` 是本机全场视图;回收只按 `safe|review|rescue` 分类人工执行,禁止自动删孤本。模式见 agent-on `kit/worktree-control-plane.md`。
 
-**开轨与回收硬句**：优先用宿主原生 worktree 工具；手工路径沿用本项目声明的 root，未声明可用 `.worktrees/<lane-id>`（Claude 原生路径 `.claude/worktrees/<lane-id>` 同样合法）。分支名 `<type>/<issue-or-lane>-<slug>`，新写任务从入口确定的集成基线创建；一批任务可共享一次已核对的 base，不为每页重复 fetch。握手、每日一次、每次合流后盘点；每日命令为 `agent-on worktree gc --dry-run --json`，也可选择 `agent-on worktree hooks install --daily-gc` 安装同一 report-only 盘点，其 `candidates` 是动态 known reclaim list，不另写静态清单，原有 gc 永不删除。单独启用 janitor 才允许有限回收受管、已释放且可恢复的 checkout；不删除分支。
+**开轨与回收硬句**：优先用宿主原生 worktree 工具；手工路径沿用本项目声明的 root，未声明可用 `.worktrees/<lane-id>`（Claude 原生路径 `.claude/worktrees/<lane-id>` 同样合法）。分支名 `<type>/<issue-or-lane>-<slug>`，新写任务从入口确定的集成基线创建；一批任务可共享一次已核对的 base，不为每页重复 fetch。握手、每日一次、每次合流后盘点；每日命令为 `agent-on worktree gc --dry-run --json`，也可选择 `agent-on worktree hooks install --daily-gc` 安装同一 report-only 盘点，其 `candidates` 是动态 known reclaim list，不另写静态清单，原有 gc 永不删除。不自动回收 checkout 或删除分支。
 
-**回收权限**：原有 GC 只报告。用户启用 janitor 后，有限策略可回收本功能创建的 checkout（执行书 `kit/patrol-control-plane.md`）；其余删除、本地或远端分支、`--force`、跨 worktree add/commit 仍须目标明确授权。locked、dirty、unknown 永不删；squash 场景以 PR 状态为权威，不能只信 `merge-base --is-ancestor` 的否定结果。
+**回收权限**：原有 GC 只报告。自建清道夫已退场。删除 checkout、本地或远端分支、`--force`、跨 worktree add/commit 仍须目标明确授权。locked、dirty、unknown 永不删；squash 场景以 PR 状态为权威，不能只信 `merge-base --is-ancestor` 的否定结果。
 
 ## §QA 三桶(跑通阶段只记账不停下)
 

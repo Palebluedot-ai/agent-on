@@ -1,7 +1,7 @@
 //! One resumable delivery pass over the existing landing queue and audit ledger.
 //! The host owns scheduling and conversation; this module never starts a model,
 //! checks out another branch, deletes a branch, or bypasses GitHub requirements.
-use crate::{coordination, landing, oncall, paths, session::Identity, worktree};
+use crate::{landing, oncall, paths, session::Identity, state_io, worktree};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -310,7 +310,7 @@ fn pass(args: &MasterArgs) -> Result<Value, String> {
     let common = worktree::common_git_dir(&d.root)?;
     let _lock = if args.apply {
         authority(&d.root)?;
-        Some(coordination::lock_path(
+        Some(state_io::lock_path(
             &common.join("agent-on/landing/master.lock"),
         )?)
     } else {
@@ -489,7 +489,7 @@ fn pass(args: &MasterArgs) -> Result<Value, String> {
                     .map(|i| format!("{}:{}", i.host, i.session_id))
                     .unwrap_or_else(|| "maintainer".into()),
             };
-            coordination::write_json(&d.pending, &receipt)?;
+            state_io::write_json(&d.pending, &receipt)?;
             let out = d.gh(&[
                 "pr",
                 "merge",
