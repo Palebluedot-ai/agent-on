@@ -28,9 +28,9 @@
 - 新回归覆盖退场命令拒绝执行、旧非启动 hook 不采集、坏历史任务不阻塞 status、当前 worktree 语义、迁移可预览／重复且保全历史、坏配置与软链拒绝；身份与合入保护回归保留。
 - 本仓 `retire-legacy --apply`：关闭 1 份旧活动配置，janitor timer absent；历史保留。只读进程核对未发现 agent-on 面板／巡逻运行进程。已有 worktree-gc 报告任务不属于退场清道夫，保留。
 
-## 待补实际回执
+## 收口状态（封版提交前）
 
-线上候选、最低 Rust、缓存复用与隔离安装的实际证据已补在下文。用户已确认合入 PR #45 并完成发布；随后要求再研究每日一次 CI，本轮按最新选择收口。合入审计、封版 tag 推送和实际全局执行器升级尚未执行。已安装的 Claude/Codex 插件均关闭，不自动开启。夜间触发延迟不因删功能宣称已解决。
+线上候选、最低 Rust、缓存复用与隔离安装的实际证据已补在下文。PR #45 已按最新每日 CI 节奏合入，实际合入与审计见下文。本文随封版提交冻结；最终 annotated tag／远端推送和本机执行器身份以交付回执及可核 Git 对象为准，不在动作发生前冒称完成。已安装的 Claude/Codex 插件均关闭，不自动开启。夜间触发延迟不因删功能宣称已解决。
 
 ## 历史 #44 的本次追认
 
@@ -86,3 +86,13 @@
 - 新回归验证“无 PR 检查且政策无 required 可 READY；仍有 required 时 WAIT；实际失败仍 FIX”。独立审计 102 项、范围选择器 9 项、本地文档闸与 YAML 触发结构通过。后续手动运行只验证本次工作流调整，不变成每批默认步骤。
 
 用户对每日模式的追加要求与此前“确认合入 main 并完成发布”一并用于本批；不扩大到关闭外部安全检查或取消审计。
+
+## 最终候选与合入回执
+
+- 最终候选 `6cece7906c47a6914a22a0b151a12cddeae911d6` 的 pull_request-triggered workflow_runs 为空；PR 上仅有独立 GitGuardian success，没有用空 Actions job 假装通过。
+- 工作流改动的按需全量 [run 42182734182](https://github.com/Palebluedot-ai/agent-on/actions/runs/42182734182) 在该候选上 success；证明每日／手动共用执行路径可运行，不把它变成每批交付步骤。
+- `agent-on master --apply --pr 45 --head 6cece7906c47a6914a22a0b151a12cddeae911d6 --approval snapshot/2026-11-06-slim-core-delivery.md` 实际输出：`交付统筹：本轮合入 1 项`、`#45 MERGED`。GitHub merge commit 为 `a459117`。
+- 本轮独立账目提交 `c76f567`；合后 `merge_audit.py report` exit 0，账本 10 行且链完整，#45 为 APPROVED_HARDSTOP。外部贡献／历史批准与原记录保留。
+- 原全局／主仓 release 执行器及 Cargo 安装元数据已经备份；回退入口 `/private/tmp/agent-on-v030-upgrade-74wcpmjp/restore.py`。宿主插件原处关闭，正式安装只替换实际全局／主仓 CLI，不擅自开启旧插件；关闭的旧缓存不是已加载的新版本。
+
+封版元数据更新至 v0.30.0 后：推荐 pin／插件版本 5 项单元验证、build_identity 1 项、project_status 9 项、setup_install 1 项均通过；fmt 与 Rust 1.89 all-targets check 通过。文档边界／链接通过，封版前唯一待项为即将创建的 v0.30.0 tag，tag 创建后再次运行完整文档闸。
