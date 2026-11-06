@@ -1,11 +1,11 @@
 //! Host session identity and a small, read-only startup/compact projection.
 //! No automatic role claim, recorder enablement, new window, or remote ownership.
-use crate::coordination::Store;
 use crate::oncall::{self, Role};
+use crate::worktree;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,12 +79,6 @@ impl Identity {
     }
 }
 
-fn managed(store: &Store) -> bool {
-    store.repo.join("agent-on.lock.md").is_file()
-        || (store.repo.join("CHARTER.md").is_file() && store.repo.join("BOOTSTRAP.md").is_file())
-        || store.dir.is_dir()
-}
-
 pub(crate) fn startup_context(data: &Value) -> Result<Option<String>, String> {
     if data.get("hook_event_name").and_then(Value::as_str) != Some("SessionStart") {
         return Ok(None);
@@ -94,22 +88,18 @@ pub(crate) fn startup_context(data: &Value) -> Result<Option<String>, String> {
             .and_then(Value::as_str)
             .ok_or("missing hook cwd")?,
     );
-    let store = Store::open(cwd)?;
-    if !managed(&store) {
+    let repo = worktree::repo_root(cwd)?;
+    let common = worktree::common_git_dir(&repo)?;
+    if !repo.join("agent-on.lock.md").is_file()
+        && !(repo.join("CHARTER.md").is_file() && repo.join("BOOTSTRAP.md").is_file())
+        && !common.join("agent-on").is_dir()
+    {
         return Ok(None);
     }
     let identity = Identity::from_hook(data);
     if let Err(error) = persist_claude_identity(identity.as_ref()) {
         return Ok(Some(unavailable(&error)));
     }
-    let config = match store.config() {
-        Ok(value) => value,
-        Err(error) => return Ok(Some(unavailable(&error))),
-    };
-    let tasks = match store.tasks() {
-        Ok(value) => value,
-        Err(error) => return Ok(Some(unavailable(&error))),
-    };
     // A damaged registry is reported as unavailable, never as nobody on call.
     let record = match oncall::load(cwd) {
         Ok(value) => value,
@@ -129,14 +119,7 @@ pub(crate) fn startup_context(data: &Value) -> Result<Option<String>, String> {
         Role::Nobody if record.is_some() => "值守：登记已失效，当前无人在班".into(),
         Role::Nobody => "值守：无人在班".into(),
     };
-    let active: Vec<_> = tasks.iter().filter(|t| t.released_at.is_none()).collect();
-    let brief = active
-        .iter()
-        .take(5)
-        .map(|t| format!("{} ({})", t.id, t.state))
-        .collect::<Vec<_>>()
-        .join("、");
-    Ok(Some(format!("Agent-On 项目状态已接续。{}。巡逻/任务捕获：{}。未释放任务 {} 项{}。共读台账：{}；详细状态用 agent-on status --json。按项目规则和真实文件继续；结果回传不等于验证完成。原窗口继续，不重复初始化或自动新开窗口。", oncall, if config.enabled { "已启用" } else { "未启用" }, active.len(), if brief.is_empty() { String::new() } else { format!("：{brief}") }, store.dir.display())))
+    Ok(Some(format!("Agent-On 项目状态已接续。{}。读取项目现有记录与 agent-on status；目标与进展沿当前对话继续，不自动新开窗口。派工和活动采集已移除，未启用后台观察。", oncall)))
 }
 
 fn unavailable(error: &str) -> String {
@@ -166,4 +149,27 @@ fn persist_claude_identity(identity: Option<&Identity>) -> Result<(), String> {
         .open(path)
         .map_err(|e| format!("session environment unavailable: {e}"))?;
     writeln!(file, "\nexport AGENT_ON_HOST='claude'\nexport AGENT_ON_SESSION_ID={}\nexport AGENT_ON_PARENT_CODEX_THREAD_ID={}", quote(&identity.session_id), quote(&std::env::var("CODEX_THREAD_ID").unwrap_or_default())).map_err(|e| e.to_string())
+}
+
+/// Only SessionStart is processed. Old capture hooks cannot reactivate recording.
+pub(crate) fn startup_stdin() -> i32 {
+    let mut raw = String::new();
+    if std::io::stdin()
+        .take(1_048_576)
+        .read_to_string(&mut raw)
+        .is_err()
+    {
+        return 0;
+    }
+    if let Ok(data) = serde_json::from_str::<Value>(&raw) {
+        match startup_context(&data) {
+            Ok(Some(context)) => println!(
+                "{}",
+                serde_json::json!({"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":context}})
+            ),
+            Ok(None) => (),
+            Err(error) => eprintln!("agent-on startup context unavailable: {error}"),
+        }
+    }
+    0
 }

@@ -522,38 +522,6 @@ fn compact_reads_shared_project_state_without_enabling_capture_or_launching() {
 }
 
 #[test]
-fn same_directory_feature_cannot_dispatch_using_owner_workdir() {
-    let f = Fixture::new();
-    ok(&f.cli(
-        Some("codex"),
-        "owner",
-        &["oncall", "claim", "--session", "main"],
-    ));
-    let out = f.cli(
-        Some("codex"),
-        "other",
-        &[
-            "dispatch",
-            "--id",
-            "worker",
-            "--goal",
-            "test",
-            "--host",
-            "codex",
-            "--window",
-            "external",
-            "--read-only",
-        ],
-    );
-    assert!(!out.status.success());
-    assert!(String::from_utf8_lossy(&out.stderr).contains("值守在班"));
-    assert!(!f
-        .repo
-        .join(".git/agent-on/control/tasks/worker.json")
-        .exists());
-}
-
-#[test]
 fn hook_session_id_overrides_inherited_owner_identity() {
     let f = Fixture::new();
     ok(&f.cli(
@@ -750,46 +718,7 @@ fn plugin_matchers_cover_native_codex_commands_and_messages() {
 }
 
 #[test]
-fn startup_task_summary_is_bounded_and_excludes_released_tasks() {
-    let f = Fixture::new();
-    for args in [vec!["add", "."], vec!["commit", "-qm", "base"]] {
-        assert!(Command::new("git")
-            .current_dir(&f.repo)
-            .args(args)
-            .output()
-            .unwrap()
-            .status
-            .success());
-    }
-    for n in 0..7 {
-        ok(&f.cli(
-            Some("codex"),
-            "caller",
-            &["task", "add", &format!("task-{n}"), "--goal", "test"],
-        ));
-    }
-    let released_path = f.repo.join(".git/agent-on/control/tasks/task-6.json");
-    let mut released: Value = serde_json::from_slice(&fs::read(&released_path).unwrap()).unwrap();
-    released["released_at"] = "2026-10-03T00:00:00Z".into();
-    fs::write(released_path, released.to_string()).unwrap();
-    let out = f.hook("codex", "caller", "capture", "SessionStart");
-    ok(&out);
-    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let context = value["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .unwrap();
-    assert!(context.contains("未释放任务 6 项"), "{context}");
-    for n in 0..5 {
-        assert!(context.contains(&format!("task-{n}")), "{context}");
-    }
-    assert!(
-        !context.contains("task-5") && !context.contains("task-6"),
-        "{context}"
-    );
-}
-
-#[test]
-fn broken_tasks_and_unwritable_claude_environment_report_unavailable() {
+fn broken_retired_tasks_do_not_block_startup_but_bad_host_environment_is_reported() {
     let f = Fixture::new();
     let tasks = f.repo.join(".git/agent-on/control/tasks");
     fs::create_dir_all(&tasks).unwrap();
@@ -800,7 +729,7 @@ fn broken_tasks_and_unwritable_claude_environment_report_unavailable() {
     assert!(value["hookSpecificOutput"]["additionalContext"]
         .as_str()
         .unwrap()
-        .contains("不可用"));
+        .contains("状态已接续"));
     let mut child = f
         .cmd(Some("claude"), "caller")
         .env("CLAUDE_ENV_FILE", &f.repo)
@@ -831,75 +760,6 @@ fn broken_tasks_and_unwritable_claude_environment_report_unavailable() {
 }
 
 #[test]
-fn linked_worktree_compact_reads_primary_tasks_and_owner() {
-    let f = Fixture::new();
-    for args in [vec!["add", "."], vec!["commit", "-qm", "base"]] {
-        assert!(Command::new("git")
-            .current_dir(&f.repo)
-            .args(args)
-            .output()
-            .unwrap()
-            .status
-            .success());
-    }
-    let linked = f.repo.parent().unwrap().join("linked");
-    assert!(Command::new("git")
-        .current_dir(&f.repo)
-        .args(["worktree", "add", "-b", "linked"])
-        .arg(&linked)
-        .output()
-        .unwrap()
-        .status
-        .success());
-    ok(&f.cli(
-        Some("codex"),
-        "owner",
-        &["oncall", "claim", "--session", "main"],
-    ));
-    ok(&f.cli(
-        Some("codex"),
-        "owner",
-        &["task", "add", "current-task", "--goal", "test"],
-    ));
-    let mut child = f
-        .cmd(Some("codex"), "next")
-        .current_dir(&linked)
-        .arg("capture")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap().write_all(json!({"cwd":linked,"session_id":"next","hook_event_name":"SessionStart","source":"compact"}).to_string().as_bytes()).unwrap();
-    let out = child.wait_with_output().unwrap();
-    ok(&out);
-    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let context = value["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .unwrap();
-    assert!(
-        context.contains("current-task") && context.contains("main"),
-        "{context}"
-    );
-    assert!(!linked.join(".git/agent-on").exists());
-}
-
-#[test]
-fn damaged_capture_config_still_injects_unavailable_startup_context() {
-    let f = Fixture::new();
-    let control = f.repo.join(".git/agent-on/control");
-    fs::create_dir_all(&control).unwrap();
-    fs::write(control.join("config.json"), "{broken").unwrap();
-    let out = f.hook("codex", "caller", "capture", "SessionStart");
-    ok(&out);
-    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert!(value["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .unwrap()
-        .contains("不可用"));
-}
-
-#[test]
 fn same_directory_native_peer_messages_route_through_oncall() {
     let f = Fixture::new();
     for args in [vec!["add", "."], vec!["commit", "-qm", "base"]] {
@@ -916,20 +776,19 @@ fn same_directory_native_peer_messages_route_through_oncall() {
         "owner",
         &["oncall", "claim", "--session", "coordinator"],
     ));
-    ok(&f.cli(
-        Some("codex"),
-        "owner",
-        &[
-            "patrol",
-            "start",
-            "--host",
-            "codex-app",
-            "--window",
-            "external",
-        ],
-    ));
-    ok(&f.hook("codex", "peer-b", "capture", "SessionStart"));
-    ok(&f.hook("codex", "owner", "capture", "SessionStart"));
+    // Historical bindings keep their routing restrictions without a recorder.
+    let sessions = f.repo.join(".git/agent-on/control/sessions");
+    fs::create_dir_all(&sessions).unwrap();
+    fs::write(
+        sessions.join("peer.json"),
+        json!({"id":"peer","host":"codex","host_session_id":"peer-b"}).to_string(),
+    )
+    .unwrap();
+    fs::write(
+        sessions.join("owner.json"),
+        json!({"id":"owner","host":"codex","host_session_id":"owner"}).to_string(),
+    )
+    .unwrap();
     let message = |recipient: &str| {
         let mut child = f
             .cmd(Some("codex"), "peer-a")

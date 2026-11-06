@@ -55,107 +55,154 @@ fn fixture() -> tempfile::TempDir {
 }
 
 #[test]
-fn delivery_brief_exposes_goal_blocker_and_unverified_result_without_opening_a_panel() {
+fn current_checkout_facts_do_not_invent_goals_or_read_retired_tasks() {
     let temp = fixture();
     let repo = temp.path();
-    ok(
-        repo,
-        &[
-            "task",
-            "add",
-            "shared",
-            "--goal",
-            "统一导入接口",
-            "--path",
-            "shared.rs",
-        ],
-    );
-    ok(
-        repo,
-        &[
-            "task",
-            "progress",
-            "shared",
-            "--state",
-            "blocked",
-            "--note",
-            "等待用户确认导入格式",
-        ],
-    );
-    ok(
-        repo,
-        &[
-            "task",
-            "add",
-            "consumer",
-            "--goal",
-            "接通桌面导入",
-            "--depends-on",
-            "shared",
-            "--path",
-            "desktop.rs",
-        ],
-    );
-    fs::write(repo.join("result.md"), "已实现，相关测试待核验").unwrap();
-    ok(repo, &["task", "result", "consumer", "--file", "result.md"]);
-    let brief = ok(repo, &["status"]);
-    for text in [
-        "统一导入接口",
-        "等待用户确认导入格式",
-        "接通桌面导入",
-        "待验收",
-        "依赖：shared",
-        "下一步",
-        "最近回报",
-        "未绑定责任窗口",
-    ] {
-        assert!(brief.contains(text), "missing {text}: {brief}");
-    }
-    assert!(!brief.contains("打开实时面板"));
-    let status: Value = serde_json::from_str(&ok(repo, &["status", "--json"])).unwrap();
-    let dashboard: Value = serde_json::from_str(&ok(repo, &["dashboard", "--json"])).unwrap();
-    assert_eq!(status["patrol"], dashboard["patrol"]);
-    assert_eq!(status["patrol"]["data"]["results"][0]["verified"], false);
+    fs::write(repo.join("project-state.md"), "Existing project goal\n").unwrap();
+    let old = repo.join(".git/agent-on/control/tasks");
+    fs::create_dir_all(&old).unwrap();
+    fs::write(old.join("broken.json"), "{broken").unwrap();
+    let before = fs::read(old.join("broken.json")).unwrap();
+    let value: Value = serde_json::from_str(&ok(repo, &["status", "--json"])).unwrap();
+    assert_eq!(value["schema_version"], 2);
+    assert_eq!(value["dirty"], true);
+    assert_eq!(value["goal"], Value::Null);
+    assert!(value["project_records"]
+        .as_array()
+        .unwrap()
+        .contains(&Value::from("project-state.md")));
+    assert!(value.get("patrol").is_none());
+    assert!(value.get("activity").is_none());
+    assert_eq!(fs::read(old.join("broken.json")).unwrap(), before);
     assert!(!repo.join(".git/agent-on/control/config.json").exists());
+    let brief = ok(repo, &["status"]);
+    assert!(brief.contains("下一步"));
+    assert!(!brief.contains("打开"));
 }
-
 #[test]
-fn linked_worktree_reads_the_same_project_and_a_damaged_task_source_is_not_empty() {
+fn linked_status_describes_the_callers_checkout_and_shares_only_delivery_evidence() {
     let temp = fixture();
     let repo = temp.path();
-    ok(
-        repo,
-        &[
-            "task",
-            "add",
-            "handoff",
-            "--goal",
-            "交付共享接口",
-            "--path",
-            "shared.rs",
-        ],
-    );
-    let linked = repo.join("linked");
+    let linked = temp.path().join("linked");
     git(
         repo,
         &["worktree", "add", "-b", "feature", linked.to_str().unwrap()],
     );
-    let primary: Value = serde_json::from_str(&ok(repo, &["status", "--json"])).unwrap();
-    let other: Value = serde_json::from_str(&ok(&linked, &["status", "--json"])).unwrap();
-    assert_eq!(primary["repo"], other["repo"]);
+    fs::write(linked.join("new.txt"), "dirty").unwrap();
+    let v: Value = serde_json::from_str(&ok(&linked, &["status", "--json"])).unwrap();
+    assert_eq!(v["branch"], "feature");
+    assert_eq!(v["dirty"], true);
     assert_eq!(
-        primary["patrol"]["data"]["tasks"],
-        other["patrol"]["data"]["tasks"]
+        Path::new(v["repo"].as_str().unwrap()),
+        fs::canonicalize(linked).unwrap()
     );
+}
+#[test]
+fn removed_commands_and_panel_flags_are_not_executable() {
+    let temp = fixture();
+    for args in [
+        vec!["dashboard"],
+        vec!["dispatch"],
+        vec!["agent-os"],
+        vec!["patrol"],
+        vec!["activity"],
+        vec!["agent"],
+        vec!["task"],
+        vec!["janitor"],
+        vec!["model-check"],
+        vec!["status", "--serve"],
+        vec!["status", "--system"],
+    ] {
+        assert!(!cli(temp.path(), &args).status.success(), "{args:?}");
+    }
+    assert!(!temp.path().join(".git/agent-on/control").exists());
+}
+#[test]
+fn retirement_is_previewable_repeatable_and_preserves_records_and_checkouts() {
+    let temp = fixture();
+    let repo = temp.path();
+    let control = repo.join(".git/agent-on/control");
+    fs::create_dir_all(control.join("tasks")).unwrap();
     fs::write(
-        repo.join(".git/agent-on/control/tasks/handoff.json"),
-        "{broken",
+        control.join("config.json"),
+        r#"{"enabled":true,"janitor_enabled":true,"keep":"value"}"#,
     )
     .unwrap();
-    let brief = ok(&linked, &["status"]);
-    assert!(brief.contains("任务来源不可用"), "{brief}");
-    assert!(!brief.contains("未释放任务 0"), "{brief}");
-    let damaged: Value = serde_json::from_str(&ok(&linked, &["status", "--json"])).unwrap();
-    assert_eq!(damaged["patrol"]["available"], false);
-    assert_eq!(damaged["worktrees"].as_array().unwrap().len(), 2);
+    fs::write(control.join("activity-config.json"), r#"{"enabled":true}"#).unwrap();
+    fs::write(control.join("tasks/historical.json"), "history").unwrap();
+    let original = fs::read(control.join("config.json")).unwrap();
+    ok(repo, &["retire-legacy"]);
+    assert_eq!(fs::read(control.join("config.json")).unwrap(), original);
+    ok(repo, &["retire-legacy", "--apply"]);
+    ok(repo, &["retire-legacy", "--apply"]);
+    let v: Value = serde_json::from_slice(&fs::read(control.join("config.json")).unwrap()).unwrap();
+    assert_eq!(v["enabled"], false);
+    assert_eq!(v["janitor_enabled"], false);
+    assert_eq!(v["keep"], "value");
+    assert_eq!(
+        fs::read(control.join("config.json.pre-v030")).unwrap(),
+        original
+    );
+    assert_eq!(
+        fs::read_to_string(control.join("tasks/historical.json")).unwrap(),
+        "history"
+    );
+    assert!(repo.join("base.txt").is_file());
+}
+#[test]
+fn retirement_refuses_bad_policy_without_discarding_it() {
+    let temp = fixture();
+    let control = temp.path().join(".git/agent-on/control");
+    fs::create_dir_all(&control).unwrap();
+    fs::write(control.join("config.json"), "{broken").unwrap();
+    assert!(!cli(temp.path(), &["retire-legacy", "--apply"])
+        .status
+        .success());
+    assert_eq!(
+        fs::read_to_string(control.join("config.json")).unwrap(),
+        "{broken"
+    );
+}
+#[cfg(unix)]
+#[test]
+fn retirement_never_follows_config_symlinks() {
+    let temp = fixture();
+    let control = temp.path().join(".git/agent-on/control");
+    fs::create_dir_all(&control).unwrap();
+    let external = temp.path().join("external.json");
+    fs::write(&external, r#"{"enabled":true}"#).unwrap();
+    std::os::unix::fs::symlink(&external, control.join("config.json")).unwrap();
+    assert!(!cli(temp.path(), &["retire-legacy", "--apply"])
+        .status
+        .success());
+    assert_eq!(fs::read_to_string(external).unwrap(), r#"{"enabled":true}"#);
+}
+#[test]
+fn old_non_startup_hooks_cannot_record_activity_even_when_old_policy_is_enabled() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let temp = fixture();
+    let control = temp.path().join(".git/agent-on/control");
+    fs::create_dir_all(&control).unwrap();
+    fs::write(control.join("config.json"), r#"{"enabled":true}"#).unwrap();
+    for event in [
+        "PreToolUse",
+        "PostToolUse",
+        "UserPromptSubmit",
+        "Stop",
+        "SessionEnd",
+    ] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_agent-on"))
+            .current_dir(temp.path())
+            .arg("capture")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(serde_json::json!({"cwd":temp.path(),"hook_event_name":event,"session_id":"old","tool_name":"Bash"}).to_string().as_bytes()).unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success());
+        assert!(out.stdout.is_empty());
+    }
+    assert_eq!(fs::read_dir(control).unwrap().count(), 1);
 }

@@ -637,7 +637,7 @@ pub fn save_snapshot(common_git_dir: &std::path::Path, snapshot: &Snapshot) -> R
         .parent()
         .ok_or_else(|| "invalid snapshot path".to_string())?;
     std::fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
-    crate::coordination::write_json(&path, snapshot)
+    crate::state_io::write_json(&path, snapshot)
 }
 
 // ---------------------------------------------------------------------------
@@ -1813,7 +1813,7 @@ pub fn run_refresh(repo: &Path, gh: &dyn GhClient, opts: &LandingOpts) -> (i32, 
     // Multiple windows share one repository. Only one network evidence pass
     // may write its snapshot at a time; readers never acquire this lock.
     let _lease = match wt::common_git_dir(repo).and_then(|common| {
-        crate::coordination::lock_path(&common.join("agent-on/landing/refresh.lock"))
+        crate::state_io::lock_path(&common.join("agent-on/landing/refresh.lock"))
     }) {
         Ok(lease) => lease,
         Err(error) => {
@@ -2982,21 +2982,13 @@ mod io_tests {
     }
 
     #[test]
-    fn refresh_lock_does_not_block_task_receipts_but_serializes_refreshes() {
+    fn refresh_lock_serializes_refreshes() {
         let (_tmp, root, _wt) = fixture();
         let fake = FakeGh::new();
-        let store = crate::coordination::Store::open(&root).unwrap();
-        let control_lease = store.lock().unwrap();
-        let (code, out) = run_refresh(&root, &fake, &opts());
-        assert_eq!(
-            code, 0,
-            "network refresh must not compete with task receipts: {out}"
-        );
-        drop(control_lease);
-
         let path = common_git_dir(&root)
             .unwrap()
             .join("agent-on/landing/refresh.lock");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let lock_file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -3008,10 +3000,6 @@ mod io_tests {
         let (code, out) = run_refresh(&root, &fake, &opts());
         assert_eq!(code, 1, "concurrent refresh must be refused: {out}");
         assert!(out.contains("busy"), "{out}");
-        assert!(
-            store.lock().is_ok(),
-            "task receipts remain available while refresh is locked"
-        );
     }
 
     #[test]

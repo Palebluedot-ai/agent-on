@@ -207,22 +207,15 @@ pub fn run_uninstall(repo: &Path) -> (i32, String) {
 
 /// A separate, opt-in scheduler namespace for bounded reclaim. Existing daily GC
 /// files, persisted state, and report-only commands are never converted to apply.
-pub(crate) fn run_install_janitor(repo: &Path) -> (i32, String) {
-    let result = match find_janitor_state(repo) {
-        Ok(Some(state)) => reinstall_existing(&state),
-        Ok(None) => ScheduleSpec::from_runtime(repo, true)
-            .map(ScheduleSpec::for_janitor)
-            .and_then(|spec| install_new(&spec)),
-        Err(error) => Err(error),
-    };
-    result_to_output(result)
-}
 pub(crate) fn run_uninstall_janitor(repo: &Path) -> (i32, String) {
     result_to_output(match find_janitor_state(repo) {
         Ok(Some(state)) => uninstall_installed(&state),
         Ok(None) => Ok("janitor schedule: already absent\n".into()),
         Err(error) => Err(error),
     })
+}
+pub(crate) fn has_legacy_janitor(repo: &Path) -> Result<bool, String> {
+    find_janitor_state(repo).map(|state| state.is_some())
 }
 fn find_janitor_state(repo: &Path) -> Result<Option<InstallState>, String> {
     let root = runtime_state_root()?.with_file_name("janitor");
@@ -237,6 +230,7 @@ fn result_to_output(result: Result<String, String>) -> (i32, String) {
 }
 
 impl ScheduleSpec {
+    #[cfg(test)]
     fn for_janitor(mut self) -> Self {
         self.janitor = true;
         self.state_dir = self
