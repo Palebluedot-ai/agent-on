@@ -30,7 +30,7 @@
 
 ## 待补实际回执
 
-线上候选 CI、最低 Rust 版本、缓存复用实验、合入与审计、annotated tag 推送、实际全局／插件执行器升级分别补记。夜间触发延迟不因删功能宣称已解决。
+线上候选、最低 Rust、缓存复用与隔离安装的实际证据已补在下文。主线合入待用户对 PR #45 的确认；合入审计、封版 tag 推送和实际全局执行器升级尚未执行。已安装的 Claude/Codex 插件均关闭，不自动开启。夜间触发延迟不因删功能宣称已解决。
 
 ## 历史 #44 的本次追认
 
@@ -50,3 +50,21 @@
 - 同候选手动全量：run [42178741068](https://github.com/Palebluedot-ai/agent-on/actions/runs/42178741068) 通过，CLI 66 秒；后续热缓存 run [42179034270](https://github.com/Palebluedot-ai/agent-on/actions/runs/42179034270) 通过，CLI 58 秒。构建缓存约 58 MB（原约 158 MB）；热运行只编译本仓 crate，依赖构建得到复用。
 - 第三次全量 run [42179233004](https://github.com/Palebluedot-ai/agent-on/actions/runs/42179233004) **失败**：既有 `persisted_schedule_survives_caller_path_and_executable_change` 在启动刚复制的二进制时出现 Linux `ETXTBSY`，不是断言失败。不能丢弃此样本后宣称三次稳定。
 - 测试夹具改用与原程序同文件系统的临时硬链接，仍验证不同的规范化可执行路径和 PATH；不再写入即将启动的二进制。产品调度实现未改变。修补后重新采样，实际回执另补。
+
+### 修补后三次全量样本
+
+同一提交 `c2949e55d80a1402c53b66e14ceae08f4d8fd735`，相同 ubuntu-latest、Rust 1.97.1、兼容构建缓存；三次均运行全套 Rust、clippy、审计、范围选择器、文档和 intake。
+
+| 运行 | CLI job 时长 | 结论 |
+|---|---:|---|
+| [run 42180020399](https://github.com/Palebluedot-ai/agent-on/actions/runs/42180020399) | 44 秒 | 全量 success |
+| [run 42180254924](https://github.com/Palebluedot-ai/agent-on/actions/runs/42180254924) | 62 秒 | 全量 success |
+| [run 42180393049](https://github.com/Palebluedot-ai/agent-on/actions/runs/42180393049) | 45 秒 | 全量 success |
+
+中位数 **45 秒**，范围 **44–62 秒**；相较此前 81 秒单次全量基线，中位数低约 44%。样本小且 runner 波动存在，不报告 P95，也不声称修复计划触发延迟。修补前失败样本仍如实保留。本地相关 13 项测试连续 5 轮通过，未加入重试或跳过断言。
+
+### 隔离安装与升级实测
+
+从当前候选 `cargo install --offline --locked --path cli --root <临时安装目录>` 成功。`build-info` 为 c2949e5、source_dirty=false、source_fingerprint=fnv1a64:af6583aa3ffdc8b8；尚未封版，package 仍 0.29.0，release_tag=null，不冒称最终发布。
+
+隔离项目将真实 v0.29.0 执行器替换为候选后：预览不改配置，两次 apply 成功；首次备份、历史 task、已有分支／worktree 和未提交文件逐一保留；status schema v2 可读；旧 capture 事件不写记录，退场命令均拒绝。实际本机两宿主插件均未启用；全局 CLI 和 repo release 的备份已备好，正式替换待封版后核 build-info。
