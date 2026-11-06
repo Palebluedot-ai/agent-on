@@ -21,10 +21,10 @@
 
 ## 本地验证（发布前）
 
-- `cargo test --manifest-path cli/Cargo.toml --locked`：16 套，**345 passed / 0 failed**。
+- `cargo test --manifest-path cli/Cargo.toml --locked`：16 套，**347 passed / 0 failed**。
 - `cargo clippy --manifest-path cli/Cargo.toml --locked --all-targets -- -D warnings`：exit 0；fmt 通过。
 - Python 独立合入审计：**101 tests OK**；CI 选择器：**9 tests OK**。
-- 文档闸：`DOC-GATE: PASS（250 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）`（实施版本更新前）。
+- 文档闸：`DOC-GATE: PASS（251 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）`（实施版本更新前）。
 - 新回归覆盖退场命令拒绝执行、旧非启动 hook 不采集、坏历史任务不阻塞 status、当前 worktree 语义、迁移可预览／重复且保全历史、坏配置与软链拒绝；身份与合入保护回归保留。
 - 本仓 `retire-legacy --apply`：关闭 1 份旧活动配置，janitor timer absent；历史保留。只读进程核对未发现 agent-on 面板／巡逻运行进程。已有 worktree-gc 报告任务不属于退场清道夫，保留。
 
@@ -43,3 +43,10 @@
 需求与约定两轴审查定位并修复：迁移锁文件软链可能截断目标（先红后绿回归）；首次备份改为完整写入／同步后原子发布，已有不完整备份拒绝覆盖原配置；历史绑定扫描取消 256 条截断，保留超上限的已知窗口路由限制；无旧调度器支持的平台跳过 Unix HOME 探测。修复保留在相关保护回归中。
 
 首个线上 PR #45 run 42178335421 全部必需检查 success；此为修补前候选，最终候选需另核，不以旧绿代替新提交验证。
+
+## 线上 CI 与重复采样
+
+- PR 候选 `a2edc1d`：run [42178655935](https://github.com/Palebluedot-ai/agent-on/actions/runs/42178655935) 必需检查通过，CLI job 49 秒。
+- 同候选手动全量：run [42178741068](https://github.com/Palebluedot-ai/agent-on/actions/runs/42178741068) 通过，CLI 66 秒；后续热缓存 run [42179034270](https://github.com/Palebluedot-ai/agent-on/actions/runs/42179034270) 通过，CLI 58 秒。构建缓存约 58 MB（原约 158 MB）；热运行只编译本仓 crate，依赖构建得到复用。
+- 第三次全量 run [42179233004](https://github.com/Palebluedot-ai/agent-on/actions/runs/42179233004) **失败**：既有 `persisted_schedule_survives_caller_path_and_executable_change` 在启动刚复制的二进制时出现 Linux `ETXTBSY`，不是断言失败。不能丢弃此样本后宣称三次稳定。
+- 测试夹具改用与原程序同文件系统的临时硬链接，仍验证不同的规范化可执行路径和 PATH；不再写入即将启动的二进制。产品调度实现未改变。修补后重新采样，实际回执另补。
