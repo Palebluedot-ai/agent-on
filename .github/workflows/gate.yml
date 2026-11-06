@@ -39,6 +39,12 @@ jobs:
   cli:
     name: CLI 测试 + 承接层校验
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUST_TOOLCHAIN: '1.97.1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,16 +61,32 @@ jobs:
           else
             python3 .github/scripts/quality_scope.py --full --output "$RUNNER_TEMP/quality-plan.json"
           fi
-      - name: 缓存 cargo
+      - name: 固定 Rust 工具链
+        if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.intake == 'true'
+        id: toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component clippy,rustfmt
+          echo "RUSTUP_TOOLCHAIN=$RUST_TOOLCHAIN" >> "$GITHUB_ENV"
+          echo "fingerprint=$(rustup run "$RUST_TOOLCHAIN" rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - name: 缓存依赖下载
         if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.intake == 'true'
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            cli/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-download-v2-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: cargo-download-v2-${{ runner.os }}-
+      - name: 缓存构建结果
+        if: steps.scope.outputs.rust == 'true' || steps.scope.outputs.intake == 'true'
+        uses: actions/cache@v4
+        with:
+          path: cli/target
+          # Content keys can save refreshed builds; the old OS+lock exact key never did.
+          # Compiler/profile/lock must match before restoring any compiled artifacts.
+          key: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-${{ hashFiles('cli/src/**', 'cli/tests/**', 'cli/Cargo.toml', 'cli/build.rs', '.github/workflows/gate.yml') }}
+          restore-keys: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-
       - name: cargo fmt
         if: steps.scope.outputs.rust == 'true'
         run: cargo fmt --manifest-path cli/Cargo.toml --check
@@ -85,7 +107,7 @@ jobs:
       # 承接层是唯一对外收货口，六项不齐的卡进来就再也没人补。
       - name: intake 六项齐
         if: steps.scope.outputs.intake == 'true'
-        run: cargo run --manifest-path cli/Cargo.toml --quiet -- intake-lint
+        run: cargo run --manifest-path cli/Cargo.toml --locked --quiet -- intake-lint
 
   docs:
     name: 文档三闸（职责边界棘轮 / 死链 / 推荐 pin）
