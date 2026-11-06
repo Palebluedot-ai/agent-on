@@ -698,7 +698,7 @@ fn other_window(cwd: &Path, to: &str, identity: Option<&Identity>) -> Option<Str
     // No new window registry or activity collector is created.
     if let Ok(common) = worktree::common_git_dir(cwd) {
         if let Ok(entries) = std::fs::read_dir(common.join("agent-on/control/sessions")) {
-            for entry in entries.flatten().take(256) {
+            for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().is_none_or(|ext| ext != "json") {
                     continue;

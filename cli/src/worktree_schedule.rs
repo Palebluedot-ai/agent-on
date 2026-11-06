@@ -218,6 +218,11 @@ pub(crate) fn has_legacy_janitor(repo: &Path) -> Result<bool, String> {
     find_janitor_state(repo).map(|state| state.is_some())
 }
 fn find_janitor_state(repo: &Path) -> Result<Option<InstallState>, String> {
+    // Legacy timers were only installable on macOS/Linux; Windows migration
+    // must still disable project collectors without requiring a Unix HOME.
+    if current_scheduler() == SchedulerKind::Unsupported {
+        return Ok(None);
+    }
     let root = runtime_state_root()?.with_file_name("janitor");
     find_install_state_in_root(repo, &root)
 }

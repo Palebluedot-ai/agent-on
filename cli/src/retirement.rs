@@ -56,30 +56,7 @@ fn inspect(repo: &Path, apply: bool) -> Result<String, String> {
         // Use the old writer lock so an old collector cannot race the policy update.
         for (path, bytes, value) in changes {
             let backup = path.with_extension("json.pre-v030");
-            // create_new preserves the first backup and refuses symlink overwrite.
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
-            }
-            match options.open(&backup) {
-                Ok(mut file) => {
-                    use std::io::Write;
-                    file.write_all(&bytes).map_err(|e| e.to_string())?;
-                    file.sync_all().map_err(|e| e.to_string())?;
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if !std::fs::symlink_metadata(&backup)
-                        .map_err(|e| e.to_string())?
-                        .is_file()
-                    {
-                        return Err("unsafe legacy backup".into());
-                    }
-                }
-                Err(e) => return Err(e.to_string()),
-            }
+            backup_once(&backup, &bytes)?;
             state_io::write_json(&path, &value)?;
         }
         if timer {
@@ -98,6 +75,50 @@ fn inspect(repo: &Path, apply: bool) -> Result<String, String> {
     output.push_str("Already-running old hosts and plugin copies need the upgrade steps in docs/migration-v0.30.md.\n");
     Ok(output)
 }
+
+/// Publish a complete backup without replacing the first one. On interruption,
+/// an unpublished temp is harmless; a partial existing backup is never trusted.
+fn backup_once(backup: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let temp = backup.with_extension(format!(
+        "tmp-{}-{}",
+        std::process::id(),
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    ));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temp).map_err(|e| e.to_string())?;
+    let result = (|| {
+        file.write_all(bytes).map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+        match std::fs::hard_link(&temp, backup) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                let metadata = std::fs::symlink_metadata(backup).map_err(|e| e.to_string())?;
+                if !metadata.is_file()
+                    || metadata.len() != bytes.len() as u64
+                    || std::fs::read(backup).map_err(|e| e.to_string())? != bytes
+                {
+                    return Err(format!(
+                        "existing backup differs or is incomplete; preserve and inspect {}",
+                        backup.display()
+                    ));
+                }
+                Ok(())
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    })();
+    drop(file);
+    let _ = std::fs::remove_file(temp);
+    result
+}
+
 pub(crate) fn run(repo: Option<PathBuf>, apply: bool) -> i32 {
     let repo =
         repo.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));

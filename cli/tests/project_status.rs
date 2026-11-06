@@ -206,3 +206,39 @@ fn old_non_startup_hooks_cannot_record_activity_even_when_old_policy_is_enabled(
     }
     assert_eq!(fs::read_dir(control).unwrap().count(), 1);
 }
+#[cfg(unix)]
+#[test]
+fn retirement_refuses_symlink_lock_and_never_truncates_its_target() {
+    let temp = fixture();
+    let control = temp.path().join(".git/agent-on/control");
+    fs::create_dir_all(&control).unwrap();
+    let external = temp.path().join("valuable.txt");
+    fs::write(&external, "keep me").unwrap();
+    std::os::unix::fs::symlink(&external, control.join("write.lock")).unwrap();
+    assert!(!cli(temp.path(), &["retire-legacy", "--apply"])
+        .status
+        .success());
+    assert_eq!(fs::read_to_string(external).unwrap(), "keep me");
+}
+#[test]
+fn incomplete_existing_backup_blocks_migration_without_overwriting_original() {
+    let temp = fixture();
+    let control = temp.path().join(".git/agent-on/control");
+    fs::create_dir_all(&control).unwrap();
+    let original = r#"{"enabled":true}"#;
+    fs::write(control.join("config.json"), original).unwrap();
+    fs::write(control.join("config.json.pre-v030"), "{").unwrap();
+    assert!(!cli(temp.path(), &["retire-legacy", "--apply"])
+        .status
+        .success());
+    assert_eq!(
+        fs::read_to_string(control.join("config.json")).unwrap(),
+        original
+    );
+    assert_eq!(
+        fs::read_to_string(control.join("config.json.pre-v030")).unwrap(),
+        "{"
+    );
+    fs::write(control.join("config.json.pre-v030"), original).unwrap();
+    ok(temp.path(), &["retire-legacy", "--apply"]);
+}

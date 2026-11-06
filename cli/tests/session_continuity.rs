@@ -789,6 +789,15 @@ fn same_directory_native_peer_messages_route_through_oncall() {
         json!({"id":"owner","host":"codex","host_session_id":"owner"}).to_string(),
     )
     .unwrap();
+    // No arbitrary inventory cap may turn a known peer into ungoverned traffic.
+    for n in 0..300 {
+        fs::write(
+            sessions.join(format!("extra-{n}.json")),
+            json!({"id":format!("extra-{n}"),"host":"codex","host_session_id":format!("peer-{n}")})
+                .to_string(),
+        )
+        .unwrap();
+    }
     let message = |recipient: &str| {
         let mut child = f
             .cmd(Some("codex"), "peer-a")
@@ -802,6 +811,9 @@ fn same_directory_native_peer_messages_route_through_oncall() {
         child.wait_with_output().unwrap()
     };
     assert_eq!(message("peer-b").status.code(), Some(2));
+    for n in 0..300 {
+        assert_eq!(message(&format!("peer-{n}")).status.code(), Some(2));
+    }
     assert_eq!(message("coordinator").status.code(), Some(0));
     assert_eq!(message("owner").status.code(), Some(0));
     assert_eq!(message("main").status.code(), Some(0));
