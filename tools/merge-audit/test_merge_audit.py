@@ -789,6 +789,16 @@ class TestReadinessCLI(unittest.TestCase):
         self.assertEqual(code, ma.EXIT_WAIT)
         self.assertIn("ci", str(data["execution"]))
 
+    def test_daily_only_policy_allows_absent_pr_checks_but_not_required_or_failed_checks(self):
+        code, data = self.run_precheck({"statusCheckRollup": []})
+        self.assertEqual(code, ma.EXIT_AUTO)
+        self.assertEqual(data["execution"]["state"], "READY")
+        code, _ = self.run_precheck({"statusCheckRollup": []}, {"required_checks": ["ci"]})
+        self.assertEqual(code, ma.EXIT_WAIT)
+        code, _ = self.run_precheck({"statusCheckRollup": [
+            {"name": "external", "conclusion": "FAILURE"}]})
+        self.assertEqual(code, ma.EXIT_FIX)
+
     def test_failure_needs_repair_and_only_named_advice_is_ignored(self):
         failed = {"statusCheckRollup": [{"name": "preview", "conclusion": "FAILURE"}]}
         self.assertEqual(self.run_precheck(failed)[0], ma.EXIT_FIX)
