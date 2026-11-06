@@ -4,6 +4,24 @@
 
 ## [未发布]
 
+（暂无。）
+
+## v0.30.0（2026-11-06）——删除自建派工与面板，保留交付核心
+
+> **用户批准的 v0.x breaking 特例**：公开命令和 status JSON 有不兼容删除；用户明确选择保留 v0.x，不以此宣称 v1.0 外部用户验收达成。迁移与回退见 [迁移说明](docs/migration-v0.30.md)。用户实施／发布批准与验证见 [交付记录](snapshot/2026-11-06-slim-core-delivery.md)。
+
+迁移注记: `dispatch/agent-os/patrol/task/activity/dashboard/agent/model-check/janitor` 与 `status --serve/--system` 删除；`status --json` 升至 schema v2，读取当前 checkout Git 事实和现有合入缓存，不再输出活动与派工台账。先预览并执行 `retire-legacy --apply`，更新实际执行器和插件，按宿主方式重载；保留历史记录、worktree、分支与恢复 ref，不自动重开旧权限。
+
+- **真正删除失败功能**：自建派工、巡逻、阶段交接、活动采集、模型诊断、清道夫、两套动态面板及 kit 静态面板退出供货；专属测试同步删除，历史执行书归档。共享锁／原子写入抽离，Git 保护、身份与合入审计继续使用。方法／接入双落点：`playbook/delivery.md` / `kit/delivery-workflow.md`，以及 `playbook/multi-contributor-protocol.md` / `kit/worktree-control-plane.md`。
+- **轻量状态与续接**：当前对话使用已有项目事实；SessionStart 仅身份接续，逐工具与结束采集注册移除。旧非启动 capture 静默无操作；历史绑定只保留已知窗口路由限制，不充当实时进度。双落点：`boot/session-handshake.md` / `kit/session-control-plane.md`。
+- **迁移保全**：退场入口默认预览，apply 备份并停用项目旧策略，校验卸载专属 janitor 定时项；锁软链拒绝、不截断硬链目标，备份完整原子发布，部分备份拒绝误用。无旧调度支持的平台不要求 Unix HOME。报告型 GC 保留。
+- **CI 提速**：承接 #44 的按范围验证；固定 Rust 1.97.1，下载与构建缓存分开，编译器／平台／lock／profile／内容 key 配兼容恢复前缀。本地保留按范围入口；用户追加要求后，仓库 Actions 改为每日／按需手动全量，PR、push 和 tag 不触发，本仓 required_checks 同步清空。普通 tag 不强制补跑，外部真实检查与逐次合入审计仍保留。夜间触发延迟按实际时间说明，不宣称解决 GitHub schedule 延迟。方法／接入双落点：`playbook/delivery.md` / `kit/delivery-workflow.md`。
+- **独立审计**：历史 #44 经用户本次追认追加批准指针，原账不改写；本批按当前候选检查合入并单独记账。
+
+验证：本地 Rust 16 套 347 项通过，Linux 候选全量通过；审计 102 项、CI 范围选择器 9 项、clippy/fmt/文档与 intake 211 张卡通过；最低 Rust 1.89 all-targets check 通过。修补后三次线上全量 CLI 为 44 / 62 / 45 秒，中位数 45 秒（此前基线 81 秒）；重复运行暴露的测试夹具 ETXTBSY 已修复，失败样本保留。隔离新装／旧版迁移通过。实际执行器安装另核，不以本地测试替代宿主重载。
+
+此前主线未封版变更（本批一并封入；以下 PR 触发节奏已被上述每日模式取代，本地范围选择能力保留）：
+
 - **PR 检查按范围再收一档**：文档、文档闸脚本和 PR 模板不编译 Rust。叶子模块跑对应集成测试加二进制单元测试；共享基础、闸、未知 Rust 路径和 CI 调度器自身仍跑全量。承接层 lint 只在 `intake/` 或 `intake_lint` 改动时跑，夜间全量照旧。PR 的 clippy 不再对未改的集成测试目标使用 `--all-targets`。两个必需检查的 job 名称不变，跳过发生在步骤里。
 
 ## v0.29.0（2026-10-25）——交付统筹与低打断开发

@@ -8,9 +8,9 @@
 
 ## 当前阶段
 
-**最新推荐 pin：`v0.29.0`**。日常主线是当前对话 deliver / 文字 status / 按权限 master：目标续接、受影响验证、按当前提交合入与独立记账。自建派工、巡逻、活动采集、模型诊断、网页面板和配套清道夫已删除，旧安装按 `docs/migration-v0.30.md` 迁移。真实活跃同文件冲突仍提示；坏 lane 与旧 base 不锁住正常 Git 操作。本仓 Actions 每日香港 01:23 全量及按需手动执行；PR、合入和 tag 不触发。普通批次本地验证受影响行为，高风险或证据不足时补全量；逐次合入审计照旧。计划时间不代表实际完成时间。
+**最新推荐 pin：`v0.30.0`**。日常主线是当前对话 deliver / 文字 status / 按权限 master：目标续接、受影响验证、按当前提交合入与独立记账。自建派工、巡逻、活动采集、模型诊断、网页面板和配套清道夫已删除，旧安装按 `docs/migration-v0.30.md` 迁移。真实活跃同文件冲突仍提示；坏 lane 与旧 base 不锁住正常 Git 操作。本仓 Actions 每日香港 01:23 全量及按需手动执行；PR、合入和 tag 不触发。普通批次本地验证受影响行为，高风险或证据不足时补全量；逐次合入审计照旧。计划时间不代表实际完成时间。
 
-版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。本轮用户范围、Matt 方法、回归与真实交付见 [实施记录](snapshot/2026-10-25-master-delivery-and-nightly-quality.md)。发布后安装仍须核实际执行器与插件，不用目录版本号代替 build-info。
+版本真相 = git tag；细节见 [CHANGELOG.md](CHANGELOG.md)。本轮用户范围、Matt 方法、回归与真实交付见 [实施记录](snapshot/2026-11-06-slim-core-delivery.md)。发布后安装仍须核实际执行器与插件，不用目录版本号代替 build-info。
 
 **下一里程碑 v1.0**：外人用过 + 至少一次回流进官方消化，定义见 [验收边界](snapshot/2026-07-16-v10-and-setup.md)。冷启动读本文件、CHARTER、CHANGELOG 最新 tag 节与该验收边界。
 

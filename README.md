@@ -18,7 +18,7 @@ Claude Code · Codex · Grok 共用入口，沿项目现有规则接入。
 
 *Agent-On connects project context, existing project records and evidence-based delivery. Use one entry to continue work, verify results and land ready changes; onboarding and learning remain available when needed.*
 
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.29.0`。**
+总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.30.0`。**
 
 ---
 
@@ -90,7 +90,7 @@ AI：先用 S 轻装，长期迭代按实际需要补件。已播种：
 | 用途 | 地址 / 路径 |
 |---|---|
 | **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.29.0`** |
+| **推荐 pin** | **`v0.30.0`** |
 | **不是** | npm、Claude 官方总商店、App Store |
 
 | OS | 默认工作仓（setup 会放到这里） |
