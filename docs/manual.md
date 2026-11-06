@@ -4,7 +4,7 @@
 
 ## 一、多会话并行：worktree 控制面与合流
 
-多个窗口先归并共享组件和样式修改，再按需派发独立任务；claim 是可选记账，未登记也能开工。自动独立巡逻、跨模型派发和有限清道夫见 [巡逻执行书](../kit/patrol-control-plane.md)。旧控制面命令如下：
+多个窗口先归并共享组件和样式修改，再按需派发独立任务；claim 是可选记账，未登记也能开工。自建派工、巡逻与清道夫已删除，见 [迁移说明](migration-v0.30.md)。Git 控制面命令如下：
 
 ```bash
 # 需要 lane 记账时在 feature worktree 内登记
@@ -30,7 +30,7 @@ agent-on landing status
 agent-on landing plan
 ```
 
-一次 hooks install 在 common git dir 安装 shared pre-commit/pre-push。commit 检查实际 index（包含 -a/--only 的临时 index），push 读取实际 ref 更新、逐提交计算涉及路径；仅范围内本树与另一棵树都有新鲜未提交文件时拦。status/check 仍展示本树全部重叠，未登记或纸面 owns 不构成提交前置。PreToolUse 只核跨仓与值守路由，不重复猜提交范围；未装 shared hooks 就不能宣称同文件机械保护已启用。控制态和本地 merge 的 PR 判据保留。细节见 [控制面](../kit/worktree-control-plane.md)。旧 GC/daily-gc 只报告，janitor 仅显式启用时按有限策略回收。
+一次 hooks install 在 common git dir 安装 shared pre-commit/pre-push。commit 检查实际 index（包含 -a/--only 的临时 index），push 读取实际 ref 更新、逐提交计算涉及路径；仅范围内本树与另一棵树都有新鲜未提交文件时拦。status/check 仍展示本树全部重叠，未登记或纸面 owns 不构成提交前置。PreToolUse 只核跨仓与值守路由，不重复猜提交范围；未装 shared hooks 就不能宣称同文件机械保护已启用。控制态和本地 merge 的 PR 判据保留。细节见 [控制面](../kit/worktree-control-plane.md)。GC/daily-gc 只报告；不提供自动回收。
 
 多 PR 并行时，`landing` 三条命令是合流协调面：所有检查结果绑定 `(PR head SHA, base SHA)`，两者未变直接 SKIP 复用；main 每合入一条只重查有依赖边或文件重叠的 PR。`status` 首页只给五个数（现在做 / 下一批 / 等待中 / 需抢救 / 可回收），全部 worktree 自动落进 ACTIVE/WAITING/PARKED/RESCUE/REAPABLE 五类之一；活跃轨有上限（默认 3，`--parked` 排队不占额）。v1 严格只读：不驻后台、不自动 merge、不自动删树。完整数据模型与分类规则见 [kit/landing-control-plane.md](../kit/landing-control-plane.md)。
 

@@ -23,11 +23,11 @@
 
 | 档 | 播种 | 不播 |
 |---|---|---|
-| **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md） | 想法箱、phase 卡、progress.yaml、契约、run 台账、dashboard 按需 |
-| **M 标准** | S 的三件 + 需要时加状态源与自包含任务卡 | MRD / PRD / dashboard 只按实际需要添加 |
+| **S 轻装** | 三件套（AGENTS-lite + loop-notes.md + agent-on.lock.md） | 想法箱、phase 卡、progress.yaml、契约、run 台账按需 |
+| **M 标准** | S 的三件 + 需要时加状态源与自包含任务卡 | MRD / PRD 只按实际需要添加 |
 | **L 并行件** | M + 接口契约 / 派工回执 / 共享改动协调 | 未使用的模板与全套流程不播种 |
 
-> `thoughts-and-ideas.md` 按需记录新想法；`dashboard.html` 是可选视图。没有实际读者就不生成第二份状态面。
+> `thoughts-and-ideas.md` 按需记录新想法；状态使用项目已有文件，不生成第二份网页。
 
 **第二组 · 需求核对**（复用已确认内容，只问会影响实现的缺口；复杂 / 高风险项目可选深挖版 `boot/new-project-questionnaire.md`）。偏好缺口是幻觉的第五类来源（详见 playbook/elicitation-protocol.md）——先收齐再动手：
 
@@ -100,7 +100,7 @@
 
 **单 agent 能干完就别上多 agent**（上下文边界优先）。确要并行时走六步协议：冻契约 → 轨道 = 目录 + git worktree 物理隔离 → 各轨 Fake 对方 → 契约测试当裁判 → 单一状态写者 → 先契约后实现合流。
 
-**先合并共享任务，再决定是否并行。** 不同页面不自动对应不同 worktree/PR；同一组件、token、路由或锁文件交给一个任务，其余先等它合入。确实同时写代码时各用一棵树，不必先 claim。可选 `agent-on patrol start` 自动创建独立巡逻窗口，原窗口继续作为统一入口；`dispatch` 可调用 Claude/Codex/Grok，`--worktree` 才申请独立写树。流程与实测边界见 [kit/patrol-control-plane.md](kit/patrol-control-plane.md)。commit/push 现有同文件闸保持兼容；值守仍拥有原有合并权。`worktree gc --dry-run` 仍只报告；单独启用 janitor 才授权回收本功能创建、明确释放且可恢复的 checkout。
+**先合并共享任务，再决定是否并行。** 默认当前对话推进。确实同时写代码时按用户指派使用宿主原生能力和独立 worktree，共享文件先归一个任务。保留实际同文件 Git 保护与既有合入权限；Agent-On 不开窗、不派模型、不采活动、不建面板。旧 GC 永远只报告。
 
 模板按实际任务选：`kit/track-prompt-template.md` 派工、`kit/review-prompt-template.md` 复核、`kit/merge-checklist.md` 合流、`kit/worktree-control-plane.md` 边界/依赖/回收、`kit/babysit/` 值守。能力探针只在用户明确比较或任务暴露实际缺口时使用。
 
@@ -114,7 +114,6 @@
 
 **两个项目内口令（v0.4）**：
 - 「**整理想法**」→ 读 `thoughts-and-ideas.md` 速记区，归类成文标去向进「已整理」，清空速记区（换会话握手若发现速记区非空，主动提醒一次）
-- 「**更新仪表盘**」→ 已启用时从真相源重绘 `dashboard.html`，合流按实际状态变化更新；数据只从真相源读
 
 ## 7. 初始化完成的验收（只查本项目选用的组件）
 

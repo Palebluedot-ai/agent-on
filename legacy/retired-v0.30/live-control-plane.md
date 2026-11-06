@@ -1,8 +1,10 @@
 # 本机执行控制面
 
+> 历史档案：本功能已于 v0.30.0 删除，以下描述仅记录旧版本，不是现行操作指令。升级见 [迁移说明](../../docs/migration-v0.30.md)。
+
 > 职责边界：把本机项目、已有任务、会话回执、可识别 Agent 进程、Git/worktree 与 landing 快照投影为文本简报、JSON 和可选网页；不是通用执行器，不拥有任务、合流或删除权限。任务/回收按 patrol-control-plane，PR 按 landing 与在班值守政策执行。新版文本简报、系统总览与通用回执是未发布开发功能，须使用当前源码构建，不能把旧安装当作已具备。
 
-用户在原窗口继续说目标，交付过程走 [交付入口](delivery-workflow.md)。`agent-on status` 直接读目标、窗口登记、最近回报、依赖、卡点、待验收和下一步；最多展示 20 项未释放任务，其余明确提示读取完整 JSON。最后回报人不冒称负责人，缺绑定、损坏与陈旧来源明确显示。命令不写台账、不启服务、不联网。
+用户在原窗口继续说目标，交付过程走 [交付入口](../../kit/delivery-workflow.md)。`agent-on status` 直接读目标、窗口登记、最近回报、依赖、卡点、待验收和下一步；最多展示 20 项未释放任务，其余明确提示读取完整 JSON。最后回报人不冒称负责人，缺绑定、损坏与陈旧来源明确显示。命令不写台账、不启服务、不联网。
 
 项目事实由 `project_status` 统一收集，文本与网页消费同一份数据；`status --json` 保持既有结构。旧 `status --serve` / `--system` 参数仍兼容，网页按需使用：
 
@@ -40,7 +42,7 @@ SessionStart/UserPromptSubmit 回读最多五个窗口的简短状态，作为�
 
 API `activity` 分开给 enabled、available、windows、errors、stale_after_seconds；缺数据、损坏、异常时间、超两分钟未回传或关闭观察时显示 unknown。新鲜回执也只标 partial，`running_windows` 始终 null；`observed_working_windows` 只计成功读取的 working 状态记录，错误时 null，不是全部在线窗口。自述标 explicit-report/未核验，真实 hook 标 native-hook，进程存在和 legacy ready 不升级成活动证明。等待/阻塞自述与工具事件各有时间，超时不因后台流量变成新鲜判断。单记录最多 256 KiB、窗口最多 256，达到上限/软链/特殊文件明确报不可用。陈旧或关闭窗口不成为删 checkout 的依据。
 
-**源码接收能力不等于现场已接线。** 初次开发只用真实当前窗口的明确回传 dogfood，临时仓构造事件不是现场证明。2026-10-04 用户批准本机 executor/两边插件升级后，本 Codex 窗口已真实回传 native-hook/PostToolUse，项目与系统 API 共读；Claude 待原窗口重载，完整事件生命周期仍需验收。新增/变更 hook 按宿主流程由用户确认信任，不直接写信任 hash。详见 [本机安装证据](../snapshot/2026-10-04-native-activity-host-upgrade.md)。Dartify 与其他项目没有擅自启用采集；Hermes/Grok/Antigravity 自动 adapter 仍未接齐。
+**源码接收能力不等于现场已接线。** 初次开发只用真实当前窗口的明确回传 dogfood，临时仓构造事件不是现场证明。2026-10-04 用户批准本机 executor/两边插件升级后，本 Codex 窗口已真实回传 native-hook/PostToolUse，项目与系统 API 共读；Claude 待原窗口重载，完整事件生命周期仍需验收。新增/变更 hook 按宿主流程由用户确认信任，不直接写信任 hash。详见 [本机安装证据](../../snapshot/2026-10-04-native-activity-host-upgrade.md)。Dartify 与其他项目没有擅自启用采集；Hermes/Grok/Antigravity 自动 adapter 仍未接齐。
 
 `task add … --title '短标题'` 和 `task progress … --title '短标题'` 可设置 1–80 字展示名，不改完整目标和范围。新执行器在显式登记、进度及未释放任务的结果回传时记录实际宿主身份为 `last_reporter`。有派工会话时展示关联执行工具；只有手动任务时标「最近登记 / 回传」，不是当前在线或独占负责的证明。旧任务缺来源显示「未关联工具」，不从编号猜模型。旧执行器仍能读取记录，但再次写入可能丢掉新增展示字段；跨工具使用本轮新字段前需各自升级实际执行器，未发布源码不能当作已安装版本。自动捕获仍须原有显式启用和正常 hooks 信任，不能为显示 Claude 卡片伪造任务或会话。
 
@@ -90,4 +92,4 @@ host 支持 codex / claude / hermes / grok / antigravity；状态 working / wait
 
 Agent-On 的持续资产是跨执行器可迁移的任务与证据、项目决策、合流审计、恢复依据和经过真实任务验证的经验。模型仍负责理解和执行；它们提升时可以继续删减流程。任何“不可替代”都需要真实使用收益支持，不能靠面板或角色命名保证。
 
-实现：`cli/src/dashboard.rs` / `dashboard.html`、`system_dashboard.rs` / `system_dashboard.html`。浏览器实测脚本为 `cli/tests/dashboard_browser.cjs` / `system_dashboard_browser.cjs`；系统回归为 `cli/tests/system_overview.rs`。跨机状态、自动恢复执行与真实 Hermes 模型闭环未声明完成；现场证据见 [系统总览开发记录](../snapshot/2026-10-03-system-overview.md)。
+实现：`cli/src/dashboard.rs` / `dashboard.html`、`system_dashboard.rs` / `system_dashboard.html`。浏览器实测脚本为 `cli/tests/dashboard_browser.cjs` / `system_dashboard_browser.cjs`；系统回归为 `cli/tests/system_overview.rs`。跨机状态、自动恢复执行与真实 Hermes 模型闭环未声明完成；现场证据见 [系统总览开发记录](../../snapshot/2026-10-03-system-overview.md)。

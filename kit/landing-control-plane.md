@@ -78,7 +78,7 @@ agent-on landing plan      # 读快照 → 状态表 + 合流波次
 
 ### 缓存键与增量失效（核心不变量）
 
-每条轨的文件证据绑定 `(checked_head_sha, checked_base_sha)`。`refresh` 用一次 `gh pr list` 批量取 head、CI rollup、mergeable、reviewDecision 与 draft，另取 base 头；CI/审批按本次观察覆盖，文件证据再按下表复用或重查。只有重查的轨才取逐 PR 文件详情。多个窗口共享专用 `agent-on/landing/refresh.lock`，不占用任务回执的 `control/write.lock`；部分 inventory 到达 200 上限时明确拒绝，不当完整清单。快照私有且原子写入。按需可用 [本机面板](live-control-plane.md) 的一个共享定时刷新器，不调用模型。
+每条轨的文件证据绑定 `(checked_head_sha, checked_base_sha)`。`refresh` 用一次 `gh pr list` 批量取 head、CI rollup、mergeable、reviewDecision 与 draft，另取 base 头；CI/审批按本次观察覆盖，文件证据再按下表复用或重查。只有重查的轨才取逐 PR 文件详情。多个窗口共享专用 `agent-on/landing/refresh.lock`，不占用任务回执的 `control/write.lock`；部分 inventory 到达 200 上限时明确拒绝，不当完整清单。快照私有且原子写入。按需可用 [本机面板](../docs/migration-v0.30.md) 的一个共享定时刷新器，不调用模型。
 
 | 探针事实 | 判定 | 说明 |
 |---|---|---|
