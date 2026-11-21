@@ -1,9 +1,9 @@
 [package]
 name = "agent-on"
-version = "0.30.0"
+version = "2.0.0"
 edition = "2021"
 rust-version = "1.89"
-description = "agent-on CLI: setup, guards, lint, worktree control plane, and release helpers"
+description = "Zero-intrusion cross-client AI toolkit: worktree radar, merge-tree rehearsal, skill installer, and doctor"
 license = "MIT"
 publish = false
 
@@ -13,11 +13,8 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-shlex = "1"
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 
 [dev-dependencies]
 tempfile = "3"

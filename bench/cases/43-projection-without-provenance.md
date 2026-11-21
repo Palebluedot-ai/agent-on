@@ -1,7 +1,7 @@
 # 案例 43：没有回指的投影（判定错与幽灵 lane 是同一个病）
 
 > 层级：L1 结构性 | 来源：agent-on 自举实测 2026-08-20 | 入册：2026-08-20
-> 职责边界：本页记这一类翻车的形状与识别器。制度正文在 [playbook/truth-hierarchy.md](../../playbook/truth-hierarchy.md)「仓内投影」一节，为什么链在 [snapshot/2026-08-20-projection-drift.md](../../snapshot/2026-08-20-projection-drift.md)。
+> 职责边界：本页记这一类翻车的形状与识别器。制度正文在 [playbook/truth-hierarchy.md](../../legacy/v0.30-scaffold/playbook/truth-hierarchy.md)「仓内投影」一节，为什么链在 [snapshot/2026-08-20-projection-drift.md](../../snapshot/2026-08-20-projection-drift.md)。
 
 ## 症状
 
@@ -28,7 +28,7 @@
 放大器有两个：
 
 - `AGENTS.md` 文档纪律第 3 条「可以重复关键事实，不为了去重而交叉引用」——**对原件成立，对投影致命**。重复原件只是啰嗦；重复投影是把一个会过期的事实复制了 N 份，而 N 是多少、在哪里，无人知道。
-- 「[转述 ≠ 出处](../../playbook/multi-contributor-protocol.md)」两天前刚立，管的是**跨窗口**转述要溯源，是纪律；**仓内**副本没有对应条款，也没有闸。按元原则第七条，没有闸的规则是纸面的。
+- 「[转述 ≠ 出处](../../legacy/v0.30-scaffold/playbook/multi-contributor-protocol.md)」两天前刚立，管的是**跨窗口**转述要溯源，是纪律；**仓内**副本没有对应条款，也没有闸。按元原则第七条，没有闸的规则是纸面的。
 
 **幽灵 lane 是同一个病换了介质**：lane 记录 12 个字段里，`worktree`/`branch`/`base`/`base_sha_at_claim`/`status` 全是 git 已有事实的副本，且**没有对账回路**。而 `truth-hierarchy` §五¾.2 早写过「长期状态文件不 self-pin live HEAD」——那条规矩为文档写，**从没应用到本仓自己的工具上**。
 
@@ -36,7 +36,7 @@
 
 ## 修法
 
-1. **把「原件 / 投影」立成第一类区分**，写进真相源治理（[truth-hierarchy §仓内投影](../../playbook/truth-hierarchy.md)）。跨仓面早有三根钉子（pin 版本 / 只映射不复制 / 显式升级），仓内面一根都没有——补上同构的三根。
+1. **把「原件 / 投影」立成第一类区分**，写进真相源治理（[truth-hierarchy §仓内投影](../../legacy/v0.30-scaffold/playbook/truth-hierarchy.md)）。跨仓面早有三根钉子（pin 版本 / 只映射不复制 / 显式升级），仓内面一根都没有——补上同构的三根。
 2. **锚必须点到符号，不是文件**：`<!-- src: cli/src/guard.rs#commit_push_dirs -->`。
 3. **配一条对账命令**：`agent-on drift` 只回答「哪些副本和源对不上」，两条介质一起答（台账 4 类 + 文档 2 类），每行带 owner 与非破坏出口，**默认只报不拦**。
 4. **只管机器行为断言，不管方法主张**。方法主张不会过期，给它上锚是噪音。豁免面写死：`intake/`、`legacy/`、`CHANGELOG.md`。

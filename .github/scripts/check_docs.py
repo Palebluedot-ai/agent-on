@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""本仓文档不变量闸：把 AGENTS.md 里靠自觉执行的三条纪律变成 CI 可红。
+"""Agent-On v2 文档与包元数据不变量闸。
 
-职责边界：只钉**能机械判定**的三件——文档职责边界声明（棘轮）、相对链接可解析、
-推荐 pin 三处一致。不判断内容对错，不做单一权威判定（那要人读），也不碰 lane
-控制面（那是 `agent-on worktree check` 的事）。
+职责边界：校验四项可机械判定的不变量——
+1. `docs/` 现行文档开头的职责边界声明（棘轮）；
+2. `skills/*/SKILL.md` 的 YAML frontmatter（`name` 与目录同名、`description` 非空）；
+3. 非冻结层 Markdown（排除 `snapshot/`、`legacy/`）的仓内相对链接可解析；
+4. 八处版本声明（AGENTS / README / CHANGELOG / Cargo.toml / 四份 plugin JSON）与 git tag 一致。
 
-设计遵 kit/ledger-ratchet-pattern.md 三条：
-- **逃生门**：`AGENT_ON_DOC_GATE_OFF=1` 一键关闸；棘轮基线补一行即绿。
-- **假红纪律**：取证失败（读不到文件 / git 不可用）退 2 并明说「取证失败」，
-  与「真违规」退 1 分开——假红训练「红了当没看见」，比没有闸更糟。
-- **元动作自涵盖**：本文件与它的基线文件都受同一套闸约束。
-
-用法：`python3 .github/scripts/check_docs.py [--fix-baseline]`
-
-放在 `.github/` 而不是 `scripts/`：`scripts/README.md` 写死「本目录不再放 Python，
-可执行物在 cli/」。本文件是**本仓自己的 CI 件**，不是产品交付面，塞进 `agent-on`
-子命令会平白扩大产品表面（AGENTS.md「不做的事」）。
+用法：
+  python3 .github/scripts/check_docs.py [--allow-untagged] [--fix-baseline]
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -30,39 +24,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).resolve().parent / "doc-boundary-baseline.txt"
 
-# 要求声明职责边界的目录：canonical 正文层。
-# bench/cases/ 不在内——案例卡是固定五节格式，职责边界由 bench/cases/README.md 统一声明。
-BOUNDARY_DIRS = ("playbook", "kit", "boot", "docs", "scripts")
+BOUNDARY_DIRS = ("docs/",)
 BOUNDARY_MARKER = "职责边界"
 BOUNDARY_HEAD_LINES = 12
 
+FROZEN_DIRS = ("snapshot/", "legacy/")
 LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
-# 冻结层：snapshot/ 是决策快照、intake/ 是承接素材、legacy/ 是考古件。它们记的是
-# 「当时是这样」，改它们等于改历史；死链闸只管还在被人当说明书读的 canonical 层。
-FROZEN_DIRS = ("snapshot/", "intake/", "legacy/")
-# 只有「长得像路径」的才算链接。模板里 `[先读它](验收标准逐条打勾)` 这种把括号当
-# 注解用的写法不是链接，拿它报红就是假红。
 PATH_LIKE = re.compile(r"/|\.(md|html|py|rs|toml|json|yml|yaml|sh|txt)$", re.I)
-# 版本号必须紧跟「推荐 pin」，中间只许隔声明自己的标点：`推荐 pin：`vX.Y.Z``（AGENTS
-# 与 README 头部），或装机表 `| **推荐 pin** | **`vX.Y.Z`** |`。旧判据认「推荐 pin 之后
-# 同一行任意一个反引号版本号」，散文一句「CI 推荐 pin 闸…」就把同行下一个版本号读成
-# 第二个推荐 pin——v0.23.3 发版撞上，当时靠改散文绕过去。
-PIN_RE = re.compile(r"推荐 pin(?:：|\*\* \| \*\*)`(v\d+\.\d+\.\d+)`")
-# 每个文件该有几处声明。判据收紧后，一处声明改了写法就会静默掉出视野（装机表去掉
-# 加粗、顺手留个旧版本号，闸照报「三处一致」），所以处数一起钉死。
-PIN_SITES = {"AGENTS.md": 1, "README.md": 2}
-# 判据自检样本：三处真声明必须认出，散文里的「推荐 pin」必须放过。末条是 v0.23.3
-# 发版撞上的原句。闸认错了不是「文档违规」，是闸自己没法判，走取证失败（退 2）。
-PIN_SELF_TEST = (
-    ("**最新推荐 pin：`v0.23.3`**（README 多会话段…）", ["v0.23.3"]),
-    ("**当前推荐 pin：`v0.23.3`。**", ["v0.23.3"]),
-    ("| **推荐 pin** | **`v0.23.3`** |", ["v0.23.3"]),
-    ("CI 推荐 pin 闸在 tag 到达前 checkout 红了一次）。**`v0.23.2`** hooks 不再…", []),
-)
+
+VERSION_RE = re.compile(r"当前推荐版本：`v(\d+\.\d+\.\d+)`")
+CARGO_VERSION_RE = re.compile(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', re.M)
 
 
 class Evidence(Exception):
-    """取证失败：闸自己没法判，必须与「真违规」区分开。"""
+    """取证失败：闸自己无法完成读取，退出码 2。"""
 
 
 def tracked_markdown() -> list[Path]:
@@ -75,15 +50,15 @@ def tracked_markdown() -> list[Path]:
             check=True,
         ).stdout
     except (OSError, subprocess.CalledProcessError) as exc:
-        raise Evidence(f"git ls-files 跑不动：{exc}") from exc
-    return [ROOT / line for line in out.splitlines() if line]
+        raise Evidence(f"git ls-files 失败：{exc}") from exc
+    return [ROOT / line for line in out.splitlines() if line and (ROOT / line).exists()]
 
 
 def read(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise Evidence(f"读不到 {path.relative_to(ROOT)}：{exc}") from exc
+        raise Evidence(f"无法读取 {path.relative_to(ROOT)}：{exc}") from exc
 
 
 def load_baseline() -> set[str]:
@@ -109,25 +84,53 @@ def boundary_violators(files: list[Path]) -> set[str]:
 
 
 def check_boundary(files: list[Path]) -> list[str]:
-    """棘轮：存量欠账进基线，新增违规立即红；补齐后必须从基线里划掉，不许倒退。"""
     baseline = load_baseline()
     missing = boundary_violators(files)
     problems = []
     for rel in sorted(missing - baseline):
         problems.append(
-            f"职责边界缺失：{rel} 前 {BOUNDARY_HEAD_LINES} 行没有「{BOUNDARY_MARKER}」声明"
-            f"（文档纪律第 5 条）。出口：在文件开头加一行 `> 职责边界：本文件管…，不管…`"
+            f"职责边界缺失：{rel} 前 {BOUNDARY_HEAD_LINES} 行缺少「{BOUNDARY_MARKER}」声明"
         )
     for rel in sorted(baseline - missing):
-        problems.append(
-            f"棘轮倒退：{rel} 已经补上职责边界，但还挂在 {BASELINE.relative_to(ROOT)} 里。"
-            f"出口：把这一行从基线删掉（`python3 .github/scripts/check_docs.py --fix-baseline` 可代劳）"
-        )
+        problems.append(f"棘轮基线未收紧：{rel} 已补职责边界，请从 {BASELINE.relative_to(ROOT)} 移除")
     for rel in sorted(baseline):
         if not (ROOT / rel).exists():
+            problems.append(f"棘轮基线指向不存在的文件：{rel}")
+    return problems
+
+
+def check_skills() -> list[str]:
+    skills_root = ROOT / "skills"
+    if not skills_root.is_dir():
+        return ["缺少 skills/ 目录"]
+    problems = []
+    skill_dirs = sorted(p for p in skills_root.iterdir() if p.is_dir())
+    if not skill_dirs:
+        return ["skills/ 下没有任何技能目录"]
+    for sdir in skill_dirs:
+        md = sdir / "SKILL.md"
+        if not md.is_file():
+            problems.append(f"技能缺少入口文件：skills/{sdir.name}/SKILL.md")
+            continue
+        text = read(md)
+        if not text.startswith("---\n"):
+            problems.append(f"skills/{sdir.name}/SKILL.md 缺少开头 YAML frontmatter (`---`)")
+            continue
+        end = text.find("\n---\n", 4)
+        if end == -1:
+            problems.append(f"skills/{sdir.name}/SKILL.md 的 YAML frontmatter 未闭合")
+            continue
+        fm = text[4:end]
+        name_match = re.search(r"^name:\s*(\S+)\s*$", fm, re.M)
+        desc_match = re.search(r"^description:\s*(.+)", fm, re.M)
+        if not name_match:
+            problems.append(f"skills/{sdir.name}/SKILL.md frontmatter 缺少 `name`")
+        elif name_match.group(1) != sdir.name:
             problems.append(
-                f"基线指向不存在的文件：{rel}。出口：从 {BASELINE.relative_to(ROOT)} 删掉这一行"
+                f"skills/{sdir.name}/SKILL.md 的 name=`{name_match.group(1)}` 与目录名 `{sdir.name}` 不一致"
             )
+        if not desc_match:
+            problems.append(f"skills/{sdir.name}/SKILL.md frontmatter 缺少 `description`")
     return problems
 
 
@@ -137,12 +140,16 @@ def check_links(files: list[Path]) -> list[str]:
         rel = path.relative_to(ROOT).as_posix()
         if rel.startswith(FROZEN_DIRS):
             continue
+        in_fence = False
         for lineno, line in enumerate(read(path).splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
             for target in LINK_RE.findall(line):
-                if re.match(r"^[a-z][a-z0-9+.-]*:", target) or target.startswith("#"):
-                    continue
-                # `~/…` 是使用者机器上的家目录，不是仓内路径。
-                if target.startswith("~"):
+                if re.match(r"^[a-z][a-z0-9+.-]*:", target) or target.startswith(("#", "~")):
                     continue
                 if not PATH_LIKE.search(target):
                     continue
@@ -152,106 +159,117 @@ def check_links(files: list[Path]) -> list[str]:
                 resolved = (path.parent / bare).resolve()
                 if not resolved.exists():
                     problems.append(
-                        f"死链：{rel}:{lineno} 指向 {target}，解析成 "
-                        f"{os.path.relpath(resolved, ROOT)} 不存在。"
-                        f"出口：改成真实路径，或把目标文件补上"
+                        f"死链：{rel}:{lineno} 指向 {target}（解析路径 {os.path.relpath(resolved, ROOT)} 不存在）"
                     )
     return problems
 
 
-def check_pin() -> list[str]:
-    """推荐 pin 三处一致 + 该 tag 真存在：本仓自举纪律第 6 条的机械化。"""
-    for line, want in PIN_SELF_TEST:
-        got = PIN_RE.findall(line)
-        if got != want:
-            raise Evidence(
-                f"推荐 pin 判据自检不过：{line!r} 应认出 {want}，实际认出 {got}。"
-                f"出口：修 PIN_RE，别改自检样本去迁就它"
-            )
+def check_versions(allow_untagged: bool) -> list[str]:
     problems = []
-    pins = {}
-    for name, sites in PIN_SITES.items():
-        found = PIN_RE.findall(read(ROOT / name))
-        if len(found) != sites:
+    versions: dict[str, str] = {}
+
+    for doc_name in ("AGENTS.md", "README.md"):
+        found = VERSION_RE.findall(read(ROOT / doc_name))
+        if len(found) != 1:
             problems.append(
-                f"{name} 该有 {sites} 处推荐 pin 声明，认出 {len(found)} 处。认的写法只有两种："
-                f"「推荐 pin：`vX.Y.Z`」、表格行「| **推荐 pin** | **`vX.Y.Z`** |」。"
-                f"出口：把改了写法的那处改回来（或删掉多出的那处），"
-                f"或改本闸的 PIN_SITES / PIN_RE（两者都要有人拍板）"
+                f"{doc_name} 应包含且仅包含 1 处 `当前推荐版本：`vX.Y.Z``，实际匹配 {len(found)} 处"
             )
-        if not found:
-            continue
-        if len(set(found)) > 1:
-            problems.append(
-                f"{name} 自己就有 {len(set(found))} 个不同的推荐 pin：{sorted(set(found))}。"
-                f"出口：统一成同一个版本号"
-            )
-        pins[name] = found[0]
-    if len(set(pins.values())) > 1:
-        detail = "，".join(f"{k}={v}" for k, v in sorted(pins.items()))
-        problems.append(f"推荐 pin 跨文件漂移：{detail}。出口：把落后的一处改成当前版本")
-    if pins:
-        pin = sorted(pins.values())[0]
+        else:
+            versions[doc_name] = found[0]
+
+    cargo_m = CARGO_VERSION_RE.search(read(ROOT / "cli/Cargo.toml"))
+    if not cargo_m:
+        problems.append("cli/Cargo.toml 未找到 package version")
+    else:
+        versions["cli/Cargo.toml"] = cargo_m.group(1)
+
+    for manifest_rel in (
+        "plugin.json",
+        ".claude-plugin/plugin.json",
+        ".codex-plugin/plugin.json",
+    ):
+        data = json.loads(read(ROOT / manifest_rel))
+        ver = data.get("version")
+        if not isinstance(ver, str):
+            problems.append(f"{manifest_rel} 缺少字符串 version 字段")
+        else:
+            versions[manifest_rel] = ver
+
+    mp = json.loads(read(ROOT / ".claude-plugin/marketplace.json"))
+    mp_plugins = mp.get("plugins") or []
+    if not mp_plugins or not isinstance(mp_plugins[0].get("version"), str):
+        problems.append(".claude-plugin/marketplace.json plugins[0] 缺少 version 字段")
+    else:
+        versions[".claude-plugin/marketplace.json"] = mp_plugins[0]["version"]
+
+    distinct = sorted(set(versions.values()))
+    if len(distinct) > 1:
+        detail = ", ".join(f"{k}={v}" for k, v in sorted(versions.items()))
+        problems.append(f"跨文件版本号不一致：{detail}")
+        return problems
+
+    if distinct:
+        ver = distinct[0]
+        tag = f"v{ver}"
         changelog = read(ROOT / "CHANGELOG.md")
-        if not re.search(rf"^## {re.escape(pin)}[（(]", changelog, re.M):
-            problems.append(
-                f"CHANGELOG.md 里没有 `## {pin}（…）` 这一节，"
-                f"但 AGENTS/README 已经把它当推荐 pin。"
-                f"出口：先封 CHANGELOG 的 `[未发布]` 段，再改推荐 pin"
-            )
-        try:
-            tags = subprocess.run(
-                ["git", "tag", "--list", pin],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.split()
-        except (OSError, subprocess.CalledProcessError) as exc:
-            raise Evidence(f"git tag 跑不动：{exc}") from exc
-        if pin not in tags:
-            problems.append(
-                f"推荐 pin `{pin}` 没有对应的 git tag（版本真相 = git tag）。"
-                f"出口：`agent-on tag-release --level … --title \"…\" --push`；"
-                f"CI 上若是 fetch 深度不够导致看不到 tag，用 `fetch-depth: 0`"
-            )
+        if not re.search(rf"^## {re.escape(tag)}[（(]", changelog, re.M):
+            problems.append(f"CHANGELOG.md 缺少 `## {tag}（…）` 章节")
+
+        if not allow_untagged:
+            try:
+                tags = subprocess.run(
+                    ["git", "tag", "--list", tag],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ).stdout.split()
+            except (OSError, subprocess.CalledProcessError) as exc:
+                raise Evidence(f"git tag 执行失败：{exc}") from exc
+            if tag not in tags:
+                problems.append(f"Git 仓库尚未创建对应的 `{tag}` tag（发版前自检可加 `--allow-untagged`）")
+
     return problems
 
 
 def fix_baseline(files: list[Path]) -> int:
     missing = sorted(boundary_violators(files))
-    header = (
-        "# 职责边界欠账基线（棘轮，只许变短）\n"
-        "#\n"
-        "# 每一行 = 一份还没写职责边界声明的 canonical 文档。闸只拦「新增违规」与「补齐后没划掉」，\n"
-        "# 不逼任何人一次补完存量。补一份就从这里删一行；`python3 .github/scripts/check_docs.py --fix-baseline` 代劳。\n"
-        "# 反向加行 = 放松闸，需要在 PR 里写明理由。\n"
-    )
-    BASELINE.write_text(header + "\n".join(missing) + "\n", encoding="utf-8")
-    print(f"基线已重写：{len(missing)} 份欠账 → {BASELINE.relative_to(ROOT)}")
+    header = "# 职责边界欠账基线（棘轮，只许变短）\n"
+    body = ("\n".join(missing) + "\n") if missing else ""
+    BASELINE.write_text(header + body, encoding="utf-8")
+    print(f"基线已更新：{len(missing)} 份欠账 -> {BASELINE.relative_to(ROOT)}")
     return 0
 
 
 def main() -> int:
     if os.environ.get("AGENT_ON_DOC_GATE_OFF", "").lower() in ("1", "true", "yes"):
-        print("DOC-GATE: OFF（AGENT_ON_DOC_GATE_OFF 已设）——闸被显式关掉，不代表文档合格")
+        print("DOC-GATE: OFF（AGENT_ON_DOC_GATE_OFF 已设）")
         return 0
+    allow_untagged = "--allow-untagged" in sys.argv
     try:
         files = tracked_markdown()
         if "--fix-baseline" in sys.argv:
             return fix_baseline(files)
-        problems = check_boundary(files) + check_links(files) + check_pin()
+        problems = (
+            check_boundary(files)
+            + check_skills()
+            + check_links(files)
+            + check_versions(allow_untagged)
+        )
     except Evidence as exc:
         print(f"DOC-GATE: 取证失败 —— {exc}")
-        print("这不是「文档违规」，是闸自己没法判。修好取证再重跑，别当红灯忽略。")
         return 2
+
     if problems:
         print(f"DOC-GATE: FAIL（{len(problems)} 条）")
         for item in problems:
             print(f"  - {item}")
-        print("\n每条都带出口。全仓一键关闸：AGENT_ON_DOC_GATE_OFF=1")
         return 1
-    print(f"DOC-GATE: PASS（{len(files)} 份 markdown：职责边界棘轮 / 相对链接 / 推荐 pin 三处一致）")
+
+    tag_note = "（allow-untagged）" if allow_untagged else ""
+    print(
+        f"DOC-GATE: PASS{tag_note}（{len(files)} 份 markdown · 4 项 Skills · 版本与链接一致）"
+    )
     return 0
 
 

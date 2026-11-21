@@ -13,8 +13,13 @@ fn git(root: &std::path::Path, args: &[&str]) -> Option<String> {
         .success()
         .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
+
 fn main() {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let repo_root = root
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.clone());
     for file in source_identity::inputs(&root).expect("CLI build inputs") {
         println!("cargo:rerun-if-changed={}", file.display());
     }
@@ -27,6 +32,10 @@ fn main() {
             println!("cargo:rerun-if-changed={path}");
         }
     }
+    println!(
+        "cargo:rustc-env=AGENT_ON_SOURCE_ROOT={}",
+        repo_root.display()
+    );
     println!(
         "cargo:rustc-env=AGENT_ON_SOURCE_ID={}",
         source_identity::fingerprint(&root).expect("source identity")

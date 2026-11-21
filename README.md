@@ -1,266 +1,106 @@
 <div align="center">
 
-# agent-on
+# Agent-On
 
-**在当前对话里，把目标推进到真实交付。**
+**零业务仓侵入的跨客户端 AI 协作利器：防假绿验证 · 薄对抗复核 · 跨工具 Worktree 雷达 · 合并树预演**
 
-说清目标后，Agent-On 复用项目规则和已有记录，验证成果并收口交付。新项目和已开工项目都能接入。<br>
-Claude Code · Codex · Grok 共用入口，沿项目现有规则接入。
+一次安装，同时赋能 **Claude Code · Codex · Antigravity**。<br>
+不往业务仓塞锁文件，不挂常驻拦截钩子，只守住大模型单会话无法自我克服的盲区。
 
 [![release](https://img.shields.io/github/v/tag/Palebluedot-ai/agent-on?label=release&sort=semver)](https://github.com/Palebluedot-ai/agent-on/tags)
-![tools](https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Grok-6f42c1)
+![hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Antigravity-6f42c1)
 ![cli](https://img.shields.io/badge/CLI-Rust-dea584)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[它解决什么](#它解决什么) · [核心能力](#核心能力) · [5 分钟装机](#给朋友的-5-分钟装机claude--codex--grok) · [口令速查](#日常怎么用口令速查) · [为什么信它](#为什么信它) · [FAQ](#常见问题)
+[为什么重构为 v2](#为什么是这五件套) · [核心模块](#核心模块一览) · [1 分钟装机](#1-分钟装机) · [CLI 速查](#cli-速查) · [从 v0.x 升级](docs/migration-v2.0.md)
 
 </div>
 
-*Agent-On connects project context, existing project records and evidence-based delivery. Use one entry to continue work, verify results and land ready changes; onboarding and learning remain available when needed.*
-
-总目标与边界的唯一权威：[CHARTER.md](CHARTER.md)。版本账本：[CHANGELOG.md](CHANGELOG.md)（git tag 即版本）。**当前推荐 pin：`v0.30.0`。**
+总目标与边界权威：[CHARTER.md](CHARTER.md) · 版本账本：[CHANGELOG.md](CHANGELOG.md) · **当前推荐版本：`v2.0.0`**
 
 ---
 
-## 它解决什么
+## 为什么是这五件套
 
-让 AI 写出一段能跑的代码，今天已经不难。难的是**围绕代码的那一圈事**——而这一圈，正是 AI 最容易翻车的地方：
+大模型与主流 AI 客户端（Claude Code、Codex、Antigravity）已经原生内化了基础子代理编排、任务拆解与自动创建 Git worktree。早期重型的跨仓版本锁（`agent-on.lock.md`）、手工轨道登记与常驻值守台账已完成历史使命（归档于 [legacy/v0.30-scaffold/](legacy/v0.30-scaffold/README.md)）。
 
-| 你大概遇到过 | 背后的真问题 |
-|---|---|
-| AI 说「已完成、测试通过」，一跑是红的 | 没有「完成 = 贴证据」的硬规矩，AI 可以口头交差 |
-| 聊着聊着需求变了味，做出来的东西不是你要的 | 需求没有单一权威文件，每轮对话都在悄悄改题 |
-| 开两三个会话并行干活，最后合并时互相覆盖 | 多会话之间没有文件边界，也没有合流顺序 |
-| 换个窗口 / 隔天再开，AI 忘了做到哪、为什么这么做 | 状态和决策只活在聊天记录里，没落进仓库 |
-| 每开一个新项目，都要把同样的规矩重新教一遍 | 上个项目的教训没有地方沉淀，更没有渠道回流 |
+但经过多项目数百次 PR 与 50 个真实翻车事故检验，**有五件事受限于“单会话视角盲区、同上下文圆谎偏见与本地-真实环境断层”，模型越聪明反而越擅长糊弄**：
 
-Agent-On 把当前模型的设计、编码和诊断能力接进项目交付。模型负责工作本身；Agent-On 保留项目约束、可续接的项目记录、真实交付证据与唯一合入者。方法可以借用 Matt、GStack 或项目现有工具，同一环节选择一套。
+1. **假绿测试糊弄**：模型写出的测试 100% 通过，但测的是自己刚编的 mock 或测试文件里重抄一遍的函数，线上照样坏。
+2. **同窗口自我圆谎 & 多轮复核空转**：让刚写完代码的同一窗口自审很难推翻自己；而传统独立审查每轮从头重跑全仓测试、重读全量代码，80% 时间在空转。
+3. **跨客户端 Worktree 孤岛**：`.claude/worktrees`、`.codex/worktrees`、`.gemini/antigravity/worktrees` 各自为政——互不知道对方在改同一文件、发包时误拿落后主线十几提交的旧树装机、磁盘堆积几十棵死目录不敢删。
+4. **高并发 PR 互撞**：同时开五六个 Agent 冲刺时，每条分支单看都绿，第一条合入就把其余全撞成冲突。
+5. **排障先甩锅环境 & 静默替用户做决定**：改了没生效先猜缓存/设备问题而不核交付链；把该自己查代码的事实问题抛给用户，却把高返工成本的产品偏好静默选边。
 
-## 核心能力
-
-| 日常用途 | 入口与结果 |
-|---|---|
-| 推进一个目标 | “agent-on 交付 / 统筹”→ 复用当前任务，在当前对话推进并验证 |
-| 看当前项目事实 | `agent-on status` → 当前 Git 状态、项目记录和 PR 缓存；不推断窗口活动 |
-| 收口多个 PR | `agent-on master --apply` → 处理就绪项，核实际合入条件，匹配当前提交合入并自动记账；中断可续接 |
-| 保持交付速度 | 本地相关验证、一次审查；本仓 Actions 每日一次，PR／合入／普通 tag 不重复跑；高风险按需手动全量 |
-| 少踩同一个坑 | 返工、误拦与用户纠正先修原因，引用已有证据；结账/消化保留按需补收 |
-
-新入口和检查节奏见 [交付执行书](kit/delivery-workflow.md)、[统筹接入](kit/master-delivery.md)；安装并核对实际执行器后使用。当前工作区的未发布改动不等于已安装功能。
-
-值守保留实际宿主、会话 ID 与工作区身份，同目录的不同窗口不能互相冒认。支持启动/恢复/compact 读取已有项目状态，不自动认领角色或创建窗口。见 [项目接续](kit/session-control-plane.md)。
-
-自建派工、巡逻、活动采集、模型诊断和网页面板已删除。升级涉及命令与 JSON 结构变更，见 [v0.30 迁移说明](docs/migration-v0.30.md)。宿主模型与原生工具继续由用户选择。
-
-## 30 秒看它怎么工作
-
-```
-你：初始化本项目
-
-AI：先定档，三个问题——
-    ① 有真实用户或真实数据吗？
-    ② 几天搞完，还是持续迭代几周以上？
-    ③ 碰钱 / 安全 / 对外服务吗？
-
-你：没有真实用户；想长期做；不碰钱。
-
-AI：先用 S 轻装，长期迭代按实际需要补件。已播种：
-    · AGENTS.md（完成贴证据、暂停项、已有授权边界）
-    · loop-notes（教训速记）+ agent-on lock（锁定方法论版本）
-    · 复用已有待办记录当前目标与下一步
-    下一步：直接实现已明确的第一项功能。
-```
-
-之后日常开发复用已有记录。同一任务默认在原窗口 compact 后继续；换会话时读目标、状态和关键决定，明确的续跑指令直接执行。项目告一段落说「agent-on 结账」，把有证据的经验送回去。
-
-## 适合谁
-
-- **用 AI 协作开发的个人和小团队**，尤其是**不是全职工程师出身的 builder**——你懂业务、懂要什么，但不想每次都从零教 AI 规矩
-- 已经被「AI 谎报完成」「多会话互相覆盖」「上下文丢失」坑过的人
-- 手上同时有好几个项目，希望一个项目的教训能自动惠及其他项目的人
-
-**不适合**：想要一个编排运行时 / agent 框架的人。agent-on 刻意不造引擎——它的前身造过一次（5200+ 行设计文档，引擎代码 0 行），结论是：工具能力已经够了的时候，立纪律比造引擎管用。
+Agent-On `v2.0.0` 把这五块高含金量资产提炼为**零侵入的独立 Skills + 超薄 Rust CLI + 一页全局铁律**。
 
 ---
 
-## 给朋友的 5 分钟装机（Claude · Codex · Grok）
+## 核心模块一览
 
-### 0. 唯一下载源 + 默认目录
+| 模块 | 类型 | 触发场景与作用 |
+|---|---|---|
+| **[prove-it](skills/prove-it/SKILL.md)** | Skill | **交付前验证 / 写测补测 / 修顽固 Bug**：核对真实业务入口、做“故意改坏看红不红”的错误对照、判别式探针、写后独立回读与主线落差自查 |
+| **[thin-review](skills/thin-review/SKILL.md)** | Skill | **合并前独立复核**：派发无聊天历史包袱的空白上下文子代理；作者已贴当前 HEAD 测试输出则免重跑全套；第二轮起只看增量 diff，严格分离阻塞缺陷与非阻塞建议 |
+| **[wt-doctor](skills/wt-doctor/SKILL.md)** | Skill + CLI | **并行开工前 / 打包发版前 / 磁盘清理**：跨 Claude / Codex / Antigravity 扫描全部 worktree 未提交撞车、开放 PR 重叠、落后主线提交数，安全回收已合入死目录 |
+| **[merge-check](skills/merge-check/SKILL.md)** | Skill + CLI | **多 Agent 并发提 PR 冲刺期**：用 `git merge-tree --write-tree` 在内存中零副作用预演多分支/多 PR 两两冲突、识别无重叠免同步分支（`SYNC_FREE`）并生成零冲突合入波次 |
+| **[core-guardrails](rules/core-guardrails.md)** | 全局规则 | **一页常驻铁律**：交付链先于环境排障、事实自查 vs 偏好方差×成本 2×2、门禁退出码保真、不确定外部副作用先只读回读 |
+| **[bench/cases](bench/cases/README.md)** | 案例集 | **50 个真实项目翻车标本**：覆盖环境变量解析、边缘剥头、限流掩盖真错、编辑器内存真相、跨仓守卫等实战深坑，供按需检索 |
 
-| 用途 | 地址 / 路径 |
-|---|---|
-| **GitHub（唯一官方源）** | https://github.com/Palebluedot-ai/agent-on |
-| **推荐 pin** | **`v0.30.0`** |
-| **不是** | npm、Claude 官方总商店、App Store |
+---
 
-| OS | 默认工作仓（setup 会放到这里） |
-|---|---|
-| macOS / Linux | `~/.local/share/agent-on` |
-| Windows | `%LOCALAPPDATA%\agent-on` |
+## 1 分钟装机
 
-本机配置写在 `~/.config/agent-on/config.json` 的 `work_root`；环境变量 `AGENT_ON_ROOT` 可覆盖。
-
-### 1. 一键 setup（三家共用，推荐先跑）
-
-依赖：[Rust](https://rustup.rs) + git。
+依赖：[Rust 1.89+](https://rustup.rs) 与 `git`。
 
 ```bash
-git clone https://github.com/Palebluedot-ai/agent-on.git /tmp/agent-on-src
-cd /tmp/agent-on-src
-git checkout "$(git tag --sort=-v:refname | head -1)"   # 切到最新发布版
+git clone https://github.com/Palebluedot-ai/agent-on.git ~/.local/share/agent-on
+cd ~/.local/share/agent-on
 cargo install --path cli --force
-agent-on setup --with-plugins --with-symlinks
-```
 
-`agent-on setup` 会：把工作仓 clone / 更新到默认目录 → checkout 推荐 pin → 写 config → 构建实际 CLI →（可选）装 Claude / Codex plugin 与 skill symlink → 跑 `doctor` 自检。目标 pin 或插件安装失败明确返回非零、保留成功步骤，不改用另一版本冒充成功。已有工作仓只想登记：`agent-on setup --config-only --work-root <路径>`。细节见 [scripts/README.md](scripts/README.md)。
+# 一键将 4 个 Skills 挂载到 Claude Code、Codex 与 Antigravity，并同步一页核心铁律
+agent-on install --with-rules
 
-### 2. 按工具补入口
-
-**Claude Code**（setup 带了 `--with-plugins` 可跳过）
-
-```bash
-claude plugin marketplace add Palebluedot-ai/agent-on
-claude plugin install agent-on@agent-on
-```
-
-新开会话或 `/reload-plugins`，然后 `/agent-on init` 或直接说「初始化本项目」。
-
-**Codex CLI**
-
-```bash
-codex plugin marketplace add Palebluedot-ai/agent-on
-codex plugin add agent-on@agent-on
-```
-
-再把 [codex/AGENTS-global-snippet.md](codex/AGENTS-global-snippet.md) 并入 `~/.codex/AGENTS.md`。开工：`$agent-on init` 或「初始化本项目」。首次运行时在 `/hooks` 里检查并信任 guard hook；agent-on 不会静默改写 `~/.codex/`。详见 [codex/README.md](codex/README.md)。
-
-**Grok**
-
-没有 plugin 商店。跑完 setup 后，让全局规则（`AGENT.md`）含 agent-on 路由：新项目读 `BOOTSTRAP.md`、结账读 `boot/settlement.md`、入口 `skill/SKILL.md`。直接说中文口令即可。诚实边界：Grok 多半没有 PreToolUse guard，但装在项目里的 Git hooks 与宿主无关，照样生效。
-
-### 3. 验一下
-
-```bash
+# 自检三端挂载状态
 agent-on doctor
 ```
 
-报出 `read_root` / `work_root` 与 hook 执行面都在，就装好了。卡住了：找推荐人，或开 [GitHub Issue](https://github.com/Palebluedot-ai/agent-on/issues)。
+### 各客户端挂载位置说明
+
+- **Antigravity**：软链至 `~/.gemini/config/plugins/agent-on`，自动发现根目录 [plugin.json](plugin.json)、`rules/AGENTS.md` 与 `skills/*`。
+- **Claude Code**：软链 4 个独立技能至 `~/.claude/skills/{prove-it,thin-review,wt-doctor,merge-check}`（`--with-rules` 会在 `~/.claude/CLAUDE.md` 维护受管铁律段落，完整保留你原有的个人规则）；也支持通过 `.claude-plugin` 安装。
+- **Codex**：软链 4 个技能至 `~/.agents/skills/*`（`--with-rules` 同步受管段落至 `~/.codex/AGENTS.md`）；也支持通过 `.codex-plugin` 安装。
+
+卸载同样干净无残留：`agent-on install --uninstall`（只移除指向 Agent-On 的软链与受管注释块，绝不碰用户原有内容）。
 
 ---
 
-## 日常怎么用（口令速查）
+## CLI 速查
 
-三条触发路径**结果等价**：中文口令（三家通用）· `/agent-on <cmd>`（Claude Code）· `$agent-on <cmd>`（Codex），背后是同一份内核 [skill/SKILL.md](skill/SKILL.md)。
+```bash
+# 1. 跨客户端 Worktree 全景雷达（毫秒级只读）
+agent-on wt
 
-| 你想… | 说 | Claude / Codex | 做什么 |
-|---|---|---|---|
-| **开新项目** | 初始化本项目 | `init` | 定档三问 → 播种骨架，当场开工 |
-| **接管半路项目** | 接管本项目 | `adopt` | 考古 → 定档 → 只补缺的件，不重建、不回填历史 |
-| **换会话接着干** | 握手后继续 | `handshake` | 读目标与现状，明确指令直接续跑；默认原窗口 compact |
-| **推进功能交付** | agent-on 交付：<目标> | `deliver` | 当前对话推进、相关验证、一次批次审查与按规则交付 |
-| **看多会话全场** | 检查 worktree | `worktree` | 各执行轨的边界、依赖、漂移、可回收 |
-| **统筹合入** | agent-on 统筹交付 | `master` | 已授权时一轮串行合入、等待与记账；不重复接管 |
-| **看执行进展** | 看当前状态 | `status` | 当前目录 Git 事实、已有记录和下一步；JSON schema v2 |
-| **自检路径** | agent-on doctor | `doctor` | 打印本机登记与 hook 执行面 |
-| **沉淀回流** | agent-on 结账 | `settle` | 把本项目带证据的教训送进 agent-on 的 `intake/` |
-| **升级方法论** | agent-on 升级 | `upgrade` | 核对 pin、模板差异与实际 hook / CLI，再按授权升级 |
-| **整理想法** | 整理想法 | — | 速记区 → 归类成文、标去向 |
+# 连同 GitHub 开放 PR 改动文件一起检查撞车
+agent-on wt --with-prs
 
-**入口怎么选**：全新项目 → `init`；已开工但从没接过 agent-on → `adopt`（不是 handshake）；接过的项目每次换会话 → `handshake`。
+# 安全清理已合入主线且无未提交改动的死 worktree（绝不强删未合入/脏目录/疑似 Squash 分支，保留分支引用）
+agent-on wt --prune
 
-**已有目标怎么交付**：用 `deliver` 进入 [功能交付流程](kit/delivery-workflow.md)，不要求先装 Matt。开发中局部验证，成果按批次审查，修复只复查影响范围，全量回归按夜间、综合复盘按周；相关必需检查和真实发布验证仍及时做。入口和模板是跨项目交付件，旧项目需按升级流程接入；它们不会自动修改其他项目的 CI 或启用周计划。
+# 2. 高并发冲刺期：内存预演多条候选分支或开放 PR 的合并波次（零工作区改动）
+agent-on merge-check --branches feat/a,feat/b,fix/c
+agent-on merge-check --prs
+agent-on merge-check --pr 12,15,18
 
-多会话并行、worktree 控制面、合流队列的完整用法见 [docs/manual.md](docs/manual.md)。
+# 3. 诊断三端挂载状态与旧版 v0.x 钩子残留
+agent-on doctor
 
-
-
-## 三档装备：按任务选，不按风险整包升级
-
-| 装备 | 何时需要 | 最小内容 |
-|---|---|---|
-| **S 轻装（默认）** | 普通小改动、已有项目接入 | 规则映射、loop-notes、lock；复用已有目标与待办 |
-| **M 按需补件** | 工作持续、多会话要接续 | 只补缺少的状态与任务记录；阶段卡由实际需要决定 |
-| **L 协作补件** | 接口两侧确实并行、共享状态要调和 | 相应契约、共享状态写者与合流记录；其他组件保持可选 |
-
-钱、真实数据、安全与外部服务只提高相关行为的授权和验证要求。档位描述装备重量，不自动触发全套文档、TDD 或模型考试。完成贴证据、保留暂停禁令与履行实际授权边界仍然适用；已有授权不重复询问。
-
-## 迭代闭环：为什么用的项目越多它越强
-
-```
-① 种    BOOTSTRAP / adopt 播骨架
-② 采    六类触发当场留痕，带证据
-③ 结    口令「agent-on 结账」，只写 intake/ 承接层
-④ 消化  归因、处理；修正 / 合并 / 删除 / 退出默认 / 保留案例 / 拒绝
-⑤ 发布  CHANGELOG + git tag
-⑥ 升级  核对版本、模板差异与实际执行面，获得适用改进
+# 清理老项目的 v0.x 受管 Git hooks 与旧单路由软链
+agent-on install --clean-legacy --repo /path/to/old-project
 ```
 
-每次消化留下有理由的处理回执；可以不改正文，也可以减掉旧规则，不为凑成果新增硬门。社区贡献只交 `intake/` 卡片，正文由维护者消化后发版——官方仓不会被改乱。机制全文：[playbook/iteration-loop.md](playbook/iteration-loop.md)。
-
-## 为什么信它
-
-**它不是设计出来的，是在真实产品上试错出来的。**
-
-- **实战出身**：方法论来自 Euan CRM 的开发全程——9 次多 agent 并行 run 零合并冲突、600+ 测试、生产在线。**每个模板都被真实用过，没有一个是想象出来的。**
-- **三代演化**：一代想自建编排引擎（5200+ 行设计、0 行引擎代码），二代用锁堵漂移（防漂移框架自己漂成了文档洁癖），三代在真实产品上实战出 Loop Engineering。主线一句话：**从「锁住 AI」到「和 AI 对齐」**。家谱见 [snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)。
-- **翻车案例集**：[bench/cases/](bench/cases/README.md) 收了 50 张真实翻车卡——AI 谎报、缓存链耦合、闸拦错树、审批被拉伸……每张都带证据和对应的规则落点。
-- **自己吃自己的狗粮**：本仓按自己卖的方法论开发——决策入快照、完成贴证据、每次交付必打 tag、CI 把文档纪律变成可以红的闸。到今天已经 40 多个版本，每一版的证据都写在 [CHANGELOG](CHANGELOG.md) 里。
-- **诚实的路线图**：v1.0 的定义是「至少两个项目有外人装机开工 + 至少一次外部结账经消化落地」，**目前还没达到**，我们照实写着。
-
-## 与其他工具的关系
-
-不冲突，分工明确：
-
-- **agent-on = 制度层**：启动、推进、不漂、结账回流、完成贴证据、跨仓边界。
-- **GStack 等 = 环节能力**：评审、QA、发布、调试，点名调用，产物收回项目仓。
-- **Superpowers 不在默认推荐里**（偏重，容易抢跑初始化和规划）；你点名才用。
-
-## 仓库里有什么
-
-| 目录 | 是什么 |
-|---|---|
-| [BOOTSTRAP.md](BOOTSTRAP.md) + [boot/](boot/) | 冷启动入口：新项目初始化、存量项目接管、换会话握手、结账 / 升级执行书 |
-| [kit/](kit/README.md) | 模板层：AGENTS 骨架与轻装版、phase 卡、派工 / 审查词、合流 checklist、worktree 与合流控制面、值守合并、想法收集箱等 |
-| [playbook/](playbook/README.md) | 方法论 15 篇：SOP、防幻觉、真相源治理、阶段闸门、多人协作、迭代闭环、工作流编排…… |
-| [bench/](bench/) | 50 张翻车案例 + 能力探针 + 能力真相表 |
-| [cli/](cli/) | `agent-on` Rust CLI：doctor / setup / worktree / landing / oncall / guard / drift / tag-release 等 |
-| [intake/](intake/) | 承接层：各项目结账回流的落点 |
-| `ledger/` `snapshot/` `legacy/` | run 台账 · 带日期的决策快照 · 前身仓考古层 |
-
-## 常见问题
-
-**简单项目也要走全流程吗？**
-不用。默认 S 轻装，复用已有目标与待办；需要共享接口、长任务状态时再补相应组件。唯一不能省的是「完成贴证据」这类底线——那不是流程，是诚实。
-
-**方法论更新了，我的项目会被动改吗？**
-不会。项目 pin 在具体版本上，升级是显式口令。每次升级都核对适用模板差异和实际 hook / CLI，保留本地偏离；已有授权内实施，新增权限或迁移事项明确呈报。只改 pin 不代表实际执行面已更新。
-
-**每次都要念口令吗？**
-不用。只在三个时刻显性出现：每台机器装一次、每个项目接入时说一句、之后只剩结账 / 升级 / 整理想法三个日常口令。平时开发零操作。
-
-**Codex / Grok 真的能用吗？**
-能，项目侧零适配——`AGENTS.md` 本来就是跨工具标准。Claude Code 独有的子代理编排在 Codex 下退化为手工纪律，闭环照跑。
-
-**别人用了要给你提 PR 吗？**
-不用。默认只用；贡献自愿，而且只交 `intake/` 卡片或 Issue，不直接改 playbook / kit。详见 [boot/settlement.md](boot/settlement.md)「上游贡献形态」。
-
-**换电脑、路径不同、Windows？**
-不要求固定目录名，clone 到哪都行，登记 `work_root` 即可。完整说明与恢复步骤见 [docs/manual.md](docs/manual.md)。
-
-## 状态与路线
-
-- **当前发布**：v0.30.0（用户批准的 v0.x breaking 特例）。自建派工和多面板退场；保留当前对话交付、文字状态、Git 保护和独立合入审计。旧安装须按迁移说明更新。
-- **下一站 v1.0**：≥2 个项目有外人装机开工 + ≥1 次外部结账经消化落地。定义见 [snapshot/2026-07-16-v10-and-setup.md](snapshot/2026-07-16-v10-and-setup.md)。
-- 按版本的演进摘要见 [docs/manual.md](docs/manual.md)，逐版细节见 [CHANGELOG.md](CHANGELOG.md)。
-
-## 一句话术语（给非工程师）
-
-- **pin**：项目锁定的 agent-on 版本，像合同注明用哪版图纸——升级永远显式
-- **worktree**：git 的「同一个仓开多个工作目录」。它只隔离环境，不会自动防止两个会话改同一个文件
-- **fixture**：接口两侧共用的冻结样例数据，并行开发时当裁判用
-- **结账 / 消化**：结账 = 项目把带证据的教训送回本仓 `intake/`；消化 = 本仓把它落成正文修改并发版
-- **L1–L4**：教训的沉淀深度，从单次复盘到用户稳定偏好（[playbook/memory-layering.md](playbook/memory-layering.md)）
+---
 
 ## 许可证
 
-[MIT](LICENSE)。随便用、随便改、可以商用，保留版权声明即可。
+[MIT](LICENSE) © 2026 YANG CHAO

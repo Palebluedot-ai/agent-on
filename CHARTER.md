@@ -1,50 +1,35 @@
-# CHARTER — agent-on 项目宪章
+# CHARTER — Agent-On 项目宪章（v2 新时代零侵入架构）
 
-> 职责边界：本文件是 agent-on 总目标与边界的唯一权威。其他文档（README / BOOTSTRAP / playbook）与本文件冲突时，以本文件为准；改本文件 = 改产品方向，需用户拍板。
-> 拍板链：2026-07-01 工具定义（[snapshot/agent-on-tool-definition.md](snapshot/agent-on-tool-definition.md)）→ 2026-07-07 融合裁决（[snapshot/2026-07-07-fusion-map.md](snapshot/2026-07-07-fusion-map.md)）→ 2026-07-07 总目标确认（本文件，用户拍板）→ 2026-07-07 迭代闭环拍板（用户：通过项目不断迭代 agent-on 自身；2026-07-08 落盘 [playbook/iteration-loop.md](playbook/iteration-loop.md)）→ 2026-07-09 v0.3 门槛砍半 + 冻结令（用户拍板，依据：四镜头评审 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)）→ 2026-07-11 记忆不建数据库 + 快照三写点（第二次消化，用户拍板，依据：[intake/2026-07-11-memory-system-input.md](intake/2026-07-11-memory-system-input.md) 与 [intake/2026-07-11-user-feature-asks.md](intake/2026-07-11-user-feature-asks.md)）。
+> 职责边界：本文件是 Agent-On 总目标、资产结构与产品边界的唯一权威。其他文档与本文件冲突时，以本文件为准；修改本文件须经用户拍板。
+> 演进链：2026-07-07 v0.1 方法论脚手架立项 → 2026-07~09 多项目实战沉淀 50 个翻车案例与并行控制面 → 2026-11-06 `v0.30.0` 删除自建派工与网页面板 → **2026-11-22 `v2.0.0` 新时代零侵入重构（用户拍板，见 [重构快照](snapshot/2026-11-22-v2-zero-intrusion-refactor.md)）**。
 
 ## 总目标（一句话）
 
-**agent-on 是一个开箱可用的项目脚手架，辅助 Claude Code / Codex 启动和推进新项目：clone 即得经过实战验证的方法论与启动机制，不再每个新项目都从零铺垫规则。**
+**Agent-On 是一套零业务仓侵入的跨客户端 AI 协作工具包（薄 Skills + 薄 CLI + 一页核心铁律），专门补齐大模型与宿主工具至今未能内化的“单会话视角盲区、自我辩护偏见与本地-真实环境断层”。**
 
-## 「开箱可用」的定义（四条承诺，可验收）
+## 时代判断：什么留给宿主，什么由 Agent-On 守住
 
-1. **零铺垫启动**：新项目里用户只说一句「读 agent-on 的 BOOTSTRAP.md 并初始化本项目」，AI 就能完成项目骨架、规则、状态文件的初始化——M/L 档从 clone 到第一张 phase 卡开工 ≤ 1 小时；S 轻装档（2026-07-08 档位路由拍板）以三件套就位为开工锚点，分钟级。
-2. **方法论内置**：持久上下文、完成贴证据、共享改动调和与真实项目反馈随骨架生效。验证按实际风险，模板按实际需要，不要求每个任务跑全套流程。
-3. **工具与模型无关**：规则载体为跨工具标准 AGENTS.md，Claude Code / Codex / Grok 复用同一内核；模型按实际任务表现选择，辅助按真实缺口增减，不绑定型号套餐。见 playbook/model-playbook.md。
-4. **越用越强**（2026-07-07 拍板，2026-10-02 用户要求完成精简清单）：每个项目的翻车与心得经「agent-on 结账」回流；消化可修正、合并、删除或缩小规则，也可保留案例或有理由不改。实际变更版本化、可审计，Project A 的经验帮助 Project B 少踩坑、少办手续——机制见 playbook/iteration-loop.md 六站闭环。
+判断标准只有一条：**凡是靠“单窗口模型变聪明”或宿主原生功能就能做好的，全部交还宿主；凡是受限于跨会话盲区、同上下文圆谎偏见、假绿测试与交付链错位的，浓缩成即插即用的轻量组件。**
 
-## 服务对象
+### 已交还宿主、不再维护的旧机制（归档于 `legacy/v0.30-scaffold/`）
 
-先是 Chao 自己的新项目（dogfood）；产品化后给任何用 AI 协作开发的个人 / 小团队——尤其是非全职工程师背景的 builder。
+- **业务仓侵入壳与跨仓结账仪式**：不再往业务仓放 `agent-on.lock.md`、`BOOTSTRAP.md`、`loop-notes.md`、`progress.yaml`，也不再维护 `settle / digest / upgrade` 双边对账流程。
+- **基础子代理分派与手工模型档位表**：Claude Code、Codex 与 Antigravity 已原生内化子代理调度与自动开 worktree；固定模型档位表随模型换代迅速过期。
+- **常驻值守（`oncall / babysit`）与粗粒度命令正则拦截（`PreToolUse` 钩子）**：宿主自带权限沙箱已足够稳健，日常单线开发零钩子延迟、零字面误拦。
 
-## 五块资产
+### Agent-On v2 核心五件套
 
-| 块 | 职责 |
-|---|---|
-| **Boot** | 冷启动：BOOTSTRAP.md 入口 + 新场景问卷 + 会话续接握手 |
-| **Kit** | 模板层：宪法骨架 / phase 卡 / 派工词 / 审查词 / 合流 checklist / 状态文件 / 契约 schema |
-| **Playbook** | 方法论：SOP、防幻觉、二车道、混编经济学、多轨决策、真相源治理、机制七篇等 |
-| **Bench** | 能力探针 + 翻车案例集 + 修正闭环（模型会过时，案例集只增值） |
-| **Ledger** | run 数据台账：每次编排的时长 / 冲突 / 返工 / 成本 |
+| 组件 | 形态 | 解决什么不可内化的问题 |
+|---|---|---|
+| **`prove-it`** | [skills/prove-it/SKILL.md](skills/prove-it/SKILL.md) | **防假绿测试**：锁死真实业务入口、独立错误对照（故意改坏逻辑看测试红不红）、判别式探针、写后独立回读与交付链核验 |
+| **`thin-review`** | [skills/thin-review/SKILL.md](skills/thin-review/SKILL.md) | **防同窗口自我圆谎 + 省掉 80% 空转复核耗时**：空白上下文独立子代理审查、作者已贴当前 HEAD 测试输出则免重跑全套、二轮起只审增量 diff |
+| **`wt-doctor`** | [skills/wt-doctor/SKILL.md](skills/wt-doctor/SKILL.md) + `agent-on wt` | **跨客户端 Worktree 孤岛打通**：统一扫描 `.claude`、`.codex`、`.gemini/antigravity` 等全部 worktree 的未提交文件撞车、主线落差预警与已合入死目录安全回收 |
+| **`merge-check`** | [skills/merge-check/SKILL.md](skills/merge-check/SKILL.md) + `agent-on merge-check` | **高并发冲刺期合并防撞**：不碰工作区，用 `git merge-tree --write-tree` 在内存中预演多分支/多 PR 两两冲突、免冗余同步判据与零冲突合入波次 |
+| **核心铁律 + 案例库** | [rules/core-guardrails.md](rules/core-guardrails.md) + [bench/cases/](bench/cases/README.md) | **反直觉排障与追问判据**：交付链先于环境归因、事实自查 vs 偏好 2×2、门禁退出码保真、外部副作用先回读；配 50 个真实翻车案例按需检索 |
 
-## 边界（不做的事）
+## 产品承诺（可验收）
 
-- **不做编排运行时 / 框架**——复用宿主会话、CLI、终端与调度能力。2026-11-06 用户确认删除自建巡逻、派工、活动采集、网页面板与清道夫；当前对话复用已有项目事实，保留必要 Git 保护和合入审计；不自建模型服务、通用工作流引擎或记忆数据库。
-- **不与 GStack / Superpowers 等强 skill 冲突**——agent-on 管「项目怎么启动和推进」，不管「某个环节怎么做」
-- **不先做平台**——先文档形态跑通 dogfood，再考虑 skill 化 / 自动化（先固化规则 → 再抽象模板 → 最后自动化）
-- **不为通用牺牲实战有效性**——每个模板必须来自真实项目的真实使用，没有一个是想象出来的
-- **记忆不建数据库**（2026-07-11 拍板）——agent-on 的记忆就是 git 仓里的 markdown：clone 即得、grep 即查、断网可用；数据库永远只能是「可选、可重建、坏了自动退回 grep、不进 BOOTSTRAP 必需件」的旁挂索引缓存。开箱即用的产品，记忆系统不能是需要先修 docker 的那一环（实证：gbrain 需要专门的自愈脚本 = 本地 DB 是单点故障）
-- **避免空造规则（源于 2026-07-09 冻结令）**——当时的「首次真实结账前不新增模板」门槛已随 v0.3 闭环完成。之后新增也须对应真实需求；2026-10-01 的巡逻／派工实验已由用户于 2026-11-06 要求删除，原因和新范围见 [精简路线图](snapshot/2026-11-06-ci-and-product-simplification-roadmap.md)。不为消化指标强制新增规则。
-
-## 成功标准
-
-- 第二个新项目启动明显更快：clone → 第一张 phase 卡开工 ≤ 1 小时
-- 文档更少漂移、模型更少幻觉、沟通更少来回（继承 kickoff-os 愿景，依然成立）
-- **v0.3 = 闭环转完真实一圈**（2026-07-09 拍板砍半）：Euan 仓内 agent-on/ 倒仓首次结账 + 首次消化跑通，Euan 降级为纯采集三件套
-- **v0.4 = 一个新项目 BOOTSTRAP 全流程 dogfood**
-- v1.0 = 两个以上项目完整闭环（Project A 的坑确实变成了 Project B 的免疫）
-
-## 自举
-
-本仓的开发遵守本仓的方法论：决策入 snapshot、完成贴证据、单一权威文件、卡片化推进。
+1. **业务仓零侵入**：接入任何新老项目无需往项目仓库提交任何配置文件、锁文件或目录；本机装一次，跨 Claude Code、Codex、Antigravity 全项目生效。
+2. **默认零驻留、零拦截**：无后台守护进程、无端口占用、无常驻 `PreToolUse` 命令拦截钩子；CLI 默认只读，仅在显式传入 `--prune` 或安装参数时执行受控变更。
+3. **跨工具同源**：同一套 `skills/`、`rules/core-guardrails.md` 与 `agent-on` 单二进制同时支持原生插件挂载与用户目录软链安装。
+4. **安全底线硬约束**：`agent-on wt --prune` 永不传 `--force`、永不删除含未提交改动或独有提交的工作树、永不删除疑似 Squash 合并待人工确认的工作树、永不删除本地或远端分支引用。

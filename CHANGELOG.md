@@ -1,14 +1,29 @@
 # CHANGELOG — agent-on 发布账本
 
-> 职责边界:人读的版本账本;版本真相 = git annotated tag(不设 VERSION 文件)。semver 判据:**major = 不动手会坏 / minor = 不动手不坏 / patch = 不用知道**;major 条目必附迁移注记,否则不许打 tag。L3 规则改动必须成对列出 playbook + kit 双落点。
+> 职责边界：版本发布账本；版本真相 = git annotated tag。major 版本附迁移注记。
 
 ## [未发布]
 
 （暂无。）
 
+## v2.0.0（2026-11-22）——新时代零侵入重构：四项原子 Skills + 薄 CLI + 核心铁律
+
+> **major（架构代际切换，用户拍板）**：从“需要在业务仓放置 `agent-on.lock.md` 与台账的跨仓脚手架”重构为**零业务仓侵入的跨客户端 AI 协作工具包**，同时支持 Claude Code、Codex 与 Antigravity。完整升级与清理步骤见 [v2.0 迁移指南](docs/migration-v2.0.md)；重构判据与验证记录见 [重构快照](snapshot/2026-11-22-v2-zero-intrusion-refactor.md)。
+
+迁移注记：旧版单一禁自调路由 `/agent-on`、`BOOTSTRAP/adopt/settle/digest/upgrade`、`oncall/master/landing/drift/intake-lint/audit-lint/tag-release/setup` 及 `PreToolUse` 命令拦截钩子全部退场，原方法论与模板归档至 [legacy/v0.30-scaffold/](legacy/v0.30-scaffold/README.md)。升级执行 `cargo install --path cli --force && agent-on install --with-rules --clean-legacy`（`--clean-legacy` 自动清除 `~/.codex/hooks.json` 与 `~/.claude/settings.json` 中的旧 `agent-on-git-guard` 钩子条目及旧软链，保留用户其余钩子与设置）；其他老仓库未清理的 `.git/agent-on/hooks` Git 钩子由内置隐藏兼容桩静默放行，不会阻断正常提交或推送。
+
+- **拆分为四项按需触发的独立原子 Skills**：
+  - [prove-it](skills/prove-it/SKILL.md)：防假绿验证协议（真实业务入口核验 + 错误对照反向证伪 + 判别式探针 + 写入后独立回读 + 交付链自查）；
+  - [thin-review](skills/thin-review/SKILL.md)：空白上下文薄对抗复核（独立子代理防同窗口圆谎 + 已有当前 HEAD 测试证据免重跑全套 + 二轮起只审增量 diff）；
+  - [wt-doctor](skills/wt-doctor/SKILL.md)：跨 `.claude` / `.codex` / `.gemini/antigravity` 全景 Worktree 防撞、主线落差核对与安全回收；
+  - [merge-check](skills/merge-check/SKILL.md)：高并发多 Agent 冲刺期内存合并树预演与免冗余同步判据。
+- **提炼一页常驻核心铁律与保留 50 个真实案例库**：新增 [rules/core-guardrails.md](rules/core-guardrails.md)（及插件加载软链 `rules/AGENTS.md`），浓缩交付链优先排障、事实自查 vs 偏好 2×2、门禁退出码保真与不确定外部副作用先只读回读四条高信噪比准则；[bench/cases/](bench/cases/README.md) 50 个真实翻车标本完整保留。
+- **Rust CLI 瘦身 83.4% 并打通三端安装**：`cli/src` 从 `19,721` 行精简至 `3,269` 行，移除 `regex` / `shlex` / `chrono` 依赖，聚焦 `wt`（跨客户端撞车雷达、落后主线预警、`REAPABLE` 无 `--force` 安全回收与 `LIKELY_SQUASHED` 保护）、`merge-check`（基于 `git merge-tree --write-tree` 的零副作用两两冲突与累计波次预演）、`install`（Claude Code / Codex / Antigravity 三端软链与受管规则块同步，支持 `--clean-legacy` 与 `--uninstall`）与 `doctor`（源码指纹比对、三端挂载状态与旧版残留体检）。
+- **原生多端插件清单与极速门禁**：新增根目录 [plugin.json](plugin.json) 支持 Antigravity 原生插件加载，同步更新 `.claude-plugin` 与 `.codex-plugin`（移除常驻拦截 hooks）；更新 `.github` 范围选择器与文档不变量闸，职责边界欠账基线清零。
+
 ## v0.30.0（2026-11-06）——删除自建派工与面板，保留交付核心
 
-> **用户批准的 v0.x breaking 特例**：公开命令和 status JSON 有不兼容删除；用户明确选择保留 v0.x，不以此宣称 v1.0 外部用户验收达成。迁移与回退见 [迁移说明](docs/migration-v0.30.md)。用户实施／发布批准与验证见 [交付记录](snapshot/2026-11-06-slim-core-delivery.md)。
+> **用户批准的 v0.x breaking 特例**：公开命令和 status JSON 有不兼容删除；用户明确选择保留 v0.x，不以此宣称 v1.0 外部用户验收达成。迁移与回退见 [迁移说明](legacy/v0.30-scaffold/docs/migration-v0.30.md)。用户实施／发布批准与验证见 [交付记录](snapshot/2026-11-06-slim-core-delivery.md)。
 
 迁移注记: `dispatch/agent-os/patrol/task/activity/dashboard/agent/model-check/janitor` 与 `status --serve/--system` 删除；`status --json` 升至 schema v2，读取当前 checkout Git 事实和现有合入缓存，不再输出活动与派工台账。先预览并执行 `retire-legacy --apply`，更新实际执行器和插件，按宿主方式重载；保留历史记录、worktree、分支与恢复 ref，不自动重开旧权限。
 
@@ -39,7 +54,7 @@
 - **模型选择权归用户**：规划/执行/验收所用工具、模型与推理档位由用户决定；Agent-On 仅按明确指令调度。撤回本轮早期的目录默认兜底与档位替换：只有用户显式 `--model` 才传递，未指定沿用当次宿主设置，启动/retry/resume 不查询目录选型，旧自动选择回执也不成为启动参数。拒绝后保留任务并报告，不自动改派、降档或重放。方法论/执行书成对落点：`playbook/model-playbook.md` / `kit/patrol-control-plane.md`；旧混编建议和方法论索引同步对齐。本地源码不等于全局安装、自动活动 hook 或阶段流水线已完成。
 - **纠正进行中展示语义**：系统和项目面板明确区分已登记任务阶段与实时窗口活动；缺活动源时 API 明报 unknown/null，空任务栏不代表没有人在工作。待验收卡片不再以历史「正在…」进度作当前状态。此修复不把旧任务批量改为 working；本机升级已获准且真实 Codex 工具事件已回传，Claude、完整生命周期及其他项目仍待验，不宣称全量自动采集完成。执行书：`kit/live-control-plane.md`。
 - **本机系统总览**：`dashboard --system` 有界汇总选定项目目录，五种 Agent 的任务/回执/进程信号与错误分源展示；项目/工具/搜索筛选、活动优先与全部展开，保留只读项目详情。Git common-dir 归一 linked worktree 与别名；损坏来源隔离、未知/陈旧/扫描上限明报。新增 `agent report` 通用自述入口，不授宿主/值守身份、不更新或释放原任务。一个观察器供多页面共读，不反复派工、逐仓重查或联网。未安装其他项目接线，不声称已捕获全部原生窗口/错误、跨机或云端；本项为薄 CLI 投影，不改合流与执行授权。执行书：`kit/live-control-plane.md`；证据见 [本轮记录](snapshot/2026-10-03-system-overview.md)。
-- **Codex CLI 可选诊断与失败回执**：`model-check` 只读观察有效配置、账户类型、托管要求与目录；配置/档位不兼容明报，不替换、不参与启动。`model_resolution` 启动回执仅记用户指令依据 explicit 或 host-settings / not-probed；实际登录/账户/权限仍由宿主验证。启动失败或宿主非成功退出写 blocked，重试只清自己的失败、不清作者其他阻塞。早期自动兼容的真实只读调用仅作历史证据，现已撤回自动选择逻辑；2026-10-04 本机执行器与插件已获准升级，没有启动其他真实模型。证据见 [排错记录](memory/2026-10-03-codex-model-compatibility.md)。
+- **Codex CLI 可选诊断与失败回执**：`model-check` 只读观察有效配置、账户类型、托管要求与目录；配置/档位不兼容明报，不替换、不参与启动。`model_resolution` 启动回执仅记用户指令依据 explicit 或 host-settings / not-probed；实际登录/账户/权限仍由宿主验证。启动失败或宿主非成功退出写 blocked，重试只清自己的失败、不清作者其他阻塞。早期自动兼容的真实只读调用仅作历史证据，现已撤回自动选择逻辑；2026-10-04 本机执行器与插件已获准升级，没有启动其他真实模型。证据见 [排错记录](legacy/v0.30-scaffold/memory/2026-10-03-codex-model-compatibility.md)。
 
 
 发布前现场补修：值守规则实例 `docs/babysit.md` 与模板同属需播报类，修旧 #41 的分类漏项，历史账不改；HTTP 测试夹具持续读取服务输出，消除提前关闭管道造成的偶发 CI 失败。实施与边界见 [本轮记录](snapshot/2026-10-25-master-delivery-and-nightly-quality.md)。
@@ -1021,7 +1036,7 @@
 
 ### 首次消化（2026-07-09，23 张 Promotion Card 分诊落地）
 
-来源：[intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md)（17 张四镜头评审卡）+ [intake/2026-07-09-euan-flutter.md](intake/2026-07-09-euan-flutter.md)（6 张 Euan 倒仓 delta）。去向：**21 landed / 1 deferred / 1 rejected**，零残余 pending。
+来源：[intake/2026-07-09-agent-on-self-review.md](legacy/v0.30-scaffold/intake/2026-07-09-agent-on-self-review.md)（17 张四镜头评审卡）+ [intake/2026-07-09-euan-flutter.md](legacy/v0.30-scaffold/intake/2026-07-09-euan-flutter.md)（6 张 Euan 倒仓 delta）。去向：**21 landed / 1 deferred / 1 rejected**，零残余 pending。
 
 - **低风险直落 7 卡**（@72185bb）：README 诚实化（删「已转过一圈」幻觉、加术语表 5 行、换机三步 FAQ、斜杠 quirk 说明）、settlement 首结账空锚分支 + 幂等注、BOOTSTRAP 档播错不重播、kit/README 限定 M/L 启动步骤 + 删倒仓前旧句
 - **中高风险用户拍板 12 卡**（@d42344a）：
@@ -1041,7 +1056,7 @@
 ### 拍板（2026-07-09，四镜头评审后用户裁决）
 - **v0.3 门槛砍半**：v0.3 = Euan 倒仓首次结账+消化跑通（单件）；新项目 BOOTSTRAP dogfood 顺延为 v0.4 —— CHARTER 成功标准 + README 路线已更
 - **冻结令入宪**：首次真实结账前不新增 playbook 篇目 / kit 模板，修订必须走 intake 消化 —— CHARTER 边界节
-- 对外节奏：先自用磨 2-3 个项目再谈开源；首批 16 张评审卡入 [intake/2026-07-09-agent-on-self-review.md](intake/2026-07-09-agent-on-self-review.md) 等首次消化
+- 对外节奏：先自用磨 2-3 个项目再谈开源；首批 16 张评审卡入 [intake/2026-07-09-agent-on-self-review.md](legacy/v0.30-scaffold/intake/2026-07-09-agent-on-self-review.md) 等首次消化
 
 ### 新增
 - **迭代闭环六站机制**(2026-07-08,三镜头提案 + 对抗评审合成,ABDC 自举):playbook/iteration-loop.md + boot/settlement.md(结账/消化/升级三口令执行书)+ intake/ 承接层 + kit/promotion-card-template.md + kit/agent-on-lock-template.md

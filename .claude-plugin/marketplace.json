@@ -1,6 +1,6 @@
 {
   "name": "agent-on",
-  "description": "Agent-On 方法论脚手架的自营 marketplace（单仓自指）。Claude Code 原生读本文件；Codex CLI 经 legacy-compatible 路径读同一份。",
+  "description": "Agent-On 零侵入跨客户端 AI 协作工具包（Skills + 薄 CLI + 核心铁律）。",
   "owner": {
     "name": "YANG CHAO",
     "email": "diving.into.ai@gmail.com"
@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "agent-on",
-      "description": "当前对话交付、文字状态、Git 保护与合入审计；不提供自建派工或面板。",
-      "version": "0.30.0",
+      "description": "prove-it 防假绿验证、thin-review 空白上下文增量复核、wt-doctor 跨客户端 Worktree 雷达、merge-check 高并发合并预演。",
+      "version": "2.0.0",
       "source": "./",
       "author": {
         "name": "YANG CHAO",

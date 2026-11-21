@@ -1,7 +1,7 @@
 {
   "name": "agent-on",
-  "version": "0.30.0",
-  "description": "AI 项目交付：当前对话推进目标，按改动验证，保留 Git 保护、合入审计与经验回流。",
+  "version": "2.0.0",
+  "description": "零侵入跨客户端 AI 协作工具包：prove-it 防假绿验证、thin-review 增量独立复核、wt-doctor 跨工具 Worktree 雷达与 merge-check 合并树预演。",
   "author": {
     "name": "YANG CHAO",
     "email": "diving.into.ai@gmail.com",
@@ -10,21 +10,20 @@
   "homepage": "https://github.com/Palebluedot-ai/agent-on",
   "repository": "https://github.com/Palebluedot-ai/agent-on",
   "keywords": [
-    "scaffold",
-    "methodology",
-    "planning",
+    "skills",
+    "verification",
+    "code-review",
+    "worktree",
+    "merge-tree",
     "claude-code",
     "codex",
-    "workflow",
-    "agents-md",
-    "loop-engineering"
+    "antigravity"
   ],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Agent-On",
-    "shortDescription": "当前对话推进、验证并交付项目",
-    "longDescription": "复用项目规则和已有记录。deliver 推进目标，status 读取当前 Git 与合入事实，master 按权限合入并审计；不再提供自建派工、巡逻、活动采集或面板。",
+    "shortDescription": "防假绿验证、薄对抗复核与跨客户端 Worktree 雷达",
+    "longDescription": "零业务仓侵入：prove-it 验证真入口与错误对照，thin-review 空白上下文增量复核，wt-doctor 巡检跨工具 Worktree 撞车与死目录，merge-check 内存预演并发合并。",
     "developerName": "YANG CHAO",
     "category": "Coding",
     "capabilities": [
@@ -33,9 +32,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "交付这个项目的当前目标",
-      "查看当前项目状态和下一步",
-      "帮我初始化一个新项目"
+      "用 prove-it 验证当前改动是否穿过真实入口并做错误对照",
+      "用 wt-doctor 扫描本机所有 worktree 是否有撞车或可安全回收的目录",
+      "用 thin-review 对当前分支做一次空白上下文薄对抗复核"
     ]
   }
 }

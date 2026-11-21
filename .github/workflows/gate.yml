@@ -1,10 +1,4 @@
-# 本仓 CI：香港时间每天 01:23 全量，必要时手动；PR、push、tag 均不触发。
-# 普通交付在本地验证受影响行为，不因每轮打 tag 重跑远端全量。
-# 合入身份、冲突、外部作者范围及独立审计仍在每次合入时核验。
-# 本仓 policy.required_checks 不要求以下每日 job；已有外部检查红灯不忽略。
-# schedule 可能延迟，计划时间不是实际成功时间。文档闸可通过仓变量
-# AGENT_ON_DOC_GATE_OFF 显式关闭；OFF 不等于通过。
-
+# Agent-On v2 CI：香港时间每天 01:23 全量及按需手动触发；日常开发本地验证。
 name: gate
 
 on:
@@ -21,7 +15,7 @@ concurrency:
 
 jobs:
   cli:
-    name: CLI 测试 + 承接层校验
+    name: CLI 测试与范围回归
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -48,42 +42,31 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: cargo-download-v2-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
-          restore-keys: cargo-download-v2-${{ runner.os }}-
+          key: cargo-download-v3-${{ runner.os }}-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: cargo-download-v3-${{ runner.os }}-
       - name: 缓存构建结果
         uses: actions/cache@v4
         with:
           path: cli/target
-          # Content keys can save refreshed builds; the old OS+lock exact key never did.
-          # Compiler/profile/lock must match before restoring any compiled artifacts.
-          key: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-${{ hashFiles('cli/src/**', 'cli/tests/**', 'cli/Cargo.toml', 'cli/build.rs', '.github/workflows/gate.yml') }}
-          restore-keys: cargo-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-
+          key: cargo-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-${{ hashFiles('cli/src/**', 'cli/tests/**', 'cli/Cargo.toml', 'cli/build.rs', '.github/workflows/gate.yml') }}
+          restore-keys: cargo-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-debug0-incremental0-${{ hashFiles('cli/Cargo.lock') }}-
       - name: cargo fmt
         run: cargo fmt --manifest-path cli/Cargo.toml --check
       - name: cargo clippy
         run: python3 .github/scripts/quality_scope.py --clippy --output "$RUNNER_TEMP/quality-plan.json"
-      # 只跑 ubuntu：macOS 侧真正装 LaunchAgent 的那段本来就不在单测里（单测只验
-      # 渲染与状态落盘，不激活调度器），所以加一条 macos-latest 腿买不到新覆盖，
-      # 只买到 10 倍分钟数。macOS 上的实际激活仍靠本机 `worktree hooks status` 验。
       - name: 全量 Rust 测试
         run: python3 .github/scripts/quality_scope.py --run --output "$RUNNER_TEMP/quality-plan.json"
-      - name: 独立合并审计与 CI 范围回归
-        run: |
-          python3 -m unittest discover -s tools/merge-audit
-          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
-      # 承接层是唯一对外收货口，六项不齐的卡进来就再也没人补。
-      - name: intake 六项齐
-        run: cargo run --manifest-path cli/Cargo.toml --locked --quiet -- intake-lint
+      - name: CI 范围选择器单测
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
   docs:
-    name: 文档三闸（职责边界棘轮 / 死链 / 推荐 pin）
+    name: 文档与版本一致性闸
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          # 推荐 pin 那一闸要比对 git tag；浅克隆看不到 tag 会变成假红。
           fetch-depth: 0
-      - name: 文档不变量
+      - name: 文档与包元数据不变量
         env:
           AGENT_ON_DOC_GATE_OFF: ${{ vars.AGENT_ON_DOC_GATE_OFF }}
         run: python3 .github/scripts/check_docs.py

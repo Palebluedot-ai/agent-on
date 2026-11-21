@@ -1,7 +1,7 @@
 {
   "name": "agent-on",
-  "description": "AI 项目交付：当前对话推进目标，按改动验证，保留 Git 保护、合入审计与经验回流。",
-  "version": "0.30.0",
+  "description": "零侵入跨客户端 AI 协作工具包：prove-it 防假绿验证、thin-review 增量独立复核、wt-doctor 跨工具 Worktree 雷达与 merge-check 合并树预演。",
+  "version": "2.0.0",
   "author": {
     "name": "YANG CHAO",
     "email": "diving.into.ai@gmail.com"
@@ -9,13 +9,13 @@
   "homepage": "https://github.com/Palebluedot-ai/agent-on",
   "repository": "https://github.com/Palebluedot-ai/agent-on",
   "keywords": [
-    "scaffold",
-    "methodology",
-    "planning",
+    "skills",
+    "verification",
+    "code-review",
+    "worktree",
+    "merge-tree",
     "claude-code",
     "codex",
-    "workflow",
-    "agents-md",
-    "loop-engineering"
+    "antigravity"
   ]
 }
